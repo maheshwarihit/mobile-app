@@ -63,7 +63,3 @@ auth_token = "env(TWILIO_AUTH_TOKEN)"
 
 [edge_runtime]
 enabled = true
-
-[functions.notify-admin]
-# R3.4 / GR-7: booking-finalization email alert. Verified via DB webhook.
-verify_jwt = false

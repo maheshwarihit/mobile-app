@@ -1,0 +1,19 @@
+# Expo / React Native
+node_modules/
+.expo/
+dist/
+web-build/
+*.orig.*
+
+# Native
+android/
+ios/
+
+# Secrets & local
+.env
+.env.*.local
+*.local
+
+# Logs
+npm-debug.*
+*.log

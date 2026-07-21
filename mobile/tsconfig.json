@@ -1,0 +1,21 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@shared/*": ["../shared/src/*"],
+      "@tanstack/react-query": ["node_modules/@tanstack/react-query"],
+      "@supabase/supabase-js": ["node_modules/@supabase/supabase-js"],
+      "zod": ["node_modules/zod"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "nativewind-env.d.ts",
+    "../shared/src/**/*.ts"
+  ]
+}

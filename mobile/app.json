@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "VAgeWell Care",
+    "slug": "vagewell-care",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "vagewell",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "in.vagewell.care",
+      "versionCode": 1,
+      "permissions": [
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "VAgeWell needs access to your photos so you can upload a payment screenshot."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-asset"
+    ]
+  }
+}

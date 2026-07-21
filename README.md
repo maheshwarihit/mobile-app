@@ -4,17 +4,16 @@ A mobile-first **PWA** for home-healthcare intake & verification. A patient (acc
 registers via phone OTP, manages dependents, browses services, books multi-day care, and submits
 a UPI payment proof. Staff/admin record vitals, clear payments, and export appointments.
 
-**Stack:** Next.js 16 (App Router, React 19, TS) + Supabase (Auth · Postgres + RLS · Storage ·
-Edge Functions). No separate backend service — the browser talks directly to Supabase; the only
-server-side code is one Edge Function that emails the admin on booking finalization.
+**Stack:** Next.js 16 (App Router, React 19, TS) + Supabase (Auth · Postgres + RLS · Storage).
+No separate backend service — the browser talks directly to Supabase.
 
 ## Architecture at a glance
 - **Auth:** Supabase phone + 6-digit SMS OTP, `auth.uid()`, 72-hour sessions.
 - **Data:** 5 Postgres tables (`profiles`, `family_members`, `services`, `bookings`,
   `clinical_records`) protected by Row-Level Security + column GRANTs + `SECURITY DEFINER`
   triggers (server-authored pricing, no role self-escalation, patient-read-only vitals).
-- **Storage:** private `payment-proofs` bucket (5 MB; png/jpg/webp).
-- **Email alert:** `supabase/functions/notify-admin` fired by a DB webhook on booking finalize.
+- **Storage:** private `payment-proofs` bucket (5 MB; png/jpg/webp) — the admin reviews the
+  uploaded proof and clears/rejects the payment from the dashboard.
 - **Excel export:** generated **client-side** in the admin dashboard.
 
 ## Prerequisites
@@ -31,13 +30,7 @@ supabase start
 # 2. Apply schema + seed
 supabase db reset          # runs supabase/migrations/* then supabase/seed.sql
 
-# 3. Serve the email Edge Function (dev logs the email; no send)
-supabase functions serve notify-admin --no-verify-jwt
-#    Then wire the DB webhook so bookings trigger it: Studio → Database →
-#    Webhooks → new hook on public.bookings (Insert+Update) → Edge Function
-#    notify-admin.  (SQL equivalent: supabase/webhooks.sql)
-
-# 4. Frontend
+# 3. Frontend
 cd frontend
 cp .env.local.example .env.local     # fill NEXT_PUBLIC_SUPABASE_URL / ANON_KEY from `supabase status`
 npm install
@@ -58,8 +51,8 @@ npm run dev                          # http://localhost:3000
 
 ## Project layout
 ```
-shared/         TypeScript contract (types + constants) shared by app & edge fn
-supabase/       migrations, seed, config, edge function
+shared/         TypeScript contract (types + constants) shared by the app
+supabase/       migrations, seed, config
 frontend/       Next.js PWA (src/app screens, src/components, src/lib)
 ```
 
