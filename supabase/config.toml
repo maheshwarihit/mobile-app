@@ -1,0 +1,69 @@
+project_id = "vagewell-care"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+# Local email/SMS testing UI (captures OTP + emails during dev).
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "5MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000"]
+# GR-2: 72-hour session (72 * 3600 = 259200s). Overrides the platform 8h default.
+jwt_expiry = 259200
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Patients self-register, so signups must be allowed.
+enable_signup = true
+
+[auth.email]
+# This project authenticates by PHONE, not email. Email signups are off.
+enable_signup = false
+enable_confirmations = false
+
+[auth.sms]
+# GR-1 / GO-4: 6-digit phone OTP for ALL roles.
+enable_signup = true
+enable_confirmations = true
+template = "Your VAgeWell verification code is {{ .Code }}"
+
+[auth.sms.twilio]
+# Production SMS provider (GR-1). Fill via env; never hardcode secrets.
+enabled = false
+account_sid = "env(TWILIO_ACCOUNT_SID)"
+message_service_sid = "env(TWILIO_MESSAGING_SERVICE_SID)"
+auth_token = "env(TWILIO_AUTH_TOKEN)"
+
+[auth.sms.test_otp]
+# GO-4 dev behavior: fixed test codes so local dev needs no live SMS.
+# Format: "phone = code". Add your own test numbers here.
+"+919000000001" = "123456"
+"+919000000002" = "123456"
+"+919000000009" = "123456"
+
+[edge_runtime]
+enabled = true
+
+[functions.notify-admin]
+# R3.4 / GR-7: booking-finalization email alert. Verified via DB webhook.
+verify_jwt = false

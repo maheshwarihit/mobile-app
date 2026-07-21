@@ -1,0 +1,32 @@
+# ── Secrets (never commit) ───────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+*-credentials.json
+service_account*.json
+
+# ── Node / Next.js ───────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Logs ─────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+
+# ── Supabase local ───────────────────────────────────────
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# ── OS / editor ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
