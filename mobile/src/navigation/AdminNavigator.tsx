@@ -6,6 +6,7 @@ import { AdminPatientListScreen } from "@/screens/admin/AdminPatientListScreen";
 import { AdminPatientProfileScreen } from "@/screens/admin/AdminPatientProfileScreen";
 import { AdminMemberEditScreen } from "@/screens/admin/AdminMemberEditScreen";
 import { AdminPaymentQrScreen } from "@/screens/admin/AdminPaymentQrScreen";
+import { AdminPaymentProofsScreen } from "@/screens/admin/AdminPaymentProofsScreen";
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
 
@@ -20,6 +21,7 @@ export function AdminNavigator() {
       <Stack.Screen name="AdminPatientProfile" component={AdminPatientProfileScreen} />
       <Stack.Screen name="AdminMemberEdit" component={AdminMemberEditScreen} />
       <Stack.Screen name="AdminPaymentQr" component={AdminPaymentQrScreen} />
+      <Stack.Screen name="AdminPaymentProofs" component={AdminPaymentProofsScreen} />
     </Stack.Navigator>
   );
 }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, FlatList } from "react-native";
 import { toast } from "sonner-native";
-import { Lock, Users, FileSpreadsheet, Download, FileSearch, Activity, CalendarCheck, CalendarDays, QrCode } from "lucide-react-native";
+import { Lock, Users, FileSpreadsheet, Download, FileSearch, Activity, CalendarCheck, CalendarDays, QrCode, FileImage } from "lucide-react-native";
 import { AdminScreen } from "@/components/admin/AdminScreen";
 import { AppointmentCalendar } from "@/components/admin/AppointmentCalendar";
 import { FormInput, Card, Pill, OutlineButton, LoadingState, EmptyState, ErrorBanner } from "@/components/ui";
@@ -15,6 +15,7 @@ import {
   money,
   formatDate,
   PAYMENT_STATUS_META,
+  PARA_MEDICAL_SERVICE,
   type BookingWithNames,
 } from "@vagewell/shared";
 import type { AdminScreenProps } from "@/navigation/types";
@@ -101,6 +102,9 @@ export function AdminDashboardScreen({ navigation }: AdminScreenProps<"AdminDash
                 </OutlineButton>
               </View>
             </View>
+            <OutlineButton fullWidth icon={FileImage} onPress={() => navigation.navigate("AdminPaymentProofs")}>
+              Payment proofs
+            </OutlineButton>
 
             <FormInput label="Search patient by name" value={query} onChangeText={setQuery} placeholder="Type a name…" />
 
@@ -151,6 +155,8 @@ function AdminBookingCard({
   onVitals: () => void;
 }) {
   const m = PAYMENT_STATUS_META[booking.payment_status];
+  // Vitals are only recorded for Para-Medical patients (vitals-tracking service).
+  const showVitals = booking.service_name === PARA_MEDICAL_SERVICE;
   return (
     <Card className="p-4">
       <View className="flex-row items-start justify-between gap-3">
@@ -172,10 +178,12 @@ function AdminBookingCard({
           <FileSearch size={14} color={BRAND} />
           <Text className="text-sm font-medium text-purple-600">Review</Text>
         </Pressable>
-        <Pressable onPress={onVitals} className="flex-row items-center gap-1 active:opacity-70">
-          <Activity size={14} color="#4b5563" />
-          <Text className="text-sm font-medium text-gray-600">Vitals</Text>
-        </Pressable>
+        {showVitals ? (
+          <Pressable onPress={onVitals} className="flex-row items-center gap-1 active:opacity-70">
+            <Activity size={14} color="#4b5563" />
+            <Text className="text-sm font-medium text-gray-600">Vitals</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Card>
   );

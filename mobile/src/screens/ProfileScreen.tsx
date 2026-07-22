@@ -245,17 +245,21 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function VitalsView({ records }: { records: ClinicalRecord[] }) {
-  if (records.length === 0) {
+  // Patient panel shows only Sugar (blood glucose) + Blood Group. Drop rows that
+  // carry neither so the history has no empty "Record" lines.
+  const meaningful = records.filter((r) => r.blood_glucose != null || !!r.blood_group);
+  if (meaningful.length === 0) {
     return (
-      <EmptyState icon={Activity} title="No vitals recorded" description="Care staff will record vitals during a visit." />
+      <EmptyState
+        icon={Activity}
+        title="No records yet"
+        description="Care staff will record your sugar and blood group during a visit."
+      />
     );
   }
-  const latest = records[0];
-  const bp = latest.systolic && latest.diastolic ? `${latest.systolic}/${latest.diastolic}` : "—";
+  const latest = meaningful[0];
   const tiles = [
-    { label: "Blood Pressure", value: bp, unit: "mmHg" },
-    { label: "Glucose", value: latest.blood_glucose?.toString() ?? "—", unit: "mg/dL" },
-    { label: "SpO2", value: latest.spo2?.toString() ?? "—", unit: "%" },
+    { label: "Sugar", value: latest.blood_glucose?.toString() ?? "—", unit: "mg/dL" },
     { label: "Blood Group", value: latest.blood_group ?? "—", unit: "" },
   ];
   return (
@@ -270,27 +274,20 @@ function VitalsView({ records }: { records: ClinicalRecord[] }) {
         ))}
       </View>
 
-      {latest.medical_conditions ? (
-        <View className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3">
-          <Text className="text-xs font-semibold text-gray-500">Medical conditions</Text>
-          <Text className="mt-1 text-sm text-gray-700">{latest.medical_conditions}</Text>
-        </View>
-      ) : null}
-
       <View className="mt-5">
         <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">History</Text>
         <View className="gap-2">
-          {records.map((r) => (
-            <View key={r.id} className="flex-row items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-              <Text className="flex-1 text-sm text-gray-600">
-                {r.systolic && r.diastolic ? `BP ${r.systolic}/${r.diastolic} · ` : ""}
-                {r.blood_glucose != null ? `Glucose ${r.blood_glucose} · ` : ""}
-                {r.spo2 != null ? `SpO2 ${r.spo2}%` : ""}
-                {!r.systolic && r.blood_glucose == null && r.spo2 == null ? "Record" : ""}
-              </Text>
-              <Text className="text-xs text-gray-400">{formatLocalDateTime(r.recorded_at)}</Text>
-            </View>
-          ))}
+          {meaningful.map((r) => {
+            const parts: string[] = [];
+            if (r.blood_glucose != null) parts.push(`Sugar ${r.blood_glucose}`);
+            if (r.blood_group) parts.push(r.blood_group);
+            return (
+              <View key={r.id} className="flex-row items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
+                <Text className="flex-1 text-sm text-gray-600">{parts.join(" · ")}</Text>
+                <Text className="text-xs text-gray-400">{formatLocalDateTime(r.recorded_at)}</Text>
+              </View>
+            );
+          })}
         </View>
       </View>
     </View>

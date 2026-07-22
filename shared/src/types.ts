@@ -111,3 +111,9 @@ export interface BookingWithNames extends Booking {
   subject_name?: string; // account holder or dependent name
 }
 
+// clinical record + joined subject/recorder names (admin live sheet)
+export interface ClinicalRecordWithNames extends ClinicalRecord {
+  subject_name?: string; // account holder or dependent the vitals belong to
+  recorded_by_name?: string; // staff/admin who recorded it
+}
+

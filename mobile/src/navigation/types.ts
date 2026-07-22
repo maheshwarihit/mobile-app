@@ -25,6 +25,7 @@ export type AdminStackParamList = {
   AdminPatientProfile: { accountId: string; patientName: string };
   AdminMemberEdit: { subject: EditSubject; name: string };
   AdminPaymentQr: undefined;
+  AdminPaymentProofs: undefined;
 };
 export type AdminScreenProps<T extends keyof AdminStackParamList> = NativeStackScreenProps<AdminStackParamList, T>;
 

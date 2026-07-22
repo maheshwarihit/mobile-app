@@ -7,6 +7,7 @@ import type {
   FamilyMember,
   Profile,
   ClinicalRecord,
+  ClinicalRecordWithNames,
   BookingWithNames,
 } from "./types";
 
@@ -127,6 +128,36 @@ export function useClinicalRecords(subject: { profileId?: string; familyMemberId
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as ClinicalRecord[];
+    },
+  });
+}
+
+// ── All clinical records with names (staff/admin LIVE SHEET) ─────
+export function useAllClinicalRecords(enabled: boolean) {
+  return useQuery({
+    queryKey: qk.clinical("all"),
+    enabled,
+    queryFn: async (): Promise<ClinicalRecordWithNames[]> => {
+      const sb = getSupabase();
+      // RLS (clin_select) gives staff/admin every row. Two FKs point at profiles
+      // (profile_id + recorded_by) so disambiguate the embeds by constraint name.
+      const { data, error } = await sb
+        .from("clinical_records")
+        .select(
+          "*, subject_profile:profiles!clinical_records_profile_id_fkey(full_name), subject_member:family_members!clinical_records_family_member_id_fkey(full_name), recorder:profiles!clinical_records_recorded_by_fkey(full_name)"
+        )
+        .order("recorded_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((row: Record<string, unknown>) => {
+        const p = row.subject_profile as { full_name: string | null } | null;
+        const m = row.subject_member as { full_name: string | null } | null;
+        const rec = row.recorder as { full_name: string | null } | null;
+        return {
+          ...(row as unknown as ClinicalRecord),
+          subject_name: m?.full_name ?? p?.full_name ?? undefined,
+          recorded_by_name: rec?.full_name ?? undefined,
+        } as ClinicalRecordWithNames;
+      });
     },
   });
 }

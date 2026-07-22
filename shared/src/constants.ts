@@ -90,15 +90,16 @@ export const SIGNED_URL_TTL_SECONDS = 300; // 5 min
 export const PAYMENT_QR_BUCKET = "payment-qr"; // public bucket (see migration 0005)
 export const PAYMENT_QR_OBJECT = "upi.png"; // single fixed object, upserted on upload
 
-// ── Seed catalog (GO-1) — placeholder prices except Physiotherapy; admin-editable ──
+// ── Seed catalog — confirmed 4-service catalog (mirror of supabase/seed.sql + 0006) ──
 export const SEED_SERVICES = [
-  { name: "Physiotherapy", price_per_day: 1500, description: "In-home physiotherapy session by a licensed therapist." },
-  { name: "Nursing Care", price_per_day: 1200, description: "Home nursing and bedside care for recovering patients." },
-  { name: "Elderly Attendant", price_per_day: 900, description: "Daily attendant support for elderly household members." },
-  { name: "Post-Surgical Care", price_per_day: 1800, description: "Post-operative recovery, dressing and wound care." },
-  { name: "Doctor Home Visit", price_per_day: 2000, description: "Physician consultation at your home." },
-  { name: "Lab Sample Collection", price_per_day: 500, description: "At-home collection of pathology samples." },
+  { name: "Nutrition", price_per_day: 800, description: "Diet adherence (supported by strategic meal provider partnerships)." },
+  { name: "Physio Therapy", price_per_day: 1200, description: "Exercise completion, mobility scores." },
+  { name: "Para-Medical", price_per_day: 800, description: "Vitals tracking (BP, Sugar, SpO2) and medication compliance." },
+  { name: "Mental Wellbeing", price_per_day: 800, description: "Mood scores and social engagement tracking." },
 ] as const;
+
+// Service whose booking unlocks staff vitals entry (patient-facing panel shows Sugar + Blood Group).
+export const PARA_MEDICAL_SERVICE = "Para-Medical";
 
 // ── Machine error codes for user-facing failures ─────────────────
 export const ERROR_CODES = [

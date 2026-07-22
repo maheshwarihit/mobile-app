@@ -377,12 +377,10 @@ create policy qr_admin_delete on storage.objects for delete to authenticated
 
 -- ── SEED SERVICES ───────────────────────────────────────────────────────────
 insert into public.services (name, description, price_per_day) values
-  ('Physiotherapy',        'In-home physiotherapy session by a licensed therapist.', 1500),
-  ('Nursing Care',         'Home nursing and bedside care for recovering patients.', 1200),
-  ('Elderly Attendant',    'Daily attendant support for elderly household members.',  900),
-  ('Post-Surgical Care',   'Post-operative recovery, dressing and wound care.',       1800),
-  ('Doctor Home Visit',    'Physician consultation at your home.',                    2000),
-  ('Lab Sample Collection','At-home collection of pathology samples.',                 500)
+  ('Nutrition',        'Diet adherence (supported by strategic meal provider partnerships).', 800),
+  ('Physio Therapy',   'Exercise completion, mobility scores.',                               1200),
+  ('Para-Medical',     'Vitals tracking (BP, Sugar, SpO2) and medication compliance.',        800),
+  ('Mental Wellbeing', 'Mood scores and social engagement tracking.',                         800)
 on conflict (name) do nothing;
 
 -- ── (optional) promote your founding admin — edit the phone, then uncomment ──

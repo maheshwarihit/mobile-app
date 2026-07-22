@@ -65,6 +65,31 @@ Audit verdict: fully wired, no stubs/mock/dead buttons; transactional core verif
 - [x] Pruned dead code (useBooking, loginSchema, paymentSchema, titleCase, BookingAlertPayload, unused import).
 Re-verified: `tsc` 0 errors, `next build` green, secret scan clean, 0 dangling refs.
 
+## Change round — admin + patient updates (user, 2026-07-22)
+Implemented against `tsc` (0 errors). Metro/DB run + `0006` migration still pending on the user's machine.
+- [x] **Services catalog swapped** → 4 services: Nutrition ₹800, Physio Therapy ₹1200, Para-Medical ₹800,
+      Mental Wellbeing ₹800. New `supabase/migrations/0006_services_catalog.sql` deactivates the old 6
+      (bookings.service_id is ON DELETE RESTRICT — can't delete) + upserts the 4. Mirrored in
+      `supabase/seed.sql`, `supabase/install_all.sql`, and `SEED_SERVICES` in `shared/src/constants.ts`.
+      **Requires applying 0006 (or `db reset`) on Supabase — not run in this env.**
+- [x] **CSV/Excel download fixed on web** — `mobile/src/lib/export.ts` was native-only (expo-file-system +
+      expo-sharing no-op on web → silent no-download). Added a `Platform.OS === "web"` Blob+anchor branch
+      (DOM reached via `globalThis as any`); generalized `downloadSheet(rows, bookType, sheet, fileBase)`.
+- [x] **DateField** rewritten as an in-app month-calendar `Modal` (was `@react-native-community/datetimepicker`,
+      which doesn't render on web). Same props → DOB (ProfileScreen) + appointment start_date unchanged.
+      Package still installed but no longer imported in code.
+- [x] **Admin Payment Proofs module** — `mobile/src/screens/admin/AdminPaymentProofsScreen.tsx` (name +
+      screenshot thumbnail, batch-signed URLs; taps open the existing `PaymentReviewModal`). Registered in
+      `AdminNavigator` + `AdminStackParamList`; dashboard button added.
+- [x] **Live Sheet = Medical records** — `useAllClinicalRecords` (shared) + Appointments/Medical toggle on
+      `LiveSheetScreen` + `exportClinicalToCSV`. Staff RLS `clin_select` already permits reading all rows.
+- [x] **Vitals entry gated to Para-Medical** — `AdminBookingCard` shows the "Vitals" action only when
+      `service_name === PARA_MEDICAL_SERVICE`.
+- [x] **Patient Health record trimmed** — `VitalsView` now shows only Sugar (glucose) + Blood Group tiles;
+      history collapses to those two, drops empty "Record" rows, keeps the date. (BP/SpO2/conditions hidden.)
+- **Not changed (clarified with user):** Role dropdown kept in `AdminPatientProfileScreen` (item 3); admin
+      member-edit medical section kept (item 6 — the admin *profile* screen already shows no health record).
+
 ## Context handoff
 Build complete and compiling. **R3.4 admin email alert removed (user, 2026-07-21):** deleted the
 `notify-admin` edge fn + `supabase/webhooks.sql`, the `[functions.notify-admin]` config block, all
