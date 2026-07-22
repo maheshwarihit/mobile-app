@@ -1,16 +1,17 @@
 import { View, Text, ActivityIndicator, Pressable } from "react-native";
 import { Plus, type LucideIcon } from "lucide-react-native";
+import { BRAND } from "@/theme";
 
 /** Inline / page spinner */
 export function Spinner({ size = "small" }: { size?: "small" | "large" }) {
-  return <ActivityIndicator size={size} color="#9333ea" />;
+  return <ActivityIndicator size={size} color={BRAND} />;
 }
 
 /** Full centered loading state */
 export function LoadingState({ message = "Loading…" }: { message?: string }) {
   return (
     <View className="items-center justify-center py-12">
-      <ActivityIndicator size="large" color="#9333ea" />
+      <ActivityIndicator size="large" color={BRAND} />
       <Text className="mt-3 text-sm text-gray-500">{message}</Text>
     </View>
   );
@@ -39,7 +40,7 @@ export function EmptyState({
       {description ? <Text className="mb-3 max-w-xs text-center text-sm text-gray-400">{description}</Text> : null}
       {actionLabel && onAction ? (
         <Pressable onPress={onAction} className="flex-row items-center gap-1 active:opacity-70">
-          <Plus size={14} color="#9333ea" />
+          <Plus size={14} color={BRAND} />
           <Text className="text-sm font-semibold text-purple-600">{actionLabel}</Text>
         </Pressable>
       ) : null}

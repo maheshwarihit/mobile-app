@@ -39,6 +39,17 @@ export function todayISODate(): string {
   ).padStart(2, "0")}`;
 }
 
+/**
+ * Compose a 12-hour picker (hour 1–12 + minute + AM/PM) into a 24-hour "HH:MM"
+ * string for storage/validation. Inverse of formatSlot(). The caller is
+ * responsible for validating the result against timeSlots() / the DB window.
+ */
+export function combineTime(h12: number, minute: number, meridiem: "AM" | "PM"): string {
+  let h24 = h12 % 12; // 12 → 0
+  if (meridiem === "PM") h24 += 12; // 12 PM → 12, 1 PM → 13
+  return `${String(h24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 /** end date of a consecutive multi-day booking (GO-6) */
 export function addDays(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);

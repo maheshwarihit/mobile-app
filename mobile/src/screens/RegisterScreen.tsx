@@ -3,19 +3,32 @@ import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable } fro
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 import { ArrowLeft, HeartPulse } from "lucide-react-native";
-import { FormInput, SelectSheet, TextareaInput, PrimaryButton, TextButton, ErrorBanner } from "@/components/ui";
+import {
+  FormInput,
+  SelectSheet,
+  TextareaInput,
+  ChoiceChips,
+  OtpInput,
+  PrimaryButton,
+  TextButton,
+  ErrorBanner,
+} from "@/components/ui";
 import { supabase } from "@/lib/supabase";
+import { useResendTimer } from "@/hooks/useResendTimer";
 import {
   normalizePhone,
   registerSchema,
   HOW_HEARD_OPTIONS,
   HOW_HEARD_LABELS,
   HOW_HEARD_DEFAULT,
+  GENDERS,
+  GENDER_LABELS,
   OTP_LENGTH,
 } from "@vagewell/shared";
 import type { AuthScreenProps } from "@/navigation/types";
 
 const HOW_HEARD_SELECT = HOW_HEARD_OPTIONS.map((v) => ({ value: v, label: HOW_HEARD_LABELS[v] }));
+const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }));
 
 // SCREEN_ID: REGISTER
 export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
@@ -24,6 +37,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
     full_name: "",
     phone: "",
     age: "",
+    gender: "male",
     how_heard: HOW_HEARD_DEFAULT as string,
     wellness_note: "",
   });
@@ -31,8 +45,32 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
   const [otp, setOtp] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const resend = useResendTimer(60);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const sendCode = async (): Promise<boolean> => {
+    const normalized = normalizePhone(form.phone)!;
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: normalized,
+      options: {
+        data: {
+          full_name: form.full_name.trim(),
+          age: form.age || "",
+          gender: form.gender || "",
+          how_heard: form.how_heard,
+          wellness_note: form.wellness_note || "",
+        },
+      },
+    });
+    if (error) {
+      setErrors({ phone: error.message });
+      return false;
+    }
+    setE164(normalized);
+    resend.restart();
+    return true;
+  };
 
   const submitDetails = async () => {
     setErrors({});
@@ -43,27 +81,19 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
       setErrors(errs);
       return;
     }
-    const normalized = normalizePhone(form.phone)!;
     setBusy(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: normalized,
-      options: {
-        data: {
-          full_name: parsed.data.full_name,
-          age: parsed.data.age ?? "",
-          how_heard: parsed.data.how_heard,
-          wellness_note: parsed.data.wellness_note ?? "",
-        },
-      },
-    });
+    const ok = await sendCode();
     setBusy(false);
-    if (error) {
-      setErrors({ phone: error.message });
-      return;
-    }
-    setE164(normalized);
+    if (!ok) return;
     setStep("otp");
-    toast.success(`Verification code sent to ${normalized}`);
+    toast.success(`Verification code sent to ${normalizePhone(form.phone)}`);
+  };
+
+  const resendCode = async () => {
+    setErrors({});
+    setOtp("");
+    const ok = await sendCode();
+    if (ok) toast.success("Code re-sent");
   };
 
   const verify = async () => {
@@ -90,6 +120,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
           .update({
             full_name: parsed.data.full_name,
             age: parsed.data.age,
+            gender: parsed.data.gender || null,
             how_heard: parsed.data.how_heard,
             wellness_note: parsed.data.wellness_note || null,
           })
@@ -144,6 +175,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
                   keyboardType="number-pad"
                   error={errors.age}
                 />
+                <ChoiceChips label="Gender" value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} />
                 <SelectSheet
                   label="How do you know about VAgeWell?"
                   value={form.how_heard}
@@ -168,14 +200,14 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
                   Enter the {OTP_LENGTH}-digit code sent to <Text className="font-semibold">{e164}</Text>.
                 </Text>
                 {errors.otp ? <ErrorBanner message={errors.otp} /> : null}
-                <FormInput
-                  label="Verification Code"
-                  value={otp}
-                  onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, OTP_LENGTH))}
-                  placeholder="6-digit code"
-                  keyboardType="number-pad"
-                  required
-                />
+                <OtpInput value={otp} onChange={setOtp} autoFocus />
+                <View className="min-h-[16px] items-center">
+                  {resend.canResend ? (
+                    <TextButton onPress={resendCode}>Resend OTP</TextButton>
+                  ) : (
+                    <Text className="text-xs text-gray-500">Resend OTP in {resend.secondsLeft}s</Text>
+                  )}
+                </View>
                 <PrimaryButton fullWidth loading={busy} onPress={verify}>
                   Verify & Create Account
                 </PrimaryButton>

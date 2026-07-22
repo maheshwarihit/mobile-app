@@ -9,6 +9,7 @@ import {
   FormInput,
   DateField,
   TextareaInput,
+  TimeField,
   PrimaryButton,
   WarningBanner,
   TextButton,
@@ -128,7 +129,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
                   <FormInput label="Number of days" value={form.num_days} onChangeText={set("num_days")} keyboardType="number-pad" error={errors.num_days} required />
                 </View>
               </View>
-              <SelectSheet label="Preferred time slot" value={form.time_slot} onValueChange={set("time_slot")} options={SLOTS} />
+              <TimeField label="Preferred time" value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
               <TextareaInput label="Brief on the problem faced" value={form.symptom_brief} onChangeText={set("symptom_brief")} placeholder="Describe symptoms or concerns…" rows={3} maxLength={2000} />
             </View>
           </SectionCard>

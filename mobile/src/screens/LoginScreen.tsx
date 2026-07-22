@@ -3,8 +3,9 @@ import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable } fro
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 import { ArrowLeft, HeartPulse } from "lucide-react-native";
-import { FormInput, PrimaryButton, TextButton, ErrorBanner } from "@/components/ui";
+import { FormInput, OtpInput, PrimaryButton, TextButton, ErrorBanner } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
+import { useResendTimer } from "@/hooks/useResendTimer";
 import { normalizePhone, OTP_LENGTH } from "@vagewell/shared";
 import type { AuthScreenProps } from "@/navigation/types";
 
@@ -16,6 +17,24 @@ export function LoginScreen({ navigation }: AuthScreenProps<"Login">) {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const resend = useResendTimer(60);
+
+  // Existing-user only: shouldCreateUser:false makes Supabase reject an unknown
+  // number instead of silently minting an empty patient account.
+  const requestCode = async (phone: string): Promise<boolean> => {
+    const { error } = await supabase.auth.signInWithOtp({ phone, options: { shouldCreateUser: false } });
+    if (error) {
+      const m = error.message?.toLowerCase() ?? "";
+      if (m.includes("signup") || m.includes("not allowed") || m.includes("not found") || m.includes("exist")) {
+        setErr("No account found for this number. Please register first.");
+      } else {
+        setErr(error.message);
+      }
+      return false;
+    }
+    resend.restart();
+    return true;
+  };
 
   const sendOtp = async () => {
     setErr(null);
@@ -25,15 +44,19 @@ export function LoginScreen({ navigation }: AuthScreenProps<"Login">) {
       return;
     }
     setBusy(true);
-    const { error } = await supabase.auth.signInWithOtp({ phone: normalized });
+    const ok = await requestCode(normalized);
     setBusy(false);
-    if (error) {
-      setErr(error.message);
-      return;
-    }
+    if (!ok) return;
     setE164(normalized);
     setStep("otp");
     toast.success(`Verification code sent to ${normalized}`);
+  };
+
+  const resendCode = async () => {
+    setErr(null);
+    setOtp("");
+    const ok = await requestCode(e164);
+    if (ok) toast.success("Code re-sent");
   };
 
   const verify = async () => {
@@ -91,17 +114,7 @@ export function LoginScreen({ navigation }: AuthScreenProps<"Login">) {
                 <Text className="text-sm text-gray-600">
                   Enter the {OTP_LENGTH}-digit code sent to <Text className="font-semibold">{e164}</Text>.
                 </Text>
-                <FormInput
-                  label="Verification Code"
-                  value={otp}
-                  onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, OTP_LENGTH))}
-                  placeholder="6-digit code"
-                  keyboardType="number-pad"
-                  required
-                />
-                <PrimaryButton fullWidth loading={busy} onPress={verify}>
-                  Verify & Continue
-                </PrimaryButton>
+                <OtpInput value={otp} onChange={setOtp} autoFocus />
                 <View className="flex-row items-center justify-between">
                   <TextButton
                     icon={ArrowLeft}
@@ -113,8 +126,15 @@ export function LoginScreen({ navigation }: AuthScreenProps<"Login">) {
                   >
                     Change number
                   </TextButton>
-                  <TextButton onPress={sendOtp}>Resend code</TextButton>
+                  {resend.canResend ? (
+                    <TextButton onPress={resendCode}>Resend OTP</TextButton>
+                  ) : (
+                    <Text className="text-xs text-gray-500">Resend in {resend.secondsLeft}s</Text>
+                  )}
                 </View>
+                <PrimaryButton fullWidth loading={busy} onPress={verify}>
+                  Verify & Continue
+                </PrimaryButton>
               </View>
             )}
           </View>

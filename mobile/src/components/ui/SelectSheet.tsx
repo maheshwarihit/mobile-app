@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, Pressable, Modal, FlatList } from "react-native";
 import { ChevronDown, Check } from "lucide-react-native";
+import { BRAND } from "@/theme";
 
 export type SelectOption = string | { value: string; label: string };
 
@@ -68,7 +69,7 @@ export function SelectSheet({ label, value, onValueChange, options, placeholder 
                     <Text className={`text-sm ${active ? "font-semibold text-purple-700" : "text-gray-700"}`}>
                       {item.label}
                     </Text>
-                    {active ? <Check size={16} color="#9333ea" /> : null}
+                    {active ? <Check size={16} color={BRAND} /> : null}
                   </Pressable>
                 );
               }}

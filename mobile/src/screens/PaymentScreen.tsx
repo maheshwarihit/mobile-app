@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as FileSystem from "expo-file-system/legacy";
-import { decode } from "base64-arraybuffer";
 import { toast } from "sonner-native";
-import { Wallet, Banknote, Upload, ShieldCheck, type LucideIcon } from "lucide-react-native";
+import { Wallet, Banknote, Upload, ShieldCheck, CheckCircle2, type LucideIcon } from "lucide-react-native";
 import {
   PageHeader,
   SectionCard,
@@ -13,12 +11,17 @@ import {
   ImagePickerField,
   type PickedImage,
 } from "@/components/ui";
+import { BRAND } from "@/theme";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { imageUriToBytes } from "@/lib/fileBytes";
+import upiQr from "../../assets/upi-qr.png";
 import {
   ALLOWED_IMAGE_MIME,
   MAX_UPLOAD_BYTES,
   PAYMENT_PROOF_BUCKET,
+  PAYMENT_QR_BUCKET,
+  PAYMENT_QR_OBJECT,
   money,
   formatSlot,
   formatDate,
@@ -36,6 +39,9 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const [qrFailed, setQrFailed] = useState(false);
+  const qrUrl = supabase.storage.from(PAYMENT_QR_BUCKET).getPublicUrl(PAYMENT_QR_OBJECT).data.publicUrl;
 
   const onPickImage = (img: PickedImage | null) => {
     setErr(null);
@@ -94,8 +100,7 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
 
     if (method === "online" && image) {
       try {
-        const b64 = await FileSystem.readAsStringAsync(image.uri, { encoding: FileSystem.EncodingType.Base64 });
-        const bytes = decode(b64);
+        const bytes = await imageUriToBytes(image.uri);
         const ext = image.mimeType === "image/png" ? "png" : image.mimeType === "image/webp" ? "webp" : "jpg";
         const path = `${user.id}/${bookingId}/${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage
@@ -115,10 +120,37 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
     toast.success(
       method === "direct" ? "Booking confirmed — pay at the visit." : "Booking submitted — awaiting payment verification."
     );
-    navigation.navigate("AppointmentsTab");
+    setDone(true);
   };
 
   const total = draft.num_days * draft.price_per_day;
+
+  if (done) {
+    return (
+      <SafeAreaView className="flex-1 bg-authbg">
+        <View className="flex-1 items-center justify-center px-8">
+          <CheckCircle2 size={64} color={BRAND} />
+          <Text className="mt-4 text-xl font-bold text-gray-900">Appointment booked</Text>
+          <Text className="mt-2 text-center text-sm text-gray-600">
+            {method === "direct"
+              ? "Pay the care staff directly at your visit. Our team will confirm the schedule."
+              : "Your payment is pending verification — an admin will review your screenshot shortly."}
+          </Text>
+          <View className="mt-4 w-full rounded-xl border border-gray-100 bg-white p-4">
+            <Row label="Service" value={draft.service_name} />
+            <Row label="Care for" value={draft.subject_name} />
+            <Row label="When" value={`${formatDate(draft.start_date)} · ${formatSlot(draft.time_slot)}`} />
+            <Row label="Total" value={money(total)} />
+          </View>
+          <View className="mt-6 w-full">
+            <PrimaryButton fullWidth onPress={() => navigation.navigate("AppointmentsTab")}>
+              View my appointments
+            </PrimaryButton>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
@@ -159,7 +191,23 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
           </View>
 
           {method === "online" ? (
-            <View className="mt-4">
+            <View className="mt-4 gap-3">
+              <View className="items-center rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <Text className="mb-2 text-sm font-semibold text-gray-700">Scan & pay {money(total)}</Text>
+                {qrFailed ? (
+                  <Image source={upiQr} className="h-44 w-44 rounded-lg bg-white" resizeMode="contain" />
+                ) : (
+                  <Image
+                    source={{ uri: qrUrl }}
+                    onError={() => setQrFailed(true)}
+                    className="h-44 w-44 rounded-lg bg-white"
+                    resizeMode="contain"
+                  />
+                )}
+                <Text className="mt-2 text-center text-xs text-gray-500">
+                  Scan this QR with any UPI app, pay the total, then upload the payment screenshot below.
+                </Text>
+              </View>
               <ImagePickerField label="UPI payment screenshot" value={image} onChange={onPickImage} onError={setErr} />
             </View>
           ) : null}
@@ -209,7 +257,7 @@ function MethodCard({
       onPress={onPress}
       className={`rounded-xl border p-4 ${active ? "border-purple-500 bg-purple-50" : "border-gray-200 bg-white"}`}
     >
-      <Icon size={20} color={active ? "#9333ea" : "#9ca3af"} />
+      <Icon size={20} color={active ? BRAND : "#9ca3af"} />
       <Text className="mt-2 text-sm font-semibold text-gray-900">{title}</Text>
       <Text className="mt-0.5 text-xs text-gray-500">{desc}</Text>
     </Pressable>

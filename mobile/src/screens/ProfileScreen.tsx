@@ -7,6 +7,7 @@ import {
   SectionCard,
   FormInput,
   SelectSheet,
+  ChoiceChips,
   DateField,
   PrimaryButton,
   OutlineButton,
@@ -137,7 +138,7 @@ export function ProfileScreen() {
                   <DateField label="Date of birth" value={form.date_of_birth} onChange={set("date_of_birth")} placeholder="Select" />
                 </View>
               </View>
-              <SelectSheet label="Gender" value={form.gender} onValueChange={set("gender")} options={GENDER_OPTIONS} />
+              <ChoiceChips label="Gender" value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} />
               <View className="flex-row justify-end gap-2">
                 <OutlineButton onPress={() => setEditing(false)}>Cancel</OutlineButton>
                 <PrimaryButton loading={update.isPending} onPress={saveBio}>

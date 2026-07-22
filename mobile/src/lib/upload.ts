@@ -1,7 +1,8 @@
+import { Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import { decode } from "base64-arraybuffer";
 import type { ProofSource } from "@vagewell/shared";
+import { imageUriToBytes } from "@/lib/fileBytes";
 
 export type PickedImage = { uri: string; mimeType: string; fileSize: number };
 
@@ -26,7 +27,8 @@ export async function pickImageAsset(): Promise<PickedImage | null> {
   const a = res.assets[0];
   const mimeType = a.mimeType ?? guessMime(a.fileName ?? a.uri);
   let fileSize = a.fileSize ?? 0;
-  if (!fileSize) {
+  if (!fileSize && Platform.OS !== "web") {
+    // getInfoAsync is native-only; on web the picker already provides fileSize.
     const info = await FileSystem.getInfoAsync(a.uri);
     fileSize = info.exists && !info.isDirectory ? info.size : 0;
   }
@@ -38,7 +40,6 @@ export function assetToProofSource(img: PickedImage): ProofSource {
   return {
     contentType: img.mimeType,
     sizeBytes: img.fileSize,
-    toArrayBuffer: async () =>
-      decode(await FileSystem.readAsStringAsync(img.uri, { encoding: FileSystem.EncodingType.Base64 })),
+    toArrayBuffer: () => imageUriToBytes(img.uri),
   };
 }

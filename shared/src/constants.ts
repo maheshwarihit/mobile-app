@@ -86,6 +86,10 @@ export const ALLOWED_IMAGE_MIME = ["image/png", "image/jpeg", "image/webp"] as c
 export const PAYMENT_PROOF_BUCKET = "payment-proofs"; // private
 export const SIGNED_URL_TTL_SECONDS = 300; // 5 min
 
+// ── Payment QR (admin-uploaded, public; shown to patients on the payment screen) ──
+export const PAYMENT_QR_BUCKET = "payment-qr"; // public bucket (see migration 0005)
+export const PAYMENT_QR_OBJECT = "upi.png"; // single fixed object, upserted on upload
+
 // ── Seed catalog (GO-1) — placeholder prices except Physiotherapy; admin-editable ──
 export const SEED_SERVICES = [
   { name: "Physiotherapy", price_per_day: 1500, description: "In-home physiotherapy session by a licensed therapist." },

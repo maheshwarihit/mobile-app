@@ -16,6 +16,7 @@ interface AuthState {
   profile: Profile | null;
   role: Role | null;
   loading: boolean;
+  profileLoading: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -26,10 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const loadProfile = useCallback(async (uid: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
-    setProfile((data as Profile) ?? null);
+    setProfileLoading(true);
+    try {
+      const { data } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+      setProfile((data as Profile) ?? null);
+    } finally {
+      setProfileLoading(false);
+    }
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -75,10 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       role: profile?.role ?? null,
       loading,
+      profileLoading,
       refreshProfile,
       signOut,
     }),
-    [user, profile, loading, refreshProfile, signOut]
+    [user, profile, loading, profileLoading, refreshProfile, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

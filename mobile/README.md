@@ -1,57 +1,82 @@
-# VAgeWell Care — Mobile (Android, Expo)
+# VAgeWell Care — Android app (React Native + Expo)
 
-Native Android app (React Native + Expo). Reuses the web app's data layer via the
-shared package **`@vagewell/shared`** (Supabase hooks, mutations, Zod schemas, types).
+Native Android app built with **Expo SDK 54** (React Native 0.81, React 19).
+It reuses the shared data layer in `../shared` (`@vagewell/shared`) and talks
+directly to Supabase (phone-OTP auth, Postgres + RLS, Storage).
 
-## Architecture note
-`mobile/` is intentionally **self-contained** — it has its own complete `node_modules`
-and is **not** part of the root npm workspace. Why: the web app runs React 19 (Next 16)
-and Expo SDK 52 runs React 18.3, which conflict if hoisted into one tree. Mobile consumes
-the shared code as a `file:../shared` dependency (`@vagewell/shared`), and Metro follows
-the symlink. Everything (React, React Query, Supabase) resolves to a single instance from
-`mobile/node_modules`, so there's no version skew.
+---
 
 ## Prerequisites
-- Node.js 20+
+- **Node.js 20+** and npm
 - An **Android phone** with the free **Expo Go** app (from the Play Store)
-- The phone and this computer on the **same WiFi network**
+  — or an Android emulator (Android Studio)
+- Phone and computer on the **same WiFi**
 
-## One-time setup
+---
+
+## 1. Install
 ```bash
-cd mobile
-npm install                 # builds mobile/node_modules (self-contained)
-# .env already exists with the Supabase URL + anon key (git-ignored).
-# If versions ever drift after adding a package:
-#   npx expo install --fix
+git clone https://github.com/Aswithasankar/mobile-app.git
+cd mobile-app/mobile
+npm install
+```
+> `npm install` also links the shared code from `../shared` automatically.
+
+## 2. Add environment values
+The app needs two **public** Supabase values (safe to expose — protected by RLS).
+Create a file **`mobile/.env`** (it is git-ignored, so it's not in the repo):
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-KEY
+```
+Copy the shape from `mobile/.env.example`. Get the values from the Supabase
+dashboard → **Project Settings → API** (Project URL + `anon` public key).
+
+## 3. Run it
+```bash
+npx expo start
+```
+A **QR code** appears. Open **Expo Go** on your Android phone → **Scan QR code**.
+The app loads over WiFi and hot-reloads as you edit.
+
+- Phone can't connect (different network / firewall)? → `npx expo start --tunnel`
+- Using an emulator instead? → press **`a`** in the terminal
+
+## 4. Log in (phone OTP)
+Login uses Supabase Phone Auth. To test **without** paying for real SMS:
+
+1. Supabase dashboard → **Authentication → Sign In / Providers → Phone**
+2. Enable **Phone Sign-In**
+3. Under **Test phone numbers**, add a pair **without the `+`**, e.g.
+   `919000000001=123456`
+4. In the app, enter the **10-digit** number (`9000000001` — the app adds `91`),
+   tap **Send OTP**, then enter the code (`123456`)
+
+For real users, connect **Twilio** under the same Phone provider screen.
+
+> The Supabase project must also have the database loaded (run the migrations +
+> `seed.sql` in `../supabase` on your project) so services, bookings, etc. exist.
+
+---
+
+## Handy commands
+```bash
+npx tsc --noEmit                     # type-check
+npx expo export --platform android   # full offline bundle (proves it builds)
 ```
 
-## Run it (on your phone)
+## Notes
+- **Don't run** `expo upgrade` or `expo install expo@latest` — that jumps the SDK
+  version and breaks compatibility with the installed Expo Go. Just `npx expo start`.
+- Styling is **NativeWind** (Tailwind classes on native components).
+- Package manager is **npm** (`.npmrc` sets `legacy-peer-deps=true`, needed for RN).
+
+## Build for the Play Store (when ready)
 ```bash
-cd mobile
-npx expo start              # a QR code appears in the terminal
+npm install -g eas-cli
+eas login
+eas build --platform android      # cloud build → a Play-ready .aab (works on Windows)
+eas submit --platform android
 ```
-Then open **Expo Go** on your Android phone and **scan the QR code**. The app loads over
-WiFi. Edit any file and it hot-reloads instantly.
-
-- If the phone can't reach the computer (different networks / firewall), run
-  `npx expo start --tunnel` instead (routes over the internet; slightly slower).
-
-## What works today (Phase 1)
-- App boots to a themed Landing screen (NativeWind + Nunito Sans).
-- Supabase client is wired (secure token storage, session persistence, auto-refresh).
-- Navigation switches between signed-out and signed-in stacks automatically.
-- The shared data layer (`@vagewell/shared`) is connected and bundles cleanly.
-
-Login/registration screens, the design-system components, and the booking/dashboard/profile
-screens are built in the following phases.
-
-## Verify without a phone
-```bash
-npx tsc --noEmit                       # type-check
-npx expo export --platform android     # full Metro bundle (proves it builds)
-```
-
-## Useful
-- Env vars use the `EXPO_PUBLIC_*` convention (browser-safe, like the web's `NEXT_PUBLIC_*`).
-- Styling: NativeWind (Tailwind classes on React Native components).
-- Package manager: npm. Shared code lives in `../shared/src` (edit once, both apps update).
+Needs a **Google Play Developer account** ($25 one-time) and an app icon/splash.

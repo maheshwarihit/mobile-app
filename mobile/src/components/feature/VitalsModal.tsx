@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, KeyboardAvoidingView, Platform, useWindowDimensions } from "react-native";
 import { X, Activity } from "lucide-react-native";
 import { FormInput, SelectSheet, TextareaInput, PrimaryButton, OutlineButton } from "@/components/ui";
+import { BRAND } from "@/theme";
 import { useAddClinical, clinicalSchema, BLOOD_GROUPS } from "@vagewell/shared";
 
 export interface VitalsSubject {
@@ -80,7 +81,7 @@ export function VitalsModal({
               <ScrollView contentContainerClassName="p-5" keyboardShouldPersistTaps="handled">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-2">
-                    <Activity size={18} color="#9333ea" />
+                    <Activity size={18} color={BRAND} />
                     <Text className="text-lg font-bold text-gray-900">Record Vitals</Text>
                   </View>
                   <Pressable onPress={onClose} hitSlop={8}>

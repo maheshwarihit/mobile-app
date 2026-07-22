@@ -7,8 +7,26 @@ export type AuthStackParamList = {
   Landing: undefined;
   Login: undefined;
   Register: undefined;
+  // Admin Portal entry — same Supabase phone+OTP; role decides the shell after verify.
+  AdminLogin: undefined;
+  AdminOTP: { e164: string };
 };
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
+
+// ── Admin stack (signed-in, role ∈ {staff, admin}) ───────────────
+export type EditSubject =
+  | { kind: "self"; profileId: string }
+  | { kind: "dependent"; familyMemberId: string; accountId: string };
+
+export type AdminStackParamList = {
+  AdminDashboard: undefined;
+  LiveSheet: undefined;
+  AdminPatientList: undefined;
+  AdminPatientProfile: { accountId: string; patientName: string };
+  AdminMemberEdit: { subject: EditSubject; name: string };
+  AdminPaymentQr: undefined;
+};
+export type AdminScreenProps<T extends keyof AdminStackParamList> = NativeStackScreenProps<AdminStackParamList, T>;
 
 // ── Booking draft handed Appointment → Payment (via route params) ─
 export interface BookingDraft {

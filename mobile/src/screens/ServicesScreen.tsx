@@ -1,7 +1,8 @@
 import { View, Text, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Stethoscope, ArrowRight } from "lucide-react-native";
-import { PageHeader, SmallPrimaryButton, LoadingState, EmptyState, ErrorBanner, Card } from "@/components/ui";
+import { Stethoscope, ArrowRight, UserPlus } from "lucide-react-native";
+import { PageHeader, SmallPrimaryButton, OutlineButton, LoadingState, EmptyState, ErrorBanner, Card } from "@/components/ui";
+import { BRAND } from "@/theme";
 import { useServices, money } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
@@ -26,12 +27,22 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
               <EmptyState icon={Stethoscope} title="No services available" description="Please check back later." />
             ) : null
           }
+          ListFooterComponent={
+            <View className="mt-2">
+              <OutlineButton fullWidth icon={UserPlus} onPress={() => navigation.navigate("ProfileTab")}>
+                Add a family member
+              </OutlineButton>
+              <Text className="mt-2 text-center text-xs text-gray-500">
+                Book for a parent, spouse, or child under this same login.
+              </Text>
+            </View>
+          }
           renderItem={({ item: s }) => (
             <Card className="p-4">
               <View className="flex-row items-start justify-between gap-3">
                 <View className="flex-1 flex-row items-start gap-3">
                   <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                    <Stethoscope size={18} color="#9333ea" />
+                    <Stethoscope size={18} color={BRAND} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-base font-semibold text-gray-900">{s.name}</Text>

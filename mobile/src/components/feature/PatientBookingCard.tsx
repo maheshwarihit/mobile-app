@@ -4,6 +4,7 @@ import { toast } from "sonner-native";
 import { CalendarClock, Upload, AlertTriangle } from "lucide-react-native";
 import { Pill, DangerButton, ConfirmModal, Card } from "@/components/ui";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
+import { BRAND } from "@/theme";
 import {
   useCancelBooking,
   useReuploadProof,
@@ -58,7 +59,7 @@ export function PatientBookingCard({
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 flex-row items-start gap-3">
           <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-            <CalendarClock size={18} color="#9333ea" />
+            <CalendarClock size={18} color={BRAND} />
           </View>
           <View className="flex-1">
             <Text className="text-base font-semibold text-gray-900">{booking.service_name}</Text>

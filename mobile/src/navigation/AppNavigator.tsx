@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Stethoscope, ClipboardList, User } from "lucide-react-native";
+import { BRAND } from "@/theme";
 import type { ServicesStackParamList, AppTabsParamList } from "@/navigation/types";
 import { ServicesScreen } from "@/screens/ServicesScreen";
 import { AppointmentScreen } from "@/screens/AppointmentScreen";
@@ -27,7 +28,7 @@ export function AppNavigator() {
     <Tabs.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#9333ea",
+        tabBarActiveTintColor: BRAND,
         tabBarInactiveTintColor: "#9ca3af",
       }}
     >

@@ -41,6 +41,25 @@ export function useFamilyMembers() {
   });
 }
 
+// ── Dependents for a specific account (admin patient drill-down) ─
+export function useFamilyMembersByAccount(accountId: string | null) {
+  return useQuery({
+    queryKey: qk.familyMembersByAccount(accountId ?? ""),
+    enabled: !!accountId,
+    queryFn: async (): Promise<FamilyMember[]> => {
+      const sb = getSupabase();
+      // Staff/admin RLS (fam_select) returns all rows; scope to this account.
+      const { data, error } = await sb
+        .from("family_members")
+        .select("*")
+        .eq("account_id", accountId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as FamilyMember[];
+    },
+  });
+}
+
 // ── Patient's own bookings (DASHBOARD) ───────────────────────────
 export function useMyBookings() {
   return useQuery({

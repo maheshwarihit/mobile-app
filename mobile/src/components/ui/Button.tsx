@@ -1,5 +1,6 @@
 import { Pressable, Text, ActivityIndicator, View } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
+import { BRAND } from "@/theme";
 
 type BaseProps = {
   children: string;
@@ -81,7 +82,7 @@ export function SmallPrimaryButton({ children, onPress, icon: Icon }: BaseProps)
 export function TextButton({ children, onPress, icon: Icon }: BaseProps) {
   return (
     <Pressable onPress={onPress} className="flex-row items-center gap-1 self-start active:opacity-70">
-      {Icon && <Icon size={14} color="#9333ea" />}
+      {Icon && <Icon size={14} color={BRAND} />}
       <Text className="text-sm font-semibold text-purple-600">{children}</Text>
     </Pressable>
   );

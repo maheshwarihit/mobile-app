@@ -1,5 +1,6 @@
 import { View, Text } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
+import { BRAND } from "@/theme";
 
 const cardShadow = { elevation: 1, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } };
 
@@ -16,7 +17,7 @@ export function Card({ children, className = "" }: { children: React.ReactNode; 
 export function SectionCard({
   icon: Icon,
   iconBg = "bg-purple-50",
-  iconColor = "#9333ea",
+  iconColor = BRAND,
   title,
   subtitle,
   children,

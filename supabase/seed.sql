@@ -23,4 +23,5 @@ on conflict (name) do nothing;
 --    set role = 'admin', updated_at = now()
 --   from auth.users u
 --  where u.id = p.id
---    and u.phone = '+919000000001';   -- <-- founding admin's verified phone (E.164)
+--    and replace(u.phone, '+', '') = '919000000001';  -- founding admin's phone (no '+':
+--                                                       -- GoTrue stores phone without it)
