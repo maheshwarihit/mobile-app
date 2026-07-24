@@ -189,7 +189,51 @@ and `expo export --platform web` (bundle green). **`0008` migration pending on t
       background). `BrandLogo`'s white chip is kept as a deliberate badge; its comment no longer
       claims the source has a baked-in white background.
 
+## Bugfix — "Save profile goes to an undefined page" (user, 2026-07-24)
+Patient **Profile → Edit details → Save** on the web/PWA: browser tab title flipped to the literal
+string `undefined`, splash flashed, user was dumped on the Services tab. Frontend-only, no migration.
+Verified `tsc --noEmit` (0 errors) + `expo export --platform web` (bundle green).
+
+Root cause chain (verified against the installed `@react-navigation` v7 source, not from memory):
+`saveBio` → `refreshProfile()` → `AuthProvider.loadProfile()` sets the **global** `profileLoading`
+→ `RootNavigator`'s gate `if (loading || (user && profileLoading))` returned `<SplashScreen/>`,
+unmounting the whole navigator. Two symptoms fell out of that one unmount:
+1. `AppNavigator` remounted **fresh**, so the tab stack rebuilt from scratch and landed on the
+   initial route (`ServicesTab`) — the "thrown off Profile" half.
+2. With no navigator mounted, `NavigationContainer` still runs `useDocumentTitle`; its default
+   formatter is `options?.title ?? route?.name` and `getCurrentRoute()` returns `undefined`
+   (`BaseNavigationContainer.js`: `state == null → undefined`), so it executed
+   `document.title = undefined` → the tab literally read **"undefined"**. The "undefined page" half.
+
+- [x] **`RootNavigator`: gate the splash on *resolution*, not on *loading*.** Now
+      `profileResolved = !!profile && profile.id === user?.id`, and the splash only shows while the
+      **current** user's profile is still unknown. Keeps the original anti-flicker intent (patient
+      shell must not flash before the role resolves) but a background refetch no longer tears down
+      the tree. Keyed on `profile.id === user.id` rather than a bare `!profile` so a stale profile
+      from a previous account can't count as resolved when a different-role account signs in.
+- [x] **`App.tsx`: explicit `documentTitle` formatter** — `options?.title ?? "VAgeWell Care"`.
+      Belt-and-braces: the splash is still legitimately rendered on cold start and sign-out, and
+      both wrote `undefined` before. Also stops internal route ids (`AdminMemberEdit`) leaking into
+      the browser tab/history. Keep the string in sync with `expo.name` in `app.json` by eye.
+- [x] **`ProfileScreen.saveBio`**: `setEditing(false)` now runs *before* `void refreshProfile()`
+      instead of awaiting it — polish, so the read-only rows appear without a second round-trip.
+- **Wider fix, same root cause:** Supabase fires `onAuthStateChange` on `TOKEN_REFRESHED` (~hourly)
+  and `AuthProvider` re-ran `loadProfile` there too, so the app used to remount and reset to the
+  initial tab mid-session on a routine token refresh. That is gone as well.
+- **Deliberately not touched:** `AdminMemberEditScreen.save()` — it never calls `refreshProfile`, so
+  it cannot hit this bug (confirmed with the user that the admin path is not the reported symptom).
+  It does carry a separate latent issue worth its own round: `finish()` (toast + `goBack()`) fires
+  off the **clinical** mutation only, so a failed *bio* update still reports "Record saved".
+
 ## Context handoff
+Latest: the **"Save profile → undefined page" bugfix** (2026-07-24) is implemented — `tsc --noEmit`
+0 errors, web bundle green. Frontend-only, no migration, so it needs **no DB work** — just a runtime
+click-through on the web build: Profile → Edit details → Save must keep the tab title
+"VAgeWell Care" (never "undefined"), stay mounted on the Profile tab with the form collapsed to the
+updated read-only rows, and no splash flash. Regression to re-check: hard-reload as a patient **and**
+as a staff/admin account — the splash must still hold until the role resolves, with no flicker of
+the patient tabs before the admin stack appears.
+
 Doc2.pdf feedback round (2026-07-24) is implemented — `tsc --noEmit` 0 errors, web bundle green, the
 new logo + generated icon bundle correctly. **Needs the user's machine:**
 1. Apply `supabase/migrations/0006` (if never run), `0007_physio_price.sql` **and the new

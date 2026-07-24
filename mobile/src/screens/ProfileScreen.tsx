@@ -83,9 +83,12 @@ export function ProfileScreen() {
         gender: form.gender || null,
       },
       {
-        onSuccess: async () => {
-          await refreshProfile();
+        onSuccess: () => {
+          // Collapse to the read-only rows immediately — qk.profile is already
+          // invalidated and the toast has fired; don't wait on the auth-provider
+          // refetch round-trip.
           setEditing(false);
+          void refreshProfile();
         },
       }
     );

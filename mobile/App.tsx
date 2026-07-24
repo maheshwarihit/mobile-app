@@ -35,7 +35,16 @@ export default function App() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <NavigationContainer>
+            {/*
+              documentTitle (web only): react-navigation's default formatter is
+              `options?.title ?? route?.name`, which writes the literal string
+              "undefined" into the browser tab whenever no navigator is mounted
+              (cold-start splash, sign-out). Falling back to the app name also
+              keeps internal route ids like "AdminMemberEdit" out of the tab.
+            */}
+            <NavigationContainer
+              documentTitle={{ formatter: (options) => options?.title ?? "VAgeWell Care" }}
+            >
               <RootNavigator />
             </NavigationContainer>
             <Toaster />

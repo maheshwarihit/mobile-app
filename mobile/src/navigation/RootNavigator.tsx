@@ -30,12 +30,19 @@ function AuthNavigator() {
  *   signed out            → AuthNavigator (patient + Admin Portal entry)
  *   role patient          → AppNavigator (tabs)
  *   role staff | admin    → AdminNavigator (operations)
- * The profileLoading splash gate avoids a flicker to the patient shell before
- * the role resolves.
+ * The splash gate avoids a flicker to the patient shell before the role
+ * resolves — but only until the CURRENT user's profile first resolves. A
+ * background refresh (saving the profile, an hourly TOKEN_REFRESHED event)
+ * must NOT unmount the navigator: that rebuilds the tab stack from scratch
+ * (dumping the user on the initial tab) and, on web, react-navigation writes
+ * `document.title = undefined` while no navigator is mounted.
+ * Keyed on profile.id === user.id so a stale profile from a previous account
+ * doesn't count as resolved when a different-role account signs in.
  */
 export function RootNavigator() {
-  const { user, loading, profileLoading, role } = useAuth();
-  if (loading || (user && profileLoading)) return <SplashScreen />;
+  const { user, profile, loading, profileLoading, role } = useAuth();
+  const profileResolved = !!profile && profile.id === user?.id;
+  if (loading || (user && profileLoading && !profileResolved)) return <SplashScreen />;
   if (!user) return <AuthNavigator />;
   const isStaff = role === "staff" || role === "admin";
   return isStaff ? <AdminNavigator /> : <AppNavigator />;
