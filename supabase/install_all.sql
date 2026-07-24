@@ -376,12 +376,24 @@ create policy qr_admin_delete on storage.objects for delete to authenticated
   using (bucket_id = 'payment-qr' and public.is_admin());
 
 -- ── SEED SERVICES ───────────────────────────────────────────────────────────
+-- Retire anything already in the catalog first (mirrors migration 0006): a
+-- piecemeal setup may still hold the original 6 placeholder services, and rows
+-- can't be deleted (bookings.service_id is ON DELETE RESTRICT). The upsert below
+-- then re-activates just the confirmed 4.
+update public.services set active = false, updated_at = now();
+
 insert into public.services (name, description, price_per_day) values
   ('Nutrition',        'Diet adherence (supported by strategic meal provider partnerships).', 800),
-  ('Physio Therapy',   'Exercise completion, mobility scores.',                               1200),
+  ('Physio Therapy',   'Exercise completion, mobility scores.',                               1500),
   ('Para-Medical',     'Vitals tracking (BP, Sugar, SpO2) and medication compliance.',        800),
   ('Mental Wellbeing', 'Mood scores and social engagement tracking.',                         800)
-on conflict (name) do nothing;
+on conflict (name) do update
+  set description   = excluded.description,
+      price_per_day = excluded.price_per_day,
+      active        = true,
+      updated_at    = now();
+-- Upsert (not `do nothing`): this script repairs a piecemeal setup, where the
+-- catalog may still hold the old placeholder prices.
 
 -- ── (optional) promote your founding admin — edit the phone, then uncomment ──
 -- update public.profiles set role = 'admin', updated_at = now()

@@ -4,6 +4,10 @@
     "slug": "vagewell-care",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "web": {
+      "favicon": "./assets/logo.png"
+    },
     "scheme": "vagewell",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,

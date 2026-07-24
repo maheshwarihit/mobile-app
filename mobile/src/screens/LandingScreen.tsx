@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { HeartPulse, Lock } from "lucide-react-native";
-import { PrimaryButton, OutlineButton } from "@/components/ui";
+import { Lock } from "lucide-react-native";
+import { BrandLogo, PrimaryButton, OutlineButton } from "@/components/ui";
 import type { AuthScreenProps } from "@/navigation/types";
 
 const QUOTES = [
@@ -23,11 +23,11 @@ export function LandingScreen({ navigation }: AuthScreenProps<"Landing">) {
     <SafeAreaView className="flex-1 bg-authbg">
       <View className="flex-1 justify-center px-6">
         <View className="mb-8 items-center">
-          <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-purple-50">
-            <HeartPulse size={32} color="#12809E" />
+          <View className="mb-4">
+            <BrandLogo size={72} />
           </View>
-          <Text className="text-3xl font-bold text-gray-900">
-            VAgeWell <Text className="text-purple-600">CARE</Text>
+          <Text className="text-3xl font-bold text-purple-600">
+            VAgeWell <Text className="text-gray-900">CARE</Text>
           </Text>
           <Text className="mt-2 text-center text-base text-gray-600">Care that comes to you</Text>
           <Text className="mt-5 min-h-[36px] px-2 text-center text-xs italic text-gray-500">{QUOTES[qi]}</Text>

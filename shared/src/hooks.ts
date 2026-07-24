@@ -7,7 +7,6 @@ import type {
   FamilyMember,
   Profile,
   ClinicalRecord,
-  ClinicalRecordWithNames,
   BookingWithNames,
 } from "./types";
 
@@ -61,6 +60,25 @@ export function useFamilyMembersByAccount(accountId: string | null) {
   });
 }
 
+// ── Every dependent across all accounts (staff/admin patient search) ─
+export function useAllFamilyMembers(enabled: boolean) {
+  return useQuery({
+    queryKey: qk.familyMembersAll,
+    enabled,
+    queryFn: async (): Promise<FamilyMember[]> => {
+      const sb = getSupabase();
+      // Staff/admin RLS (fam_select) returns every row; patients would only ever
+      // see their own, so this hook is gated to the admin shell by `enabled`.
+      const { data, error } = await sb
+        .from("family_members")
+        .select("*")
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as FamilyMember[];
+    },
+  });
+}
+
 // ── Patient's own bookings (DASHBOARD) ───────────────────────────
 export function useMyBookings() {
   return useQuery({
@@ -92,18 +110,27 @@ export function useAllBookings(enabled: boolean) {
     queryFn: async (): Promise<BookingWithNames[]> => {
       const sb = getSupabase();
       // RLS gives staff/admin every row; join names via related selects.
+      // The extra dependent/account columns feed the merged admin live sheet.
       const { data, error } = await sb
         .from("bookings")
-        .select("*, account:profiles!bookings_account_id_fkey(full_name, phone), dependent:family_members(full_name)")
+        .select(
+          "*, account:profiles!bookings_account_id_fkey(full_name, phone, age), dependent:family_members(full_name, relationship, age, contact_phone)"
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((row: Record<string, unknown>) => {
-        const account = row.account as { full_name: string | null; phone: string | null } | null;
-        const dependent = row.dependent as { full_name: string } | null;
+        const account = row.account as Pick<Profile, "full_name" | "phone" | "age"> | null;
+        const dependent = row.dependent as Pick<
+          FamilyMember,
+          "full_name" | "relationship" | "age" | "contact_phone"
+        > | null;
         return {
           ...(row as unknown as Booking),
           account: account ?? undefined,
           subject_name: dependent?.full_name ?? account?.full_name ?? null,
+          subject_relationship: dependent?.relationship ?? "self",
+          subject_age: dependent ? dependent.age : account?.age ?? null,
+          subject_phone: dependent ? dependent.contact_phone : account?.phone ?? null,
         } as BookingWithNames;
       });
     },
@@ -132,32 +159,22 @@ export function useClinicalRecords(subject: { profileId?: string; familyMemberId
   });
 }
 
-// ── All clinical records with names (staff/admin LIVE SHEET) ─────
+// ── All clinical records (staff/admin LIVE SHEET) ────────────────
 export function useAllClinicalRecords(enabled: boolean) {
   return useQuery({
     queryKey: qk.clinical("all"),
     enabled,
-    queryFn: async (): Promise<ClinicalRecordWithNames[]> => {
+    queryFn: async (): Promise<ClinicalRecord[]> => {
       const sb = getSupabase();
-      // RLS (clin_select) gives staff/admin every row. Two FKs point at profiles
-      // (profile_id + recorded_by) so disambiguate the embeds by constraint name.
+      // RLS (clin_select) gives staff/admin every row. No name embeds: the live
+      // sheet keys these to bookings by profile_id / family_member_id and takes
+      // the patient name from the booking side.
       const { data, error } = await sb
         .from("clinical_records")
-        .select(
-          "*, subject_profile:profiles!clinical_records_profile_id_fkey(full_name), subject_member:family_members!clinical_records_family_member_id_fkey(full_name), recorder:profiles!clinical_records_recorded_by_fkey(full_name)"
-        )
+        .select("*")
         .order("recorded_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((row: Record<string, unknown>) => {
-        const p = row.subject_profile as { full_name: string | null } | null;
-        const m = row.subject_member as { full_name: string | null } | null;
-        const rec = row.recorder as { full_name: string | null } | null;
-        return {
-          ...(row as unknown as ClinicalRecord),
-          subject_name: m?.full_name ?? p?.full_name ?? undefined,
-          recorded_by_name: rec?.full_name ?? undefined,
-        } as ClinicalRecordWithNames;
-      });
+      return (data ?? []) as ClinicalRecord[];
     },
   });
 }

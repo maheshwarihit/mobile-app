@@ -25,6 +25,11 @@ supabase/.branches/
 supabase/.temp/
 supabase/.env
 
+# ── Scratch ──────────────────────────────────────────────
+# Root-anchored: the bundled brand mark is mobile/assets/logo.png.
+# A copy dropped at the repo root is a working file, not an asset.
+/logo.png
+
 # ── OS / editor ──────────────────────────────────────────
 .DS_Store
 Thumbs.db

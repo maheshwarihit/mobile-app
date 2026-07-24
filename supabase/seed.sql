@@ -5,7 +5,7 @@
 -- ── Service catalog ──────────────────────────────────────────────────────────
 insert into public.services (name, description, price_per_day) values
   ('Nutrition',        'Diet adherence (supported by strategic meal provider partnerships).', 800),
-  ('Physio Therapy',   'Exercise completion, mobility scores.',                               1200),
+  ('Physio Therapy',   'Exercise completion, mobility scores.',                               1500),
   ('Para-Medical',     'Vitals tracking (BP, Sugar, SpO2) and medication compliance.',        800),
   ('Mental Wellbeing', 'Mood scores and social engagement tracking.',                         800)
 on conflict (name) do nothing;

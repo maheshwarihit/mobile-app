@@ -23,7 +23,9 @@ export const PAYMENT_STATUS_META: Record<PaymentStatus, PillColors> = {
 
 export const BOOKING_STATUS_META: Record<BookingStatus, PillColors> = {
   open: { label: "Open", bg: "bg-blue-50", text: "text-blue-700" },
-  closed: { label: "Closed", bg: "bg-gray-100", text: "text-gray-500" },
+  // 'closed' is the DB value; the admin action that sets it is "Mark complete",
+  // so the user-facing label reads "Completed".
+  closed: { label: "Completed", bg: "bg-gray-100", text: "text-gray-500" },
   cancelled: { label: "Cancelled", bg: "bg-red-50", text: "text-red-700" },
 };
 

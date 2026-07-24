@@ -63,7 +63,9 @@ export function PatientBookingCard({
           </View>
           <View className="flex-1">
             <Text className="text-base font-semibold text-gray-900">{booking.service_name}</Text>
-            <Text className="text-xs text-gray-500">For {subjectName}</Text>
+            <Text className="text-xs text-gray-500">
+              Patient <Text className="font-medium text-purple-600">{subjectName}</Text>
+            </Text>
             <Text className="mt-1 text-sm text-gray-600">
               {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)} · {booking.num_days} day
               {booking.num_days > 1 ? "s" : ""}

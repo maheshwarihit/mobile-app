@@ -13,7 +13,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <View className="flex-1 px-5 pt-4">
-        <PageHeader title="Care Services" subtitle="Choose a service to book a home visit." />
+        <PageHeader title="Our services" subtitle="Choose a service to begin your care journey." />
 
         {error ? <ErrorBanner message="Could not load services. Please try again." /> : null}
         {isLoading ? <LoadingState message="Loading services…" /> : null}
@@ -32,7 +32,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
               <OutlineButton fullWidth icon={UserPlus} onPress={() => navigation.navigate("ProfileTab")}>
                 Add a family member
               </OutlineButton>
-              <Text className="mt-2 text-center text-xs text-gray-500">
+              <Text className="mt-2 text-center text-xs text-purple-700">
                 Book for a parent, spouse, or child under this same login.
               </Text>
             </View>

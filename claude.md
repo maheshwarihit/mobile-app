@@ -24,7 +24,8 @@ Redux Toolkit · Cloud-Run/pipeline mandate. (Design system UI kit is kept — g
 - **GO-3 (roles) → RESOLVED:** patient/staff/admin. (user, 2026-07-21)
 
 ## Open items (defaults folded in — adjustable, do NOT treat as final)
-- **GO-1** service catalog: 6 seeded services, **placeholder prices** (Physio ₹1500 is the only confirmed one). One service per booking.
+- **GO-1** service catalog: 4 services. Physio Therapy ₹1,500 confirmed by the client (2026-07-24, migration
+  0007). Nutrition / Para-Medical / Mental Wellbeing ₹800 still unconfirmed. One service per booking.
 - **GO-4** OTP expiry/resend limits: Supabase defaults; dev fixed test codes in `config.toml`.
 - **GO-5** rejection flow: rejected proof → `pending` (re-upload). Private bucket, 5 MB, png/jpg/webp.
 - **GO-6** multi-day = consecutive (`start_date` + `num_days`).
@@ -90,11 +91,75 @@ Implemented against `tsc` (0 errors). Metro/DB run + `0006` migration still pend
 - **Not changed (clarified with user):** Role dropdown kept in `AdminPatientProfileScreen` (item 3); admin
       member-edit medical section kept (item 6 — the admin *profile* screen already shows no health record).
 
+## Change round — client feedback PDF (user, 2026-07-24)
+Source: `VAgeWell Care - Feedback Notes (1).pdf`. Verified with `tsc --noEmit` (0 errors) **and**
+`expo export --platform web` (bundle green, logo + favicon emitted). **`0007` migration still pending
+on the user's Supabase.**
+- [x] **New logo** — `mobile/assets/logo.png` (client-supplied, 300×282, opaque white bg). New
+      `ui/BrandLogo.tsx` renders it in a white rounded chip (the chip absorbs the baked-in white
+      background — no keying, no matte fringe). Replaces the HeartPulse chip on Landing/Login/Register;
+      also `app.json` `icon` + `web.favicon`. *Known cosmetic debt: source is non-square and < 1024px,
+      so the app icon is padded/soft. Swapping in a 1024px square export is a one-file replacement.*
+- [x] **Brand mark colour swapped** — Landing now reads `VAgeWell` teal + `CARE` black (was inverse).
+- [x] **Copy** — Register subtitle "Your Care Journey Starts Here", name placeholder "Name", label "Age";
+      Login "Together, We Move Towards Better Health."; Admin login "Together, we manage care, support
+      people, and create a healthier future"; Services "Our services" / "Choose a service to begin your
+      care journey."; Appointment "Request Personalized Care"; Appointments subtitle "Your Bookings";
+      booking cards read `Patient <name>` (name in brand teal) on both patient + admin sides.
+- [x] **Physio Therapy ₹1,200 → ₹1,500** — new `supabase/migrations/0007_physio_price.sql` (idempotent).
+      Mirrored in `seed.sql`, `install_all.sql` (its services block is now an **upsert**, not
+      `do nothing`, so re-running it repairs a stale catalog) and `SEED_SERVICES`. `0006` left untouched
+      — it may already be applied; 0007 supersedes it. Existing bookings keep ₹1,200 (price is snapshotted).
+- [x] **Booking completion added** — `useCompleteBooking()` (open → closed) + a **Complete** action on
+      `AdminBookingCard`. No migration: the 0002 update guard and `bk_update` RLS already allowed staff
+      `open → closed`; nothing in the UI had ever used it. `BOOKING_STATUS_META.closed` now labels
+      "Completed" (was "Closed") to match the action.
+- [x] **Patient Appointments** — only `open` bookings list; the most recent closed/cancelled one renders
+      as a read-only **Last appointment** card (deliberately not `PatientBookingCard`, which carries
+      Cancel/re-upload affordances).
+- [x] **Admin Patients search now includes dependents** — new `useAllFamilyMembers(enabled)` +
+      `qk.familyMembersAll`. Account holders and family members share one name-sorted, searchable list;
+      dependents carry a "Family member" pill and tap straight through to `AdminMemberEdit`.
+- [x] **Live sheet merged into one sheet** — Appointments/Medical toggle removed. `liveSheetRows()`
+      in `mobile/src/lib/export.ts` emits the client's 18 columns + Booking ID / Symptom Brief / Created.
+      Vitals are folded per subject taking the **most recent non-null value per field** (staff write one
+      dated row per visit, so `records[0]` alone would blank earlier fields). Payment/appointment status
+      use the human labels. Both the CSV download and the dashboard Excel export now call the same
+      builder, so they are byte-identical.
+- [x] **Profile** — vitals History list removed; Sugar + Blood Group tiles kept.
+- **Cascade cleanup:** `clinicalRows` / `exportClinicalToCSV` / `ClinicalRecordWithNames` deleted;
+      `useAllClinicalRecords` dropped its 3-way name join (nothing consumed it once the medical sheet
+      went); `useAllBookings` gained `relationship / age / contact_phone` on the dependent embed and
+      `age` on the account embed.
+
+### Re-check pass (same day) — 4 issues found and fixed
+- **`0007_physio_price.sql` was written empty** (0 bytes of SQL). Rewritten + content verified. *Lesson:
+  read back any generated file that nothing else compiles or imports — `tsc` can't catch an empty .sql.*
+- **`install_all.sql` upsert didn't retire the old catalog.** As a repair script it would have left the
+  original 6 placeholder services active alongside the new 4. Now does `set active = false` first,
+  matching 0006.
+- **Profile tiles could blank a known value.** With History gone, `records[0]` was the only source — a
+  visit that recorded sugar but not blood group hid a blood group captured earlier. `VitalsView` now
+  reads the most recent **non-null value per field**, same rule as the live sheet.
+- **Dashboard fetched the whole vitals ledger on every load** just to arm the Export button. Now
+  `useAllClinicalRecords(false)` + `refetch()` on click (verified in query-core: `refetch()` calls
+  `fetch()` with no `enabled` gate). Also fixed the patient empty state, which said "No appointments
+  yet" to someone whose visits were merely finished.
+
 ## Context handoff
-Build complete and compiling. **R3.4 admin email alert removed (user, 2026-07-21):** deleted the
-`notify-admin` edge fn + `supabase/webhooks.sql`, the `[functions.notify-admin]` config block, all
-email/webhook env vars in `.env.example`, and the `ADMIN_ALERT_EMAIL` / `EMAIL_SEND_FAILED` constants;
-README/SETUP updated. Admin now reviews the uploaded proof + clears payment from the dashboard.
-To run: follow README (supabase start → db reset → frontend npm run dev). Confirm the founding-admin
-phone in `supabase/seed.sql`. Open GO items (GO-1 prices, GO-4/5/6/7) still have documented defaults —
-confirm before production.
+Client-feedback round (2026-07-24) is implemented — `tsc --noEmit` 0 errors and the web bundle exports
+green. **Two things need the user's machine:**
+1. Apply `supabase/migrations/0006` (if never run) **and** `0007_physio_price.sql`, or `supabase db reset`.
+   Verify: `select name, price_per_day from services where active` → Physio Therapy = 1500.
+2. Runtime click-through (no Docker/Postgres in the build env): the merged live sheet + CSV/Excel,
+   the admin **Complete** action → booking leaves the patient list and reappears as *Last appointment*,
+   and the dependent rows in admin Patient search.
+
+Earlier context still current: **R3.4 admin email alert removed (2026-07-21)** — the `notify-admin`
+edge fn, `supabase/webhooks.sql`, its config block, all email/webhook env vars and the
+`ADMIN_ALERT_EMAIL` / `EMAIL_SEND_FAILED` constants are deleted; the admin reviews the uploaded proof
+and clears payment from the dashboard instead. To run: follow README (supabase start → db reset →
+`npm run start` in `mobile/`). Confirm the founding-admin phone in `supabase/seed.sql`.
+GO-1 is now settled for Physio (₹1,500); GO-4/5/6/7 still carry documented defaults — confirm before
+production. Known non-blocker: `AdminPatientProfileScreen` has one dead `Card` import (pre-existing,
+left alone under the minimal-impact rule).

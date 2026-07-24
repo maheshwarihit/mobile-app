@@ -17,6 +17,7 @@ export const qk = {
   services: ["services"] as const,
   profile: ["profile"] as const,
   familyMembers: ["family_members"] as const,
+  familyMembersAll: ["family_members", "__all__"] as const,
   familyMembersByAccount: (accountId: string) => ["family_members", accountId] as const,
   bookings: (scope: "mine" | "all") => ["bookings", scope] as const,
   booking: (id: string) => ["booking", id] as const,

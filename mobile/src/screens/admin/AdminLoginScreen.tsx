@@ -40,8 +40,7 @@ export function AdminLoginScreen({ navigation }: AuthScreenProps<"AdminLogin">) 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
         <ScrollView contentContainerClassName="p-5" keyboardShouldPersistTaps="handled">
           <Text className="mb-5 text-sm text-gray-600">
-            Manage appointments, verify payments, edit patient records, and export data. Same phone + OTP as
-            patients — your account's role decides what you see next.
+            Together, we manage care, support people, and create a healthier future
           </Text>
           <View className="gap-4 rounded-2xl border border-gray-100 bg-white p-6">
             {err ? <ErrorBanner message={err} /> : null}

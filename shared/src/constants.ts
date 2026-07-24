@@ -90,10 +90,10 @@ export const SIGNED_URL_TTL_SECONDS = 300; // 5 min
 export const PAYMENT_QR_BUCKET = "payment-qr"; // public bucket (see migration 0005)
 export const PAYMENT_QR_OBJECT = "upi.png"; // single fixed object, upserted on upload
 
-// ── Seed catalog — confirmed 4-service catalog (mirror of supabase/seed.sql + 0006) ──
+// ── Seed catalog — confirmed 4-service catalog (mirror of supabase/seed.sql + 0006/0007) ──
 export const SEED_SERVICES = [
   { name: "Nutrition", price_per_day: 800, description: "Diet adherence (supported by strategic meal provider partnerships)." },
-  { name: "Physio Therapy", price_per_day: 1200, description: "Exercise completion, mobility scores." },
+  { name: "Physio Therapy", price_per_day: 1500, description: "Exercise completion, mobility scores." },
   { name: "Para-Medical", price_per_day: 800, description: "Vitals tracking (BP, Sugar, SpO2) and medication compliance." },
   { name: "Mental Wellbeing", price_per_day: 800, description: "Mood scores and social engagement tracking." },
 ] as const;

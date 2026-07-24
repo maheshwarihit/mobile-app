@@ -107,13 +107,13 @@ export interface ClinicalRecord {
 
 // ── Convenience view types (joins the UI builds client-side) ─────
 export interface BookingWithNames extends Booking {
-  account?: Pick<Profile, "full_name" | "phone">;
+  account?: Pick<Profile, "full_name" | "phone" | "age">;
   subject_name?: string; // account holder or dependent name
+  // Subject facts resolved from the dependent row, falling back to the account
+  // holder's profile when the booking is for the account holder themselves.
+  subject_relationship?: Relationship | "self";
+  subject_age?: number | null;
+  subject_phone?: string | null;
 }
 
-// clinical record + joined subject/recorder names (admin live sheet)
-export interface ClinicalRecordWithNames extends ClinicalRecord {
-  subject_name?: string; // account holder or dependent the vitals belong to
-  recorded_by_name?: string; // staff/admin who recorded it
-}
 

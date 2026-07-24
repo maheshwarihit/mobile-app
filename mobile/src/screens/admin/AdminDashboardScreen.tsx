@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, FlatList } from "react-native";
 import { toast } from "sonner-native";
-import { Lock, Users, FileSpreadsheet, Download, FileSearch, Activity, CalendarCheck, CalendarDays, QrCode, FileImage } from "lucide-react-native";
+import { Lock, Users, FileSpreadsheet, Download, FileSearch, Activity, CalendarCheck, CalendarDays, QrCode, FileImage, CheckCircle2 } from "lucide-react-native";
 import { AdminScreen } from "@/components/admin/AdminScreen";
 import { AppointmentCalendar } from "@/components/admin/AppointmentCalendar";
-import { FormInput, Card, Pill, OutlineButton, LoadingState, EmptyState, ErrorBanner } from "@/components/ui";
+import { FormInput, Card, Pill, OutlineButton, LoadingState, EmptyState, ErrorBanner, ConfirmModal } from "@/components/ui";
 import { BRAND } from "@/theme";
 import { useAuth } from "@/providers/AuthProvider";
 import { PaymentReviewModal } from "@/components/feature/PaymentReviewModal";
@@ -12,9 +12,12 @@ import { VitalsModal, type VitalsSubject } from "@/components/feature/VitalsModa
 import { exportAppointmentsToExcel } from "@/lib/export";
 import {
   useAllBookings,
+  useAllClinicalRecords,
+  useCompleteBooking,
   money,
   formatDate,
   PAYMENT_STATUS_META,
+  BOOKING_STATUS_META,
   PARA_MEDICAL_SERVICE,
   type BookingWithNames,
 } from "@vagewell/shared";
@@ -23,6 +26,9 @@ import type { AdminScreenProps } from "@/navigation/types";
 export function AdminDashboardScreen({ navigation }: AdminScreenProps<"AdminDashboard">) {
   const { signOut } = useAuth();
   const { data: bookings, isLoading, error } = useAllBookings(true);
+  // Vitals ride along in the export so it stays identical to the live sheet, but
+  // this screen never renders them — fetch on demand rather than on every load.
+  const clinical = useAllClinicalRecords(false);
   const [query, setQuery] = useState("");
   const [day, setDay] = useState<string | null>(null);
   const [selected, setSelected] = useState<BookingWithNames | null>(null);
@@ -54,7 +60,8 @@ export function AdminDashboardScreen({ navigation }: AdminScreenProps<"AdminDash
   const doExport = async () => {
     setExporting(true);
     try {
-      await exportAppointmentsToExcel(all);
+      const { data: vitals } = await clinical.refetch();
+      await exportAppointmentsToExcel(all, vitals ?? []);
     } catch {
       toast.error("Could not export. Please try again.");
     }
@@ -155,23 +162,36 @@ function AdminBookingCard({
   onVitals: () => void;
 }) {
   const m = PAYMENT_STATUS_META[booking.payment_status];
+  const status = BOOKING_STATUS_META[booking.booking_status];
+  const complete = useCompleteBooking();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // Vitals are only recorded for Para-Medical patients (vitals-tracking service).
   const showVitals = booking.service_name === PARA_MEDICAL_SERVICE;
+  const isOpen = booking.booking_status === "open";
   return (
     <Card className="p-4">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
           <Text className="text-base font-semibold text-gray-900">{booking.service_name}</Text>
           <Text className="text-xs text-gray-500">
-            {booking.account?.full_name ?? "—"} · for {booking.subject_name ?? "—"}
+            {booking.account?.full_name ?? "—"} Patient{" "}
+            <Text className="font-medium text-purple-600">{booking.subject_name ?? "—"}</Text>
           </Text>
           <Text className="mt-1 text-sm text-gray-600">
             {formatDate(booking.start_date)} · {money(booking.total_amount)}
           </Text>
         </View>
-        <Pill bgClass={m.bg} textClass={m.text}>
-          {m.label}
-        </Pill>
+        <View className="items-end gap-1">
+          <Pill bgClass={m.bg} textClass={m.text}>
+            {m.label}
+          </Pill>
+          {/* Once closed/cancelled the actions disappear — show why. */}
+          {!isOpen ? (
+            <Pill bgClass={status.bg} textClass={status.text}>
+              {status.label}
+            </Pill>
+          ) : null}
+        </View>
       </View>
       <View className="mt-3 flex-row gap-5 border-t border-gray-100 pt-3">
         <Pressable onPress={onReview} className="flex-row items-center gap-1 active:opacity-70">
@@ -184,7 +204,34 @@ function AdminBookingCard({
             <Text className="text-sm font-medium text-gray-600">Vitals</Text>
           </Pressable>
         ) : null}
+        {isOpen ? (
+          <Pressable
+            onPress={() => setConfirmOpen(true)}
+            disabled={complete.isPending}
+            className="flex-row items-center gap-1 active:opacity-70"
+          >
+            <CheckCircle2 size={14} color="#047857" />
+            <Text className="text-sm font-medium text-emerald-700">Complete</Text>
+          </Pressable>
+        ) : null}
       </View>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title="Mark appointment complete?"
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          complete.mutate(booking.id);
+          setConfirmOpen(false);
+        }}
+        confirmLabel="Mark complete"
+        cancelLabel="Not yet"
+      >
+        <Text className="text-sm text-gray-600">
+          This closes the {booking.service_name} visit on {formatDate(booking.start_date)}. It will move out of
+          the patient's active appointments.
+        </Text>
+      </ConfirmModal>
     </Card>
   );
 }

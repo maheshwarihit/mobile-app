@@ -3,6 +3,7 @@ export * from "./Input";
 export * from "./SelectSheet";
 export * from "./DateField";
 export * from "./ImagePickerField";
+export * from "./BrandLogo";
 export * from "./Card";
 export * from "./Pill";
 export * from "./Banner";

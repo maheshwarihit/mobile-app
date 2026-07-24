@@ -29,6 +29,29 @@ export function useCancelBooking() {
   });
 }
 
+/**
+ * Staff/admin closes out a finished visit (open → closed). The DB update guard
+ * already permits this transition for staff only; patients can only cancel.
+ * Closing removes the booking from the patient's active list.
+ */
+export function useCompleteBooking() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await getSupabase()
+        .from("bookings")
+        .update({ booking_status: "closed" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.bookings("mine"), qk.bookings("all")]);
+      toast.success("Appointment marked complete");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 export function useVerifyPayment() {
   const invalidate = useInvalidate();
   return useMutation({

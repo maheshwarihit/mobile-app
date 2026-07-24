@@ -2,8 +2,9 @@ import { useState } from "react";
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
-import { ArrowLeft, HeartPulse } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import {
+  BrandLogo,
   FormInput,
   SelectSheet,
   TextareaInput,
@@ -137,13 +138,11 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
         <ScrollView contentContainerClassName="flex-grow justify-center px-6 py-8" keyboardShouldPersistTaps="handled">
           <View className="mb-6 items-center">
-            <View className="mb-3 h-12 w-12 items-center justify-center rounded-xl bg-purple-600">
-              <HeartPulse size={24} color="#fff" />
+            <View className="mb-3">
+              <BrandLogo size={56} />
             </View>
             <Text className="text-2xl font-bold text-gray-900">Create your account</Text>
-            <Text className="mt-1 text-center text-sm text-gray-600">
-              A verification code will confirm your number.
-            </Text>
+            <Text className="mt-1 text-center text-sm text-gray-600">Your Care Journey Starts Here</Text>
           </View>
 
           <View className="rounded-2xl border border-gray-100 bg-white p-6">
@@ -153,7 +152,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
                   label="Full Name"
                   value={form.full_name}
                   onChangeText={set("full_name")}
-                  placeholder="e.g. Anitha Kumar"
+                  placeholder="Name"
                   error={errors.full_name}
                   autoCapitalize="words"
                   required
@@ -168,7 +167,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
                   required
                 />
                 <FormInput
-                  label="Age (optional)"
+                  label="Age"
                   value={form.age}
                   onChangeText={set("age")}
                   placeholder="Age"

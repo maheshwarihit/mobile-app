@@ -25,7 +25,6 @@ import {
   useDeleteDependent,
   profileSchema,
   formatDate,
-  formatLocalDateTime,
   localPhone,
   GENDERS,
   GENDER_LABELS,
@@ -245,10 +244,14 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function VitalsView({ records }: { records: ClinicalRecord[] }) {
-  // Patient panel shows only Sugar (blood glucose) + Blood Group. Drop rows that
-  // carry neither so the history has no empty "Record" lines.
-  const meaningful = records.filter((r) => r.blood_glucose != null || !!r.blood_group);
-  if (meaningful.length === 0) {
+  // Patient panel shows only Sugar (blood glucose) + Blood Group.
+  // `records` is ordered recorded_at desc and each visit is saved as its own
+  // dated row carrying only the fields staff filled in — so read the most recent
+  // NON-NULL value per field. Taking records[0] wholesale would blank out a blood
+  // group captured on an earlier visit (there is no History list to fall back on).
+  const sugar = records.find((r) => r.blood_glucose != null)?.blood_glucose ?? null;
+  const bloodGroup = records.find((r) => !!r.blood_group)?.blood_group ?? null;
+  if (sugar == null && bloodGroup == null) {
     return (
       <EmptyState
         icon={Activity}
@@ -257,39 +260,19 @@ function VitalsView({ records }: { records: ClinicalRecord[] }) {
       />
     );
   }
-  const latest = meaningful[0];
   const tiles = [
-    { label: "Sugar", value: latest.blood_glucose?.toString() ?? "—", unit: "mg/dL" },
-    { label: "Blood Group", value: latest.blood_group ?? "—", unit: "" },
+    { label: "Sugar", value: sugar?.toString() ?? "—", unit: "mg/dL" },
+    { label: "Blood Group", value: bloodGroup ?? "—", unit: "" },
   ];
   return (
-    <View>
-      <View className="flex-row flex-wrap gap-3">
-        {tiles.map((t) => (
-          <View key={t.label} className="min-w-[45%] flex-1 items-center rounded-xl border border-gray-100 bg-white p-3">
-            <Text className="text-lg font-bold text-gray-900">{t.value}</Text>
-            <Text className="text-[10px] text-gray-400">{t.unit}</Text>
-            <Text className="mt-1 text-[11px] font-medium text-gray-500">{t.label}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View className="mt-5">
-        <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">History</Text>
-        <View className="gap-2">
-          {meaningful.map((r) => {
-            const parts: string[] = [];
-            if (r.blood_glucose != null) parts.push(`Sugar ${r.blood_glucose}`);
-            if (r.blood_group) parts.push(r.blood_group);
-            return (
-              <View key={r.id} className="flex-row items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-                <Text className="flex-1 text-sm text-gray-600">{parts.join(" · ")}</Text>
-                <Text className="text-xs text-gray-400">{formatLocalDateTime(r.recorded_at)}</Text>
-              </View>
-            );
-          })}
+    <View className="flex-row flex-wrap gap-3">
+      {tiles.map((t) => (
+        <View key={t.label} className="min-w-[45%] flex-1 items-center rounded-xl border border-gray-100 bg-white p-3">
+          <Text className="text-lg font-bold text-gray-900">{t.value}</Text>
+          <Text className="text-[10px] text-gray-400">{t.unit}</Text>
+          <Text className="mt-1 text-[11px] font-medium text-gray-500">{t.label}</Text>
         </View>
-      </View>
+      ))}
     </View>
   );
 }

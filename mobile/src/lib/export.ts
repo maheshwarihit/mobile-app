@@ -5,48 +5,99 @@ import * as Sharing from "expo-sharing";
 import {
   formatDate,
   formatSlot,
-  formatLocalDateTime,
+  PAYMENT_STATUS_META,
+  BOOKING_STATUS_META,
   type BookingWithNames,
-  type ClinicalRecordWithNames,
+  type ClinicalRecord,
 } from "@vagewell/shared";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const CSV_MIME = "text/csv";
 
-/** Canonical appointment export rows (single source for Excel + CSV + live sheet). */
-export function appointmentRows(rows: BookingWithNames[]) {
-  return rows.map((b) => ({
-    "Booking ID": b.id,
-    "Account Holder": b.account?.full_name ?? "",
-    Phone: b.account?.phone ?? "",
-    "Care For": b.subject_name ?? "",
-    Service: b.service_name,
-    "Start Date": formatDate(b.start_date),
-    Time: formatSlot(b.time_slot),
-    Days: b.num_days,
-    "Price/Day (INR)": b.price_per_day,
-    "Total (INR)": b.total_amount,
-    "Payment Method": b.payment_method,
-    "Payment Status": b.payment_status,
-    "Booking Status": b.booking_status,
-    "Symptom Brief": b.symptom_brief ?? "",
-    Created: b.created_at,
-  }));
+/** The vitals a booking row carries inline, coalesced across a subject's records. */
+type Vitals = {
+  systolic: number | null;
+  diastolic: number | null;
+  blood_glucose: number | null;
+  blood_group: string | null;
+  medical_conditions: string | null;
+};
+
+const EMPTY_VITALS: Vitals = {
+  systolic: null,
+  diastolic: null,
+  blood_glucose: null,
+  blood_group: null,
+  medical_conditions: null,
+};
+
+/** Map key for a clinical subject — account holder (`p:`) or dependent (`f:`). */
+function subjectKey(profileId: string | null, familyMemberId: string | null): string | null {
+  if (familyMemberId) return `f:${familyMemberId}`;
+  if (profileId) return `p:${profileId}`;
+  return null;
 }
 
-/** Canonical medical-record export rows (admin live sheet + CSV). */
-export function clinicalRows(rows: ClinicalRecordWithNames[]) {
-  return rows.map((r) => ({
-    Patient: r.subject_name ?? "",
-    "Recorded By": r.recorded_by_name ?? "",
-    BP: r.systolic && r.diastolic ? `${r.systolic}/${r.diastolic}` : "",
-    "Glucose (mg/dL)": r.blood_glucose ?? "",
-    "SpO2 (%)": r.spo2 ?? "",
-    "Blood Group": r.blood_group ?? "",
-    Conditions: r.medical_conditions ?? "",
-    Note: r.note ?? "",
-    "Recorded At": formatLocalDateTime(r.recorded_at),
-  }));
+/**
+ * Fold the vitals ledger into one row per subject.
+ *
+ * Staff save each visit as a NEW dated clinical_records row containing only the
+ * fields they filled in, so the newest row alone would blank out a blood group
+ * captured on an earlier visit. Take the most recent NON-NULL value per field
+ * instead. `records` arrives ordered recorded_at desc, so the first non-null
+ * value seen for a field is the most recent one.
+ */
+function latestVitalsBySubject(records: ClinicalRecord[]): Map<string, Vitals> {
+  const out = new Map<string, Vitals>();
+  for (const r of records) {
+    const key = subjectKey(r.profile_id, r.family_member_id);
+    if (!key) continue;
+    const v = out.get(key) ?? { ...EMPTY_VITALS };
+    if (v.systolic == null && r.systolic != null) v.systolic = r.systolic;
+    if (v.diastolic == null && r.diastolic != null) v.diastolic = r.diastolic;
+    if (v.blood_glucose == null && r.blood_glucose != null) v.blood_glucose = r.blood_glucose;
+    if (v.blood_group == null && r.blood_group) v.blood_group = r.blood_group;
+    if (v.medical_conditions == null && r.medical_conditions) v.medical_conditions = r.medical_conditions;
+    out.set(key, v);
+  }
+  return out;
+}
+
+/**
+ * Canonical appointment rows — the single source for the admin live sheet, the
+ * CSV download and the Excel export. One sheet carries the booking, the patient
+ * and their vitals (there is no separate medical-records sheet).
+ */
+export function liveSheetRows(bookings: BookingWithNames[], clinical: ClinicalRecord[]) {
+  const vitals = latestVitalsBySubject(clinical);
+  return bookings.map((b) => {
+    const key = subjectKey(b.family_member_id ? null : b.account_id, b.family_member_id);
+    const v = (key && vitals.get(key)) || EMPTY_VITALS;
+    const relationship = b.subject_relationship ?? "self";
+    return {
+      "Account Holder": b.account?.full_name ?? "",
+      "Account Phone": b.account?.phone ?? "",
+      "Appointment For": b.subject_name ?? "",
+      Relation: relationship === "self" ? "Self" : relationship[0].toUpperCase() + relationship.slice(1),
+      "Patient Number": b.subject_phone ?? "",
+      Age: b.subject_age ?? "",
+      "Blood Pressure": v.systolic != null && v.diastolic != null ? `${v.systolic}/${v.diastolic}` : "",
+      "Sugar Level": v.blood_glucose ?? "",
+      "Blood Group": v.blood_group ?? "",
+      "Other Conditions": v.medical_conditions ?? "",
+      Service: b.service_name,
+      Days: b.num_days,
+      "Price/Day (INR)": b.price_per_day,
+      "Total (INR)": b.total_amount,
+      "Date/Time": `${formatDate(b.start_date)} · ${formatSlot(b.time_slot)}`,
+      "Payment Method": b.payment_method,
+      "Payment Status": PAYMENT_STATUS_META[b.payment_status].label,
+      "Appointment Status": BOOKING_STATUS_META[b.booking_status].label,
+      "Booking ID": b.id,
+      "Symptom Brief": b.symptom_brief ?? "",
+      Created: b.created_at,
+    };
+  });
 }
 
 /**
@@ -95,16 +146,17 @@ async function downloadSheet(
 }
 
 /** Client-side Excel export (staff/admin "Export"). */
-export async function exportAppointmentsToExcel(rows: BookingWithNames[]): Promise<void> {
-  await downloadSheet(appointmentRows(rows), "xlsx", "Appointments", "vagewell-appointments");
+export async function exportAppointmentsToExcel(
+  rows: BookingWithNames[],
+  clinical: ClinicalRecord[]
+): Promise<void> {
+  await downloadSheet(liveSheetRows(rows, clinical), "xlsx", "Appointments", "vagewell-appointments");
 }
 
 /** Client-side CSV export (admin live sheet "Download as CSV"). */
-export async function exportAppointmentsToCSV(rows: BookingWithNames[]): Promise<void> {
-  await downloadSheet(appointmentRows(rows), "csv", "Appointments", "vagewell-appointments");
-}
-
-/** Client-side CSV export of medical records (admin live sheet). */
-export async function exportClinicalToCSV(rows: ClinicalRecordWithNames[]): Promise<void> {
-  await downloadSheet(clinicalRows(rows), "csv", "Medical Records", "vagewell-medical-records");
+export async function exportAppointmentsToCSV(
+  rows: BookingWithNames[],
+  clinical: ClinicalRecord[]
+): Promise<void> {
+  await downloadSheet(liveSheetRows(rows, clinical), "csv", "Appointments", "vagewell-appointments");
 }

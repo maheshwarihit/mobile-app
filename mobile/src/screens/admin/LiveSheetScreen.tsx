@@ -1,71 +1,50 @@
 import { useState } from "react";
 import { View, Text, ScrollView } from "react-native";
 import { toast } from "sonner-native";
-import { Download, FileSpreadsheet, Activity } from "lucide-react-native";
+import { Download, FileSpreadsheet } from "lucide-react-native";
 import { AdminScreen } from "@/components/admin/AdminScreen";
-import { OutlineButton, LoadingState, EmptyState, ChoiceChips } from "@/components/ui";
+import { OutlineButton, LoadingState, EmptyState } from "@/components/ui";
 import { useAllBookings, useAllClinicalRecords } from "@vagewell/shared";
-import {
-  appointmentRows,
-  clinicalRows,
-  exportAppointmentsToCSV,
-  exportClinicalToCSV,
-} from "@/lib/export";
+import { liveSheetRows, exportAppointmentsToCSV } from "@/lib/export";
 import type { AdminScreenProps } from "@/navigation/types";
 
-type Mode = "appointments" | "clinical";
-
-const APPT_COLUMNS: { key: string; width: number }[] = [
-  { key: "Booking ID", width: 230 },
+// One sheet, booking + patient + vitals. Keys must match liveSheetRows() exactly.
+const COLUMNS: { key: string; width: number }[] = [
   { key: "Account Holder", width: 140 },
-  { key: "Phone", width: 120 },
-  { key: "Care For", width: 140 },
+  { key: "Account Phone", width: 120 },
+  { key: "Appointment For", width: 140 },
+  { key: "Relation", width: 100 },
+  { key: "Patient Number", width: 120 },
+  { key: "Age", width: 55 },
+  { key: "Blood Pressure", width: 110 },
+  { key: "Sugar Level", width: 100 },
+  { key: "Blood Group", width: 100 },
+  { key: "Other Conditions", width: 200 },
   { key: "Service", width: 150 },
-  { key: "Start Date", width: 110 },
-  { key: "Time", width: 90 },
   { key: "Days", width: 55 },
   { key: "Price/Day (INR)", width: 110 },
   { key: "Total (INR)", width: 100 },
+  { key: "Date/Time", width: 180 },
   { key: "Payment Method", width: 120 },
   { key: "Payment Status", width: 160 },
-  { key: "Booking Status", width: 120 },
+  { key: "Appointment Status", width: 140 },
+  { key: "Booking ID", width: 230 },
   { key: "Symptom Brief", width: 220 },
   { key: "Created", width: 210 },
 ];
 
-const CLINICAL_COLUMNS: { key: string; width: number }[] = [
-  { key: "Patient", width: 150 },
-  { key: "Recorded By", width: 150 },
-  { key: "BP", width: 90 },
-  { key: "Glucose (mg/dL)", width: 120 },
-  { key: "SpO2 (%)", width: 90 },
-  { key: "Blood Group", width: 100 },
-  { key: "Conditions", width: 200 },
-  { key: "Note", width: 200 },
-  { key: "Recorded At", width: 190 },
-];
-
-const MODE_OPTIONS = [
-  { value: "appointments", label: "Appointments" },
-  { value: "clinical", label: "Medical records" },
-];
-
 export function LiveSheetScreen({ navigation }: AdminScreenProps<"LiveSheet">) {
-  const [mode, setMode] = useState<Mode>("appointments");
   const [exporting, setExporting] = useState(false);
   const { data: bookings, isLoading: bookingsLoading } = useAllBookings(true);
   const { data: clinical, isLoading: clinicalLoading } = useAllClinicalRecords(true);
 
-  const isClinical = mode === "clinical";
-  const columns = isClinical ? CLINICAL_COLUMNS : APPT_COLUMNS;
-  const rows = isClinical ? clinicalRows(clinical ?? []) : appointmentRows(bookings ?? []);
-  const isLoading = isClinical ? clinicalLoading : bookingsLoading;
+  const isLoading = bookingsLoading || clinicalLoading;
+  const rows = liveSheetRows(bookings ?? [], clinical ?? []);
 
   const doCsv = async () => {
     setExporting(true);
     try {
-      if (isClinical) await exportClinicalToCSV(clinical ?? []);
-      else await exportAppointmentsToCSV(bookings ?? []);
+      await exportAppointmentsToCSV(bookings ?? [], clinical ?? []);
     } catch {
       toast.error("Could not export CSV.");
     }
@@ -75,28 +54,22 @@ export function LiveSheetScreen({ navigation }: AdminScreenProps<"LiveSheet">) {
   return (
     <AdminScreen title="Live sheet" onBack={() => navigation.goBack()}>
       <View className="flex-1 p-4">
-        <View className="mb-3">
-          <ChoiceChips value={mode} onChange={(v) => setMode(v as Mode)} options={MODE_OPTIONS} />
-        </View>
         <Text className="mb-3 text-xs text-gray-500">
-          Always up to date — the same data as the CSV export. Scroll sideways to see every column.
+          Every appointment with the patient's details and latest vitals — the same data as the CSV export.
+          Scroll sideways to see every column.
         </Text>
 
         {isLoading ? (
           <LoadingState message="Loading…" />
         ) : rows.length === 0 ? (
-          isClinical ? (
-            <EmptyState icon={Activity} title="No medical records" description="Vitals recorded by staff appear here." />
-          ) : (
-            <EmptyState icon={FileSpreadsheet} title="No appointments" description="Bookings appear here." />
-          )
+          <EmptyState icon={FileSpreadsheet} title="No appointments" description="Bookings appear here." />
         ) : (
           <View className="flex-1 rounded-lg border border-gray-200 bg-white">
             <ScrollView horizontal>
               <View>
                 {/* header */}
                 <View className="flex-row border-b border-gray-200 bg-gray-50">
-                  {columns.map((c) => (
+                  {COLUMNS.map((c) => (
                     <Text
                       key={c.key}
                       style={{ width: c.width }}
@@ -110,7 +83,7 @@ export function LiveSheetScreen({ navigation }: AdminScreenProps<"LiveSheet">) {
                 <ScrollView>
                   {rows.map((row, i) => (
                     <View key={i} className={`flex-row ${i % 2 ? "bg-gray-50" : "bg-white"}`}>
-                      {columns.map((c) => (
+                      {COLUMNS.map((c) => (
                         <Text
                           key={c.key}
                           style={{ width: c.width }}
