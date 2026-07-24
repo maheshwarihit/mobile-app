@@ -1,5 +1,5 @@
-import { View, Text } from "react-native";
-import type { LucideIcon } from "lucide-react-native";
+import { View, Text, Pressable } from "react-native";
+import { ChevronLeft, type LucideIcon } from "lucide-react-native";
 import { BRAND } from "@/theme";
 
 const cardShadow = { elevation: 1, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } };
@@ -45,10 +45,29 @@ export function SectionCard({
   );
 }
 
-/** Page header with title, subtitle, and optional action node */
-export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
+/**
+ * Page header with title, subtitle, optional back chevron and optional action node.
+ * The patient tabs run with `headerShown: false`, so `onBack` is the only back
+ * affordance on pushed screens (mirrors AdminHeader's chevron).
+ */
+export function PageHeader({
+  title,
+  subtitle,
+  action,
+  onBack,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  onBack?: () => void;
+}) {
   return (
     <View className="mb-5 flex-row items-start justify-between">
+      {onBack ? (
+        <Pressable onPress={onBack} hitSlop={8} className="mr-2 mt-1 active:opacity-70">
+          <ChevronLeft size={22} color={BRAND} />
+        </Pressable>
+      ) : null}
       <View className="flex-1">
         <Text className="text-2xl font-bold text-gray-900">{title}</Text>
         {subtitle ? <Text className="mt-1 text-sm text-gray-500">{subtitle}</Text> : null}

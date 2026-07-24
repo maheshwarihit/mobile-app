@@ -106,7 +106,11 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
         <ScrollView contentContainerClassName="px-5 pt-4 pb-8" keyboardShouldPersistTaps="handled">
-          <PageHeader title="Book an Appointment" subtitle="Request Personalized Care" />
+          <PageHeader
+            title="Book an Appointment"
+            subtitle="Request Personalized Care"
+            onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+          />
 
           {!profileComplete ? (
             <View className="mb-4">

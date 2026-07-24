@@ -146,14 +146,64 @@ on the user's Supabase.**
   `fetch()` with no `enabled` gate). Also fixed the patient empty state, which said "No appointments
   yet" to someone whose visits were merely finished.
 
+## Change round — client feedback Doc2.pdf (user, 2026-07-24)
+Six notes on admin dashboard / patient Appointments / live sheet. Verified `tsc --noEmit` (0 errors)
+and `expo export --platform web` (bundle green). **`0008` migration pending on the user's Supabase.**
+- [x] **Cancelled bookings are out of the payment workflow.** `AdminBookingCard` drops the **Review**
+      action and the payment pill when `booking_status === 'cancelled'` (a cancelled visit showing
+      "Pay at Visit" was the client's complaint); the divider row is skipped when no actions remain.
+      `PaymentReviewModal` renders read-only for a cancelled booking — the proof image stays, the
+      Reject / Mark Paid pair becomes a notice + Close. That matters because the modal is *also*
+      opened from `AdminPaymentProofsScreen`, so gating the card alone left a second path.
+      New `supabase/migrations/0008_cancelled_payment_guard.sql` closes the same hole in the DB:
+      0002's `verify_payment` / `reject_payment` gated on `payment_status` only, so a cancelled
+      booking could still be settled. Mirrored into `install_all.sql`. `create or replace` preserves
+      the 0002 ACLs, so the revoke/grant block is not repeated.
+- [x] **Dashboard ordered by appointment date desc** — `useAllBookings` ordered `created_at desc`
+      while every card/sheet row renders `start_date`, so the visible dates looked unsorted. Now
+      `.order(start_date desc).order(created_at desc)`. Intentional cascade: payment proofs, live
+      sheet and both exports are newest-appointment-first too.
+- [x] **Dashboard search covers services** — `filtered` also matches `service_name`; label is now
+      "Search by patient or service".
+- [x] **Last appointment = completed only** — `DashboardScreen` took every non-open booking, so a
+      *cancelled* one could headline "Last appointment". Narrowed to `booking_status === 'closed'`;
+      cancelled bookings now leave the patient's tab entirely (confirmed with the user). Empty state
+      keys off `hasAny` rather than `last`, so anyone who has ever booked reads "No upcoming".
+- [x] **Back control between Appointment and Payment** — the patient tabs run `headerShown: false`
+      and `PageHeader` had no back slot, so Payment was a dead end on web/PWA and iOS. `PageHeader`
+      gained an optional `onBack` (ChevronLeft, mirrors `AdminHeader`); wired on Payment and, for the
+      same dead end, Appointment. **Payment suppresses it while `busy` and once `createdId` is set** —
+      the booking row already exists at that point (insert OK, proof upload failed), and a second pass
+      through a freshly-mounted PaymentScreen would insert a duplicate.
+- [x] **Live sheet search over all data** — `FormInput` + a "Showing N of M rows" counter; the filter
+      matches each row's whole value set as text, so it covers every column including Booking ID and
+      Symptom Brief. `exportAppointmentsToCSV` couldn't see the filter (it re-derived rows from
+      `bookings`), so it was replaced by `exportRowsToCSV(rows)` taking pre-built rows; the button
+      downloads exactly what's listed and is disabled on an empty result. Dashboard **Export** is
+      untouched and still exports everything.
+- [x] **New logo** — client's Photoroom cutout (395×418, real alpha) replaces `mobile/assets/logo.png`
+      and the repo-root source copy. Because the mark is now transparent, a transparent app icon would
+      render black-backed on iOS, so `app.json` `icon` points at a **new generated
+      `mobile/assets/icon.png`** — 1024×1024, mark centred at 78% on white. That also clears the old
+      "icon is padded/soft" debt. `web.favicon` stays on the transparent `logo.png` (adapts to the tab
+      background). `BrandLogo`'s white chip is kept as a deliberate badge; its comment no longer
+      claims the source has a baked-in white background.
+
 ## Context handoff
-Client-feedback round (2026-07-24) is implemented — `tsc --noEmit` 0 errors and the web bundle exports
-green. **Two things need the user's machine:**
-1. Apply `supabase/migrations/0006` (if never run) **and** `0007_physio_price.sql`, or `supabase db reset`.
-   Verify: `select name, price_per_day from services where active` → Physio Therapy = 1500.
-2. Runtime click-through (no Docker/Postgres in the build env): the merged live sheet + CSV/Excel,
-   the admin **Complete** action → booking leaves the patient list and reappears as *Last appointment*,
-   and the dependent rows in admin Patient search.
+Doc2.pdf feedback round (2026-07-24) is implemented — `tsc --noEmit` 0 errors, web bundle green, the
+new logo + generated icon bundle correctly. **Needs the user's machine:**
+1. Apply `supabase/migrations/0006` (if never run), `0007_physio_price.sql` **and the new
+   `0008_cancelled_payment_guard.sql`** — or `supabase db reset`.
+   Verify: `select name, price_per_day from services where active` → Physio Therapy = 1500; then cancel
+   a booking and call `select verify_payment('<id>')` → must raise *"booking is cancelled"* with
+   `payment_status` unchanged.
+2. Runtime click-through (no Docker/Postgres in the build env): cancelled card shows only the
+   `Cancelled` pill with no Review; dashboard lists newest appointment date first; searching "physio"
+   filters by service; live-sheet search + CSV row count; the back chevron returns from Payment to a
+   still-filled Appointment form; admin **Complete** → booking leaves the patient list and reappears
+   as *Last appointment*, while a cancelled one disappears.
+3. The client's original `WhatsApp Image 2026-07-24 at 14.27.26-Photoroom.png` is still sitting in the
+   repo root — delete it if you don't want the raw drop kept alongside `logo.png`.
 
 Earlier context still current: **R3.4 admin email alert removed (2026-07-21)** — the `notify-admin`
 edge fn, `supabase/webhooks.sql`, its config block, all email/webhook env vars and the

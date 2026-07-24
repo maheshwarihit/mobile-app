@@ -153,10 +153,11 @@ export async function exportAppointmentsToExcel(
   await downloadSheet(liveSheetRows(rows, clinical), "xlsx", "Appointments", "vagewell-appointments");
 }
 
-/** Client-side CSV export (admin live sheet "Download as CSV"). */
-export async function exportAppointmentsToCSV(
-  rows: BookingWithNames[],
-  clinical: ClinicalRecord[]
-): Promise<void> {
-  await downloadSheet(liveSheetRows(rows, clinical), "csv", "Appointments", "vagewell-appointments");
+/**
+ * Client-side CSV export (admin live sheet "Download as CSV"). Takes rows the
+ * caller has already built with liveSheetRows(), so the download matches what the
+ * screen is showing — including the live sheet's search filter.
+ */
+export async function exportRowsToCSV(rows: Record<string, unknown>[]): Promise<void> {
+  await downloadSheet(rows, "csv", "Appointments", "vagewell-appointments");
 }

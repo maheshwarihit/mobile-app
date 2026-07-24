@@ -101,8 +101,19 @@ export function PaymentReviewModal({ booking, onClose }: { booking: BookingWithN
                 </View>
               ) : null}
 
-              <View className="mt-5 flex-row justify-end gap-2">
-                {!showReject ? (
+              {/* A cancelled visit is read-only: the proof stays visible so staff
+                  can see what was uploaded, but there is no payment decision left
+                  to take. Reachable from the Payment proofs screen as well as the
+                  dashboard, so the rule lives here rather than on the caller. */}
+              <View className="mt-5 flex-row items-center justify-end gap-2">
+                {booking.booking_status === "cancelled" ? (
+                  <>
+                    <Text className="flex-1 text-xs text-gray-500">
+                      This booking was cancelled. Payment can no longer be verified.
+                    </Text>
+                    <OutlineButton onPress={onClose}>Close</OutlineButton>
+                  </>
+                ) : !showReject ? (
                   <>
                     <OutlineButton icon={Ban} onPress={() => setShowReject(true)}>
                       Reject

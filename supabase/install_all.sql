@@ -239,12 +239,17 @@ create trigger tg_clinical_before_insert before insert on public.clinical_record
   for each row execute function public.tg_clinical_before_write();
 
 -- ── PAYMENT / ROLE RPCs ─────────────────────────────────────────────────────
+-- Cancelled bookings are out of the payment workflow entirely (mirrors 0008).
 create or replace function public.verify_payment(p_booking uuid) returns void
   language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   if not public.is_staff() then raise exception 'staff only' using errcode = '42501'; end if;
+  if exists (select 1 from public.bookings where id = p_booking and booking_status = 'cancelled') then
+    raise exception 'booking is cancelled — payment cannot be verified' using errcode = 'P0001';
+  end if;
   update public.bookings set payment_status = 'paid', payment_note = null
-   where id = p_booking and payment_status in ('pending_verification','pay_at_visit');
+   where id = p_booking and payment_status in ('pending_verification','pay_at_visit')
+     and booking_status <> 'cancelled';
   if not found then raise exception 'booking not in a verifiable state' using errcode = 'P0001'; end if;
 end; $$;
 
@@ -252,11 +257,15 @@ create or replace function public.reject_payment(p_booking uuid, p_reason text) 
   language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   if not public.is_staff() then raise exception 'staff only' using errcode = '42501'; end if;
+  if exists (select 1 from public.bookings where id = p_booking and booking_status = 'cancelled') then
+    raise exception 'booking is cancelled — payment cannot be rejected' using errcode = 'P0001';
+  end if;
   update public.bookings
      set payment_status = 'pending',
          payment_note = coalesce(nullif(p_reason,''), 'Rejected — please re-upload a valid proof.'),
          payment_proof_path = null
-   where id = p_booking and payment_status = 'pending_verification';
+   where id = p_booking and payment_status = 'pending_verification'
+     and booking_status <> 'cancelled';
   if not found then raise exception 'booking not awaiting verification' using errcode = 'P0001'; end if;
 end; $$;
 

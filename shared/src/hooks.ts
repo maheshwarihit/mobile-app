@@ -116,6 +116,10 @@ export function useAllBookings(enabled: boolean) {
         .select(
           "*, account:profiles!bookings_account_id_fkey(full_name, phone, age), dependent:family_members(full_name, relationship, age, contact_phone)"
         )
+        // Newest appointment first — the date every card and sheet row renders is
+        // start_date, so ordering on created_at made the visible column look
+        // unsorted. created_at only breaks ties within a day.
+        .order("start_date", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((row: Record<string, unknown>) => {

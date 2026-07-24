@@ -155,7 +155,15 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <ScrollView contentContainerClassName="px-5 pt-4 pb-8" keyboardShouldPersistTaps="handled">
-        <PageHeader title="Payment" subtitle="Confirm your booking and payment method." />
+        {/* Back to the appointment form — but only while nothing has been written.
+            Once the insert has succeeded (createdId set, e.g. the proof upload
+            then failed) a second pass through this screen would duplicate the
+            booking, so the way out is the dashboard, not Back. */}
+        <PageHeader
+          title="Payment"
+          subtitle="Confirm your booking and payment method."
+          onBack={busy || createdId ? undefined : () => navigation.goBack()}
+        />
 
         <SectionCard icon={Wallet} title="Booking summary">
           <View className="gap-2">

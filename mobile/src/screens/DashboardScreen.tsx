@@ -27,14 +27,19 @@ export function DashboardScreen() {
 
   const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? "Dependent" : profileName);
 
-  // Completed (closed) and cancelled visits leave the list; the most recent one
-  // is summarised at the bottom so the patient can still see what last happened.
-  const { active, last } = useMemo(() => {
+  // Completed and cancelled visits both leave the active list, but only a
+  // COMPLETED one is summarised at the bottom — "Last appointment" describes a
+  // visit that happened, so a cancelled booking simply disappears from the tab.
+  const { active, last, hasAny } = useMemo(() => {
     const all = bookings ?? [];
-    const finished = all
-      .filter((b) => b.booking_status !== "open")
+    const completed = all
+      .filter((b) => b.booking_status === "closed")
       .sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at));
-    return { active: all.filter((b) => b.booking_status === "open"), last: finished[0] ?? null };
+    return {
+      active: all.filter((b) => b.booking_status === "open"),
+      last: completed[0] ?? null,
+      hasAny: all.length > 0,
+    };
   }, [bookings]);
 
   return (
@@ -53,12 +58,12 @@ export function DashboardScreen() {
           }
           ListEmptyComponent={
             !isLoading ? (
-              // Finished visits are filtered out, so "none yet" would be wrong for
-              // someone whose only bookings are already done or cancelled.
+              // Finished and cancelled visits are filtered out, so "none yet"
+              // would be wrong for anyone who has ever booked.
               <EmptyState
                 icon={CalendarCheck}
-                title={last ? "No upcoming appointments" : "No appointments yet"}
-                description={last ? "Book a service to schedule your next visit." : "Book a service to see it here."}
+                title={hasAny ? "No upcoming appointments" : "No appointments yet"}
+                description={hasAny ? "Book a service to schedule your next visit." : "Book a service to see it here."}
               />
             ) : null
           }

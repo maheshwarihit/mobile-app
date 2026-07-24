@@ -45,7 +45,8 @@ export function AdminDashboardScreen({ navigation }: AdminScreenProps<"AdminDash
       if (!q) return true;
       return (
         (b.subject_name ?? "").toLowerCase().includes(q) ||
-        (b.account?.full_name ?? "").toLowerCase().includes(q)
+        (b.account?.full_name ?? "").toLowerCase().includes(q) ||
+        b.service_name.toLowerCase().includes(q)
       );
     });
   }, [all, query, day]);
@@ -113,7 +114,12 @@ export function AdminDashboardScreen({ navigation }: AdminScreenProps<"AdminDash
               Payment proofs
             </OutlineButton>
 
-            <FormInput label="Search patient by name" value={query} onChangeText={setQuery} placeholder="Type a name…" />
+            <FormInput
+              label="Search by patient or service"
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Name or service…"
+            />
 
             {/* Calendar is collapsed behind a button; tap to open and filter by date. */}
             <Pressable
@@ -168,6 +174,10 @@ function AdminBookingCard({
   // Vitals are only recorded for Para-Medical patients (vitals-tracking service).
   const showVitals = booking.service_name === PARA_MEDICAL_SERVICE;
   const isOpen = booking.booking_status === "open";
+  // A cancelled visit carries no payment decision: no Review (which offers "Mark
+  // Paid") and no payment pill — "Pay at Visit" on a visit that will never happen
+  // is misleading. The DB says the same (0008 guards verify/reject_payment).
+  const isCancelled = booking.booking_status === "cancelled";
   return (
     <Card className="p-4">
       <View className="flex-row items-start justify-between gap-3">
@@ -182,9 +192,11 @@ function AdminBookingCard({
           </Text>
         </View>
         <View className="items-end gap-1">
-          <Pill bgClass={m.bg} textClass={m.text}>
-            {m.label}
-          </Pill>
+          {!isCancelled ? (
+            <Pill bgClass={m.bg} textClass={m.text}>
+              {m.label}
+            </Pill>
+          ) : null}
           {/* Once closed/cancelled the actions disappear — show why. */}
           {!isOpen ? (
             <Pill bgClass={status.bg} textClass={status.text}>
@@ -193,28 +205,34 @@ function AdminBookingCard({
           ) : null}
         </View>
       </View>
-      <View className="mt-3 flex-row gap-5 border-t border-gray-100 pt-3">
-        <Pressable onPress={onReview} className="flex-row items-center gap-1 active:opacity-70">
-          <FileSearch size={14} color={BRAND} />
-          <Text className="text-sm font-medium text-purple-600">Review</Text>
-        </Pressable>
-        {showVitals ? (
-          <Pressable onPress={onVitals} className="flex-row items-center gap-1 active:opacity-70">
-            <Activity size={14} color="#4b5563" />
-            <Text className="text-sm font-medium text-gray-600">Vitals</Text>
-          </Pressable>
-        ) : null}
-        {isOpen ? (
-          <Pressable
-            onPress={() => setConfirmOpen(true)}
-            disabled={complete.isPending}
-            className="flex-row items-center gap-1 active:opacity-70"
-          >
-            <CheckCircle2 size={14} color="#047857" />
-            <Text className="text-sm font-medium text-emerald-700">Complete</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      {/* A cancelled non-Para-Medical booking has no actions left — don't render
+          the divider row for an empty toolbar. */}
+      {!isCancelled || showVitals ? (
+        <View className="mt-3 flex-row gap-5 border-t border-gray-100 pt-3">
+          {!isCancelled ? (
+            <Pressable onPress={onReview} className="flex-row items-center gap-1 active:opacity-70">
+              <FileSearch size={14} color={BRAND} />
+              <Text className="text-sm font-medium text-purple-600">Review</Text>
+            </Pressable>
+          ) : null}
+          {showVitals ? (
+            <Pressable onPress={onVitals} className="flex-row items-center gap-1 active:opacity-70">
+              <Activity size={14} color="#4b5563" />
+              <Text className="text-sm font-medium text-gray-600">Vitals</Text>
+            </Pressable>
+          ) : null}
+          {isOpen ? (
+            <Pressable
+              onPress={() => setConfirmOpen(true)}
+              disabled={complete.isPending}
+              className="flex-row items-center gap-1 active:opacity-70"
+            >
+              <CheckCircle2 size={14} color="#047857" />
+              <Text className="text-sm font-medium text-emerald-700">Complete</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       <ConfirmModal
         open={confirmOpen}

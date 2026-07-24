@@ -1,9 +1,9 @@
 import { View, Image } from "react-native";
 import logo from "../../../assets/logo.png";
 
-// The supplied logo.png is fully opaque with a baked-in white background, so it
-// sits in a white rounded chip — on the cream `authbg` the white reads as a
-// deliberate badge instead of a stray rectangle. Same shadow token as Card.
+// logo.png is a transparent-background mark. The white rounded chip is kept as a
+// deliberate badge — it lifts the mark off the cream `authbg` and keeps the same
+// silhouette as the app icon. Same shadow token as Card.
 const chipShadow = {
   elevation: 1,
   shadowColor: "#000",
