@@ -16,7 +16,7 @@ import {
 } from "@vagewell/shared";
 
 // SCREEN_ID: DASHBOARD — patient "My Appointments" (AppointmentsTab).
-// Staff/admin get the separate AdminNavigator, not this screen.
+// Staff/admin use the separate web portal (web/), not this app.
 export function DashboardScreen() {
   const { profile, user } = useAuth();
   const { data: bookings, isLoading, error } = useMyBookings();

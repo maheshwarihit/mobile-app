@@ -3,11 +3,14 @@
 > (per user direction: build to the requirements file, don't force the org CLAUDE.md ceremony).
 
 ## Architecture (locked)
-- **Supabase-native**, no backend service. Next.js 16 PWA ↔ Supabase (Auth · Postgres+RLS · Storage · Edge Fn).
-- Auth: phone + 6-digit SMS OTP, `auth.uid()`, RLS, 72h session.
+- **Supabase-native**, no backend service. Two separate apps share one Supabase project + one
+  `shared/` data layer: **`mobile/`** (Expo/React Native, patient-only) and **`web/`** (Next.js 16,
+  staff/admin-only). Neither embeds the other's role.
+- Auth: phone + 6-digit SMS OTP, `auth.uid()`, RLS, 72h session — same gateway for both apps; role
+  (read after verify) decides which app a given account is allowed into.
 - Admin booking notification (R3.4): **removed** (user, 2026-07-21). No email / edge fn — the payment
   proof lands in the private `payment-proofs` bucket and the admin reviews & clears it from the dashboard.
-- Excel export: client-side (browser).
+- Excel/CSV export: client-side (browser), same `liveSheetRows()` builder shared by both apps.
 - Roles: `patient` / `staff` / `admin` (spec's `leaf_node` ≡ `staff`).
 
 ## Dropped (not in requirements)
@@ -255,5 +258,50 @@ edge fn, `supabase/webhooks.sql`, its config block, all email/webhook env vars a
 and clears payment from the dashboard instead. To run: follow README (supabase start → db reset →
 `npm run start` in `mobile/`). Confirm the founding-admin phone in `supabase/seed.sql`.
 GO-1 is now settled for Physio (₹1,500); GO-4/5/6/7 still carry documented defaults — confirm before
-production. Known non-blocker: `AdminPatientProfileScreen` has one dead `Card` import (pre-existing,
-left alone under the minimal-impact rule).
+production.
+
+## Change round — split into two apps (user, 2026-07-28)
+User direction: "for customer (patient login) mobile app and staff, leaf node, admin are in the web
+app" — confirmed as a genuine split into two separately deployable codebases (not just a description
+of the existing single app). Verified: `mobile` `tsc --noEmit` 0 errors + `expo export --platform web`
+bundles (2816 modules); `web` `tsc --noEmit` 0 errors, `eslint` 0 errors/warnings, `next build` green
+(11 routes). **No DB migration** — reuses the existing schema/RLS/RPCs as-is; this is a frontend split.
+
+- [x] **New `web/` — Next.js 16 staff/admin portal.** Scaffolded via `create-next-app` (App Router,
+      Tailwind v4, TS). Same Supabase phone+OTP login (`/login` → `/verify`); a patient phone number
+      that lands here is signed back out with a message (RLS is the real boundary — this is UX only,
+      per R3.1). Pages: `/dashboard` (all appointments, search, date filter, export, review/vitals/
+      complete), `/patients` + `/patients/[accountId]` + `.../self` + `.../dependents/[id]`
+      (patient profile, role dropdown, bio+medical edit), `/payment-proofs`, `/payment-qr`, `/live-sheet`.
+      `AppointmentCalendar`'s custom grid was not ported — the web dashboard's date filter is a plain
+      `<input type="date">` instead, functionally equivalent for this scale.
+- [x] **`shared/src/export.ts` (new).** `liveSheetRows()` (+ its vitals-folding helpers) moved out of
+      `mobile/src/lib/export.ts` into `shared/` — it was pure business logic with zero RN dependency,
+      and the web live-sheet/export needed the exact same row-shaping. Each app keeps its own thin
+      `downloadSheet()` (Blob+anchor on web; the existing web/native branches on mobile).
+- [x] **Tailwind brand parity.** `web/src/app/globals.css` mirrors `mobile/tailwind.config.js`'s teal
+      remap and dark admin-surface palette as native Tailwind v4 `@theme` tokens (`brand-*`, `authbg`,
+      `admin-*`) so the two apps read as one product.
+- [x] **Two build-system gotchas, both from `@vagewell/shared` being a `file:../shared` symlink and
+      not a real npm/yarn/pnpm workspace member:**
+      1. `web/tsconfig.json` needed the same `baseUrl` + explicit `paths` for `@tanstack/react-query`,
+         `@supabase/supabase-js`, `zod` that `mobile/tsconfig.json` already carries (TS resolves a
+         symlink's *own* imports from its realpath, which has no `node_modules` of its own) — **this
+         is what the original baseUrl question in this session turned out to be about.**
+      2. Turbopack (Next 16's default) cannot resolve `@vagewell/shared` at all through the symlink
+         (only real workspace packages get auto-transpiled); `transpilePackages` in `next.config.ts`
+         didn't fix it either. Fix: `web/package.json` `dev`/`build` scripts pass `--webpack` explicitly.
+- [x] **Mobile app made patient-only.** Deleted `AdminNavigator.tsx`, `screens/admin/*` (8 screens),
+      `components/admin/*` (`AdminHeader`, `AdminScreen`, `AppointmentCalendar`), the admin-only
+      `PaymentReviewModal`/`VitalsModal`, `lib/export.ts`, and the already-dead `ui/TabBar.tsx`.
+      `RootNavigator` now shows a **"Staff & admin portal moved" notice + Sign out** for role
+      staff/admin instead of mounting `AdminNavigator` (same shared OTP login, so a staff phone can
+      still complete sign-in here — this is the dead-end that sends them to `web/` instead). Removed
+      the "Admin Portal" entry from `LandingScreen`, the `Admin*` route types, the `ADMIN_*` theme
+      constants and `admin-*` Tailwind colors (all now unused), `OtpInput`'s dead `variant="dark"`
+      prop, and the now-unused `xlsx` dependency (`npm uninstall`).
+- **Needs the user's machine:** `web/.env.local` currently holds placeholder Supabase values (this
+  environment has neither Docker/Postgres nor a live project to point at, same constraint as always)
+  — fill in the real `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` before deploying.
+  Runtime click-through still needed: staff/admin OTP login on `web/`, a patient phone bouncing back
+  out of `web/`, and a staff/admin phone bouncing to the new notice screen on `mobile/`.

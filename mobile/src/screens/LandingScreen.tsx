@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Lock } from "lucide-react-native";
 import { BrandLogo, PrimaryButton, OutlineButton } from "@/components/ui";
 import type { AuthScreenProps } from "@/navigation/types";
 
@@ -40,17 +39,6 @@ export function LandingScreen({ navigation }: AuthScreenProps<"Landing">) {
           <OutlineButton fullWidth onPress={() => navigation.navigate("Register")}>
             New user — Register
           </OutlineButton>
-        </View>
-
-        <View className="mt-8 items-center border-t border-dashed border-gray-300 pt-5">
-          <Text className="mb-2.5 text-[11px] uppercase tracking-wide text-gray-500">Not a patient?</Text>
-          <Pressable
-            onPress={() => navigation.navigate("AdminLogin")}
-            className="w-full flex-row items-center justify-center gap-2 rounded-lg bg-admin px-5 py-3 active:opacity-90"
-          >
-            <Lock size={15} color="#7FD8E3" />
-            <Text className="text-sm font-semibold text-admin-text">Admin Portal</Text>
-          </Pressable>
         </View>
       </View>
     </SafeAreaView>

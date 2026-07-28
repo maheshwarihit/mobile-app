@@ -124,8 +124,8 @@ Self-registration only ever creates `role = 'patient'`. To create the first admi
 ## 7. Verify it works
 
 Enter a **non-test** real number in the app → you should receive a 6-digit SMS → the code verifies and the
-session opens. Admins entering via **🔒 Admin Portal** land on the admin dashboard; patients land on the
-patient tabs.
+session opens. Patients land on the patient tabs in `mobile/`; staff/admin accounts sign in separately
+at `web/` (the staff/admin portal) and land on the appointments dashboard there.
 
 ---
 

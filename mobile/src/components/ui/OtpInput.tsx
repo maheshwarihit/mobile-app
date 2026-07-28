@@ -7,7 +7,6 @@ type Props = {
   onChange: (value: string) => void;
   length?: number;
   autoFocus?: boolean;
-  variant?: "light" | "dark";
   onComplete?: (value: string) => void;
 };
 
@@ -19,7 +18,7 @@ type Props = {
  * Boxes use FIXED pixel widths (not flex) — on react-native-web flex-1 children in a
  * row collapse when the row width isn't definite, which squished the grid.
  */
-export function OtpInput({ value, onChange, length = OTP_LENGTH, autoFocus, variant = "light", onComplete }: Props) {
+export function OtpInput({ value, onChange, length = OTP_LENGTH, autoFocus, onComplete }: Props) {
   const refs = useRef<(TextInput | null)[]>([]);
   const chars = Array.from({ length }, (_, i) => value[i] ?? "");
 
@@ -56,11 +55,6 @@ export function OtpInput({ value, onChange, length = OTP_LENGTH, autoFocus, vari
     }
   };
 
-  const boxTheme =
-    variant === "dark"
-      ? "border-admin-border bg-admin-surface text-admin-text"
-      : "border-gray-300 bg-white text-gray-900";
-
   return (
     <View className="flex-row justify-center" style={{ gap: 8 }}>
       {chars.map((c, i) => (
@@ -76,9 +70,9 @@ export function OtpInput({ value, onChange, length = OTP_LENGTH, autoFocus, vari
           maxLength={length}
           selectTextOnFocus
           autoFocus={autoFocus && i === 0}
-          placeholderTextColor={variant === "dark" ? "#9BAAB0" : "#9ca3af"}
+          placeholderTextColor="#9ca3af"
           style={{ width: 46, height: 56 }}
-          className={`rounded-xl border text-center text-2xl font-bold ${boxTheme}`}
+          className="rounded-xl border border-gray-300 bg-white text-center text-2xl font-bold text-gray-900"
         />
       ))}
     </View>

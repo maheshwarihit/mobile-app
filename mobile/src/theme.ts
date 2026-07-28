@@ -12,11 +12,3 @@ export const BRAND_LIGHT = "#E1F3F6"; // teal primary-light
 
 export const DANGER = "#A32D2D";
 export const WARN = "#854F0B";
-
-// Dark admin surface tokens (mirror the `admin` group in tailwind.config.js).
-export const ADMIN_BG = "#20272A";
-export const ADMIN_SURFACE = "#2A3237";
-export const ADMIN_ACCENT = "#7FD8E3";
-export const ADMIN_BORDER = "#3A4348";
-export const ADMIN_TEXT = "#E6EDEF";
-export const ADMIN_MUTED = "#9BAAB0";

@@ -1,3 +1,5 @@
+import { View, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "@/providers/AuthProvider";
 import type { AuthStackParamList } from "@/navigation/types";
@@ -5,10 +7,8 @@ import { SplashScreen } from "@/screens/SplashScreen";
 import { LandingScreen } from "@/screens/LandingScreen";
 import { LoginScreen } from "@/screens/LoginScreen";
 import { RegisterScreen } from "@/screens/RegisterScreen";
-import { AdminLoginScreen } from "@/screens/admin/AdminLoginScreen";
-import { AdminOtpScreen } from "@/screens/admin/AdminOtpScreen";
 import { AppNavigator } from "@/navigation/AppNavigator";
-import { AdminNavigator } from "@/navigation/AdminNavigator";
+import { OutlineButton } from "@/components/ui";
 
 const Auth = createNativeStackNavigator<AuthStackParamList>();
 
@@ -18,18 +18,39 @@ function AuthNavigator() {
       <Auth.Screen name="Landing" component={LandingScreen} />
       <Auth.Screen name="Login" component={LoginScreen} />
       <Auth.Screen name="Register" component={RegisterScreen} />
-      <Auth.Screen name="AdminLogin" component={AdminLoginScreen} />
-      <Auth.Screen name="AdminOTP" component={AdminOtpScreen} />
     </Auth.Navigator>
   );
 }
 
 /**
- * One session tree, branched by role. After verifyOtp the session flips, the
- * profile (with role) loads, and the shell swaps automatically:
- *   signed out            → AuthNavigator (patient + Admin Portal entry)
- *   role patient          → AppNavigator (tabs)
- *   role staff | admin    → AdminNavigator (operations)
+ * This app is patient-only — staff/admin operate from the separate web portal
+ * (web/). A staff/admin phone number can still complete the same Supabase
+ * OTP login here (one shared auth system), so this is a clear dead end rather
+ * than silently exposing the patient tabs to a staff account.
+ */
+function StaffPortalNotice() {
+  const { signOut } = useAuth();
+  return (
+    <SafeAreaView className="flex-1 items-center justify-center bg-authbg px-8">
+      <Text className="mb-2 text-lg font-bold text-gray-900">Staff & admin portal moved</Text>
+      <Text className="mb-6 text-center text-sm text-gray-600">
+        Staff and admin accounts now sign in from the VAgeWell Care web portal, not this app.
+      </Text>
+      <View className="w-full max-w-xs">
+        <OutlineButton fullWidth onPress={signOut}>
+          Sign out
+        </OutlineButton>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+/**
+ * One session tree. After verifyOtp the session flips, the profile (with
+ * role) loads, and the shell swaps automatically:
+ *   signed out       → AuthNavigator
+ *   role patient     → AppNavigator (tabs)
+ *   role staff|admin → StaffPortalNotice (this app is patient-only)
  * The splash gate avoids a flicker to the patient shell before the role
  * resolves — but only until the CURRENT user's profile first resolves. A
  * background refresh (saving the profile, an hourly TOKEN_REFRESHED event)
@@ -45,5 +66,5 @@ export function RootNavigator() {
   if (loading || (user && profileLoading && !profileResolved)) return <SplashScreen />;
   if (!user) return <AuthNavigator />;
   const isStaff = role === "staff" || role === "admin";
-  return isStaff ? <AdminNavigator /> : <AppNavigator />;
+  return isStaff ? <StaffPortalNotice /> : <AppNavigator />;
 }

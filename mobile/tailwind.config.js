@@ -37,16 +37,6 @@ module.exports = {
         cream: "#F1EFE8",
         danger: "#A32D2D",
         warn: "#854F0B",
-        // Dark admin surface (the "🔒 Admin Portal" chrome).
-        admin: {
-          DEFAULT: "#20272A",
-          bg: "#20272A",
-          surface: "#2A3237",
-          accent: "#7FD8E3",
-          border: "#3A4348",
-          text: "#E6EDEF",
-          muted: "#9BAAB0",
-        },
       },
       fontFamily: {
         sans: ["NunitoSans_400Regular"],
