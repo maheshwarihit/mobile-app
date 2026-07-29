@@ -23,8 +23,10 @@ import { exportAppointmentsToExcel } from "@/lib/export";
 import {
   useAllBookings,
   useAllClinicalRecords,
+  useReportsForBooking,
   money,
   formatDate,
+  formatLocalDateTime,
   paymentStatusMeta,
   bookingStatusMeta,
   type BookingWithNames,
@@ -143,6 +145,8 @@ function BookingCard({
 }) {
   const m = paymentStatusMeta(booking.payment_status);
   const status = bookingStatusMeta(booking.booking_status);
+  const { data: reports } = useReportsForBooking(booking.id);
+  const latestReport = reports?.[0] ?? null;
   const isCancelled = booking.booking_status === "cancelled";
   const isRequested = booking.booking_status === "requested";
 
@@ -160,6 +164,9 @@ function BookingCard({
           </p>
           {booking.assigned_to_name ? (
             <p className="mt-0.5 text-xs text-gray-500">Assigned to {booking.assigned_to_name}</p>
+          ) : null}
+          {latestReport ? (
+            <p className="mt-0.5 text-xs text-gray-400">Report uploaded: {formatLocalDateTime(latestReport.created_at)}</p>
           ) : null}
         </div>
         <div className="flex flex-col items-end gap-1">

@@ -143,8 +143,7 @@ export const SEED_SERVICES = [
 // Service whose booking unlocks staff vitals entry (patient-facing panel shows Sugar + Blood Group).
 export const PARA_MEDICAL_SERVICE = "Para-Medical";
 
-// Placeholder — replace with the real front-desk/hospital number before shipping.
-export const HOSPITAL_CONTACT_PHONE = "+911234567890";
+export const HOSPITAL_CONTACT_PHONE = "+919342703376";
 
 // ── Machine error codes for user-facing failures ─────────────────
 export const ERROR_CODES = [

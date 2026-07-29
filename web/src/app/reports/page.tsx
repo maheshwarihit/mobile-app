@@ -70,7 +70,7 @@ function ReportsContent() {
                     </Pill>
                   </div>
                   {r.note ? <p className="mt-1 text-xs text-gray-500">{r.note}</p> : null}
-                  <p className="mt-1 text-xs text-gray-400">{formatLocalDateTime(r.created_at)}</p>
+                  <p className="mt-1 text-xs text-gray-400">Uploaded: {formatLocalDateTime(r.created_at)}</p>
                 </div>
                 <div className="flex items-start">
                   <PrimaryButton icon={Check} loading={review.isPending} onClick={() => review.mutate(r.id)}>

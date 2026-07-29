@@ -11,8 +11,10 @@ import {
   useMyAssignedBookings,
   useStartVisit,
   useCompleteVisit,
+  useReportsForBooking,
   money,
   formatDate,
+  formatLocalDateTime,
   bookingStatusMeta,
   type BookingWithNames,
 } from "@vagewell/shared";
@@ -63,6 +65,8 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
   const status = bookingStatusMeta(booking.booking_status);
   const start = useStartVisit();
   const complete = useCompleteVisit();
+  const { data: reports } = useReportsForBooking(booking.id);
+  const latestReport = reports?.[0] ?? null;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const canStart = booking.booking_status === "assigned";
   const inFlight = booking.booking_status === "in_progress" || booking.booking_status === "report_uploaded";
@@ -78,6 +82,9 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
           <p className="mt-1 text-sm text-gray-600">
             {formatDate(booking.start_date)} · {money(booking.total_amount)}
           </p>
+          {latestReport ? (
+            <p className="mt-0.5 text-xs text-gray-400">Report uploaded: {formatLocalDateTime(latestReport.created_at)}</p>
+          ) : null}
         </div>
         <Pill bgClass={status.bg} textClass={status.text}>
           {status.label}

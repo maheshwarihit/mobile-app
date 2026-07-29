@@ -445,3 +445,29 @@ end of the list.
       per-day ones — i.e. at the end of the list, same Book flow as everything else, nothing separate.
       The existing "Add a family member" footer (already at the very end of the list) is unchanged.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+
+## Change round — single Book action, hide day count for flat-advance, report dates, hospital number (user, 2026-07-29)
+Follow-up correction to the previous Services-screen change: the user actually wanted the per-card Book
+button gone entirely, not just relabeled — one Book action for the whole list, at the bottom, right above
+Add a family member.
+
+- [x] **One Book button, not four.** `mobile/src/screens/ServicesScreen.tsx` cards are now tap-to-select
+      (purple border + checkmark when selected, price/pricing model shown as plain text) with no
+      per-card button. A single `PrimaryButton` in the list footer ("Book Appointment") navigates to the
+      Appointment screen with whichever service is selected; tapping it with nothing selected shows a
+      toast instead of guessing. "Add a family member" sits directly below it, same as before.
+- [x] **Flat-advance services skip the day count.** `mobile/src/screens/AppointmentScreen.tsx` hides the
+      "Number of days" field when the selected service is `flat_advance` (Nutrition, Physio) — Start date
+      alone spans the row. The two `per_day` services (Para-Medical, Mental Wellbeing) keep asking for
+      it, unchanged. Submission forces `num_days = 1` for flat-advance regardless of any stale value left
+      from a previously selected per-day service, rather than trusting a hidden field's leftover state.
+- [x] **Report upload date labelled everywhere it appears.** Admin `/reports` and the customer Health
+      record both now read "Uploaded: <date>" instead of a bare timestamp. Also newly surfaced on the
+      ops side, using the previously-unused `useReportsForBooking()` hook: `web/src/app/my-visits/page.tsx`
+      (staff/leaf_node) and `web/src/app/dashboard/page.tsx` (admin) booking cards now show "Report
+      uploaded: <date>" once one exists for that booking.
+- [x] **Real hospital number.** `HOSPITAL_CONTACT_PHONE` (`shared/src/constants.ts`) changed from the
+      `+911234567890` placeholder to `+919342703376`; the customer Services screen's call button already
+      dials this constant, no other change needed.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (15 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean.

@@ -65,11 +65,15 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
 
   const submit = () => {
     setErrors({});
+    // Flat-advance services (Nutrition, Physio) don't ask for a day count — the
+    // "Number of days" field is hidden for them, so ignore any stale value left
+    // over from a previously selected per-day service.
+    const effectiveDays = isFlatAdvance ? 1 : days;
     const candidate = {
       service_id: serviceId,
       family_member_id: form.family_member_id,
       start_date: form.start_date,
-      num_days: days,
+      num_days: effectiveDays,
       time_slot: form.time_slot,
       symptom_brief: form.symptom_brief,
     };
@@ -98,7 +102,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
         family_member_id: form.family_member_id || null,
         subject_name: subjectName,
         start_date: form.start_date,
-        num_days: days,
+        num_days: effectiveDays,
         time_slot: form.time_slot,
         symptom_brief: form.symptom_brief,
       },
@@ -130,14 +134,18 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
             <View className="gap-4">
               <SelectSheet label="Service" value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
               <SelectSheet label="Care for" value={form.family_member_id} onValueChange={set("family_member_id")} options={subjectOptions} />
-              <View className="flex-row gap-3">
-                <View className="flex-1">
-                  <DateField label="Start date" value={form.start_date} onChange={set("start_date")} error={errors.start_date} minimumDate={new Date()} required />
+              {isFlatAdvance ? (
+                <DateField label="Start date" value={form.start_date} onChange={set("start_date")} error={errors.start_date} minimumDate={new Date()} required />
+              ) : (
+                <View className="flex-row gap-3">
+                  <View className="flex-1">
+                    <DateField label="Start date" value={form.start_date} onChange={set("start_date")} error={errors.start_date} minimumDate={new Date()} required />
+                  </View>
+                  <View className="flex-1">
+                    <FormInput label="Number of days" value={form.num_days} onChangeText={set("num_days")} keyboardType="number-pad" error={errors.num_days} required />
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <FormInput label="Number of days" value={form.num_days} onChangeText={set("num_days")} keyboardType="number-pad" error={errors.num_days} required />
-                </View>
-              </View>
+              )}
               <TimeField label="Preferred time" value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
               <TextareaInput label="Brief on the problem faced" value={form.symptom_brief} onChangeText={set("symptom_brief")} placeholder="Describe symptoms or concerns…" rows={3} maxLength={2000} />
             </View>
