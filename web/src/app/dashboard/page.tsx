@@ -47,7 +47,8 @@ function DashboardContent() {
   const { data: bookings, isLoading, error } = useAllBookings(true);
   const clinical = useAllClinicalRecords(false);
   const [query, setQuery] = useState("");
-  const [day, setDay] = useState("");
+  const [dayFrom, setDayFrom] = useState("");
+  const [dayTo, setDayTo] = useState("");
   const [selected, setSelected] = useState<BookingWithNames | null>(null);
   const [approving, setApproving] = useState<BookingWithNames | null>(null);
   const [reporting, setReporting] = useState<BookingWithNames | null>(null);
@@ -56,7 +57,8 @@ function DashboardContent() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (bookings ?? []).filter((b) => {
-      if (day && b.start_date !== day) return false;
+      if (dayFrom && b.start_date < dayFrom) return false;
+      if (dayTo && b.start_date > dayTo) return false;
       if (!q) return true;
       return (
         (b.subject_name ?? "").toLowerCase().includes(q) ||
@@ -64,7 +66,7 @@ function DashboardContent() {
         b.service_name.toLowerCase().includes(q)
       );
     });
-  }, [bookings, query, day]);
+  }, [bookings, query, dayFrom, dayTo]);
 
   const doExport = async () => {
     setExporting(true);
@@ -94,8 +96,11 @@ function DashboardContent() {
         <div className="flex-1">
           <FormInput label="Search by patient or service" value={query} onChangeText={setQuery} placeholder="Name or service…" />
         </div>
-        <div className="sm:w-56">
-          <FormInput label="Filter by date" value={day} onChangeText={setDay} type="date" icon={CalendarDays} />
+        <div className="sm:w-40">
+          <FormInput label="From" value={dayFrom} onChangeText={setDayFrom} type="date" icon={CalendarDays} />
+        </div>
+        <div className="sm:w-40">
+          <FormInput label="To" value={dayTo} onChangeText={setDayTo} type="date" icon={CalendarDays} />
         </div>
       </div>
 

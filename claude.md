@@ -395,3 +395,33 @@ was also fragile by construction, so it's fixed at the source too.
 - **Still outstanding, unchanged from the prior round:** `install_all.sql` has not been run against the
   live Supabase project from this environment (no Docker/Postgres here) — the stale-status data causing
   the reported crash won't fully clear until that migration runs.
+
+## Change round — login role picker, date-range filters, reports in health record (user, 2026-07-29)
+User clarified an earlier bug report ("just directly entered into the staff panel, doesn't show the
+role") via a follow-up question: they want **one login page with a role picker** (Admin/Staff/Leaf
+Node), not separate access reads purely off the DB with no visible choice. Phone+OTP itself is
+unchanged — the picker is a front door, not a new access-control mechanism (RLS/`RequireStaff` remain
+the real gate).
+
+- [x] **Role picker on `web/src/app/login/page.tsx`.** Three buttons (Admin/Staff/Leaf Node, from
+      `OPS_ROLES`/`ROLE_LABELS`) select a role that's passed to `/verify` as a query param.
+      `web/src/app/verify/page.tsx` now fetches the account's real `profiles.role` right after
+      `verifyOtp` and compares it to the pick: a mismatch signs the session back out with an explicit
+      "This number is registered as X, not Y" error instead of silently landing somewhere unexpected;
+      a match routes straight to `/dashboard` (admin) or `/my-visits` (staff/leaf_node) — no more
+      hardcoded `/dashboard` for everyone. `RequireStaff` stays as the enforcement backstop for anyone
+      who deep-links in without going through `/login`.
+- [x] **Date range filters.** `web/src/app/dashboard/page.tsx`'s single "Filter by date" box replaced
+      with From/To fields (inclusive range over `start_date`). `web/src/app/live-sheet/page.tsx` gained
+      the same From/To range (it had no date filter before, only search) — it filters the underlying
+      bookings before either sheet view is built, so both Overall and Updated sheets respect it.
+- [x] **Reports surfaced in the customer Health record.** `mobile/src/screens/ProfileScreen.tsx`'s
+      existing "Health record" card (vitals, subject-scoped self/dependent) now also lists that
+      subject's released reports underneath the vitals tiles — reports don't carry a subject column, so
+      they're matched through their booking's `family_member_id` via `useMyBookings()`. The standalone
+      Reports tab is unchanged (still shows every released report across the household in one place);
+      this is additive, not a replacement.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (15 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundles clean.
+- **Still outstanding, unchanged from prior rounds:** `install_all.sql` not yet run against the live
+  Supabase project from this environment.

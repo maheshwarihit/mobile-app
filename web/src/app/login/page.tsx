@@ -3,15 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
-import { normalizePhone } from "@vagewell/shared";
+import { normalizePhone, OPS_ROLES, ROLE_LABELS, type Role } from "@vagewell/shared";
 import { supabase } from "@/lib/supabase";
 import { FormInput, PrimaryButton, ErrorBanner } from "@/components/ui";
 
-// Staff/admin portal entry — same Supabase phone+OTP as the patient app;
-// role decides access after verification (RequireStaff on /verify onward).
+type OpsRole = (typeof OPS_ROLES)[number];
+
+// One shared login page for all three ops roles — same Supabase phone+OTP as
+// the patient app, but the caller picks which panel they're signing into up
+// front. The actual account role (source of truth, from `profiles.role`) is
+// still checked on /verify against this pick before landing in a panel — the
+// selector here is a UX front door, not the access-control boundary.
 // shouldCreateUser: false — this portal never registers a new account.
 export default function LoginPage() {
   const router = useRouter();
+  const [role, setRole] = useState<OpsRole>("staff");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -35,7 +41,7 @@ export default function LoginPage() {
       );
       return;
     }
-    router.push(`/verify?phone=${encodeURIComponent(normalized)}`);
+    router.push(`/verify?phone=${encodeURIComponent(normalized)}&role=${role}`);
   };
 
   return (
@@ -56,6 +62,23 @@ export default function LoginPage() {
           className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-6"
         >
           {err ? <ErrorBanner message={err} /> : null}
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-gray-700">Logging in as</span>
+            <div className="flex gap-1.5">
+              {OPS_ROLES.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRole(r)}
+                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    role === r ? "bg-admin-accent text-white" : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  {ROLE_LABELS[r as Role]}
+                </button>
+              ))}
+            </div>
+          </div>
           <FormInput
             label="Mobile number"
             value={phone}

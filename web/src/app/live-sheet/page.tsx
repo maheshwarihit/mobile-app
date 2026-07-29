@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Download, FileSpreadsheet, Search } from "lucide-react";
+import { Download, FileSpreadsheet, Search, CalendarDays } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { FormInput, OutlineButton, LoadingState, EmptyState, PageHeader } from "@/components/ui";
 import { useAllBookings, useAllClinicalRecords, type LiveSheetRow } from "@vagewell/shared";
@@ -61,12 +61,23 @@ function toUpdatedRow(row: LiveSheetRow): Record<(typeof UPDATED_COLUMNS)[number
 function LiveSheetContent() {
   const [exporting, setExporting] = useState(false);
   const [query, setQuery] = useState("");
+  const [dayFrom, setDayFrom] = useState("");
+  const [dayTo, setDayTo] = useState("");
   const [sheet, setSheet] = useState<"overall" | "updated">("overall");
   const { data: bookings, isLoading: bookingsLoading } = useAllBookings(true);
   const { data: clinical, isLoading: clinicalLoading } = useAllClinicalRecords(true);
 
   const isLoading = bookingsLoading || clinicalLoading;
-  const rows = useMemo(() => liveSheetRows(bookings ?? [], clinical ?? []), [bookings, clinical]);
+  const rangedBookings = useMemo(
+    () =>
+      (bookings ?? []).filter((b) => {
+        if (dayFrom && b.start_date < dayFrom) return false;
+        if (dayTo && b.start_date > dayTo) return false;
+        return true;
+      }),
+    [bookings, dayFrom, dayTo]
+  );
+  const rows = useMemo(() => liveSheetRows(rangedBookings, clinical ?? []), [rangedBookings, clinical]);
 
   const visibleFull = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -122,6 +133,15 @@ function LiveSheetContent() {
         >
           Updated Sheet
         </button>
+      </div>
+
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row">
+        <div className="sm:w-40">
+          <FormInput label="From" value={dayFrom} onChangeText={setDayFrom} type="date" icon={CalendarDays} />
+        </div>
+        <div className="sm:w-40">
+          <FormInput label="To" value={dayTo} onChangeText={setDayTo} type="date" icon={CalendarDays} />
+        </div>
       </div>
 
       <div className="mb-1.5">

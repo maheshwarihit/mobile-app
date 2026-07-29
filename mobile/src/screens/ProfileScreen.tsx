@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { View, Text, ScrollView } from "react-native";
+import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { UserCircle, Users, Activity, Pencil, Trash2, Plus, Lock, LogOut } from "lucide-react-native";
+import { toast } from "sonner-native";
+import { UserCircle, Users, Activity, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download } from "lucide-react-native";
 import {
   PageHeader,
   SectionCard,
@@ -19,18 +20,26 @@ import {
 } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { DependentModal } from "@/components/feature/DependentModal";
+import { supabase } from "@/lib/supabase";
 import {
   useFamilyMembers,
   useClinicalRecords,
   useUpdateProfile,
   useDeleteDependent,
+  useMyReports,
+  useMyBookings,
   profileSchema,
   formatDate,
+  formatLocalDateTime,
   localPhone,
   GENDERS,
   GENDER_LABELS,
+  REPORT_TYPE_LABELS,
+  MEDICAL_REPORT_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
   type FamilyMember,
   type ClinicalRecord,
+  type ReportUpload,
 } from "@vagewell/shared";
 
 const GENDER_OPTIONS = [{ value: "", label: "—" }, ...GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }))];
@@ -104,6 +113,31 @@ export function ProfileScreen() {
     [subject, user?.id]
   );
   const { data: records, isLoading: vitalsLoading } = useClinicalRecords(user ? subjectQuery : null);
+
+  // Reports released to the customer are shown alongside vitals in the Health
+  // record, scoped to whichever subject (self/dependent) is selected above —
+  // reports don't carry a direct subject column, so match through their booking.
+  const { data: reports, isLoading: reportsLoading } = useMyReports(true);
+  const { data: myBookings } = useMyBookings();
+  const reportsForSubject = useMemo(() => {
+    const bookingMap = new Map((myBookings ?? []).map((b) => [b.id, b]));
+    return (reports ?? []).filter((r) => {
+      const b = bookingMap.get(r.booking_id);
+      if (!b) return false;
+      return subject === "self" ? !b.family_member_id : b.family_member_id === subject;
+    });
+  }, [reports, myBookings, subject]);
+
+  const openReport = async (r: ReportUpload) => {
+    const { data, error: signErr } = await supabase.storage
+      .from(MEDICAL_REPORT_BUCKET)
+      .createSignedUrl(r.storage_path, SIGNED_URL_TTL_SECONDS);
+    if (signErr || !data?.signedUrl) {
+      toast.error("Could not open this report. Please try again.");
+      return;
+    }
+    Linking.openURL(data.signedUrl);
+  };
 
   if (loading) return <LoadingState message="Loading profile…" />;
 
@@ -215,6 +249,32 @@ export function ProfileScreen() {
             <SelectSheet label="View record for" value={subject} onValueChange={setSubject} options={subjectOptions} />
           </View>
           {vitalsLoading ? <LoadingState message="Loading vitals…" /> : <VitalsView records={records ?? []} />}
+
+          <View className="mt-4 border-t border-gray-100 pt-4">
+            <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Reports</Text>
+            {reportsLoading ? (
+              <LoadingState message="Loading reports…" />
+            ) : reportsForSubject.length === 0 ? (
+              <Text className="text-xs text-gray-400">No reports released yet for this person.</Text>
+            ) : (
+              <View className="gap-2">
+                {reportsForSubject.map((r) => (
+                  <Pressable key={r.id} onPress={() => openReport(r)}>
+                    <View className="flex-row items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                      <View className="h-8 w-8 items-center justify-center rounded-lg bg-purple-50">
+                        <FileText size={15} color="#7c3aed" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-xs font-medium text-gray-900">{REPORT_TYPE_LABELS[r.report_type]}</Text>
+                        <Text className="text-[11px] text-gray-500">{formatLocalDateTime(r.created_at)}</Text>
+                      </View>
+                      <Download size={14} color="#9ca3af" />
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
         </SectionCard>
 
         <OutlineButton icon={LogOut} fullWidth onPress={signOut}>

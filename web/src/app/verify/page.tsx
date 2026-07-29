@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { OTP_LENGTH } from "@vagewell/shared";
+import { OTP_LENGTH, ROLE_LABELS, type Role } from "@vagewell/shared";
 import { supabase } from "@/lib/supabase";
 import { useResendTimer } from "@/hooks/useResendTimer";
 import { PrimaryButton, TextButton, ErrorBanner, FormInput } from "@/components/ui";
@@ -12,6 +12,7 @@ function VerifyForm() {
   const router = useRouter();
   const params = useSearchParams();
   const e164 = params.get("phone") ?? "";
+  const pickedRole = params.get("role") as Role | null;
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -36,14 +37,31 @@ function VerifyForm() {
     }
     setBusy(true);
     const { error } = await supabase.auth.verifyOtp({ phone: e164, token: otp, type: "sms" });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       setErr(error.message);
       return;
     }
-    // RequireStaff (mounted on every protected route) checks the role and
-    // bounces non-staff accounts back out; here we just move past the gate.
-    router.push("/dashboard");
+
+    // RequireStaff (mounted on every protected route) is the real access-control
+    // gate; this is just an early, friendlier check against the role the caller
+    // picked on /login, so a mismatch doesn't silently land them somewhere odd.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle();
+    const actualRole = (profile?.role as Role | undefined) ?? null;
+    setBusy(false);
+
+    if (pickedRole && actualRole && actualRole !== pickedRole) {
+      await supabase.auth.signOut();
+      setErr(
+        `This number is registered as ${ROLE_LABELS[actualRole]}, not ${ROLE_LABELS[pickedRole]}. Choose the correct role and try again.`
+      );
+      return;
+    }
+
+    router.push(actualRole === "admin" ? "/dashboard" : "/my-visits");
   };
 
   if (!e164) {
