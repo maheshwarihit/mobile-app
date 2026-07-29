@@ -471,3 +471,27 @@ Add a family member.
       dials this constant, no other change needed.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (15 routes); `mobile` `tsc --noEmit` clean +
   `expo export --platform web` bundle clean.
+
+## Change round — wording, upload visibility, confirmed booking flow (user, 2026-07-29)
+User confirmed via clarifying questions: (1) `install_all.sql` **has** been run against the live
+Supabase project, so the earlier "no uploading reports option" report is not a schema-drift issue — the
+button exists but was gated behind a visit stage the user hadn't reached; (2) the Services screen's
+select-a-card-then-one-Book-button flow (previous round) is the one to keep, not a book-first-select-
+after flow — no structural change made there.
+
+- [x] **Upload Report visible earlier in `web/src/app/my-visits/page.tsx`.** Previously gated behind
+      `inFlight` (`in_progress`/`report_uploaded`) alongside Vitals and Complete, so a staff/leaf_node
+      member had to tap **Start Visit** before Upload Report ever appeared — the likely cause of "no
+      uploading reports option" once schema drift was ruled out. Upload Report now also shows while
+      `assigned` (before the visit is started); Vitals and Complete stay gated to `inFlight` since they
+      only make sense once a visit is actually underway.
+- [x] **Pricing wording.** Flat-advance services now read "Advance ₹2,000 (monthly)" — on the mobile
+      Services screen cards, the Appointment screen's service dropdown, and its order summary ("Monthly
+      advance payment") — instead of the terser "₹2,000 advance" / "Flat advance payment". Reflects that
+      Nutrition/Physio are billed as a recurring monthly amount, not a one-off.
+- [x] **Renamed the single Services-screen action** from "Book Appointment" to "Request Appointment" —
+      a booking actually lands as `requested` pending admin approval, not confirmed on tap, so the label
+      now matches what happens. Same button, same position (bottom of the list), same selected-service
+      behavior — wording only.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (15 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean.

@@ -99,24 +99,26 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
           </button>
         ) : null}
         {inFlight ? (
-          <>
-            <button onClick={onVitals} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
-              <Activity size={14} />
-              Vitals
-            </button>
-            <button onClick={onReport} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
-              <UploadCloud size={14} />
-              Upload Report
-            </button>
-            <button
-              onClick={() => setConfirmOpen(true)}
-              disabled={complete.isPending}
-              className="flex items-center gap-1 text-sm font-medium text-emerald-700 active:opacity-70"
-            >
-              <CheckCircle2 size={14} />
-              Complete
-            </button>
-          </>
+          <button onClick={onVitals} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
+            <Activity size={14} />
+            Vitals
+          </button>
+        ) : null}
+        {canStart || inFlight ? (
+          <button onClick={onReport} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
+            <UploadCloud size={14} />
+            Upload Report
+          </button>
+        ) : null}
+        {inFlight ? (
+          <button
+            onClick={() => setConfirmOpen(true)}
+            disabled={complete.isPending}
+            className="flex items-center gap-1 text-sm font-medium text-emerald-700 active:opacity-70"
+          >
+            <CheckCircle2 size={14} />
+            Complete
+          </button>
         ) : null}
       </div>
 

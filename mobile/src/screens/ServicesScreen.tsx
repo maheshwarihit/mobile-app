@@ -53,7 +53,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
             (services?.length ?? 0) > 0 ? (
               <View className="mt-2 gap-3">
                 <PrimaryButton fullWidth icon={ArrowRight} onPress={book}>
-                  Book Appointment
+                  Request Appointment
                 </PrimaryButton>
                 <OutlineButton fullWidth icon={UserPlus} onPress={() => navigation.navigate("ProfileTab")}>
                   Add a family member
@@ -77,7 +77,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
                       <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
                       {s.description ? <Text className="mt-0.5 text-sm text-gray-500">{s.description}</Text> : null}
                       <Text className="mt-1 text-sm font-semibold text-purple-700">
-                        {s.pricing_model === "flat_advance" ? `${money(s.price_per_day)} advance` : `${money(s.price_per_day)}/day`}
+                        {s.pricing_model === "flat_advance" ? `Advance ${money(s.price_per_day)} (monthly)` : `${money(s.price_per_day)}/day`}
                       </Text>
                     </View>
                     {isSelected ? <CheckCircle2 size={20} color={BRAND} /> : null}

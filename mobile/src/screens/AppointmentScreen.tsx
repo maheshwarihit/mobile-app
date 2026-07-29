@@ -56,7 +56,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
 
   const serviceOptions = (services ?? []).map((s) => ({
     value: s.id,
-    label: s.pricing_model === "flat_advance" ? `${s.name} — ${money(s.price_per_day)} advance` : `${s.name} — ${money(s.price_per_day)}/day`,
+    label: s.pricing_model === "flat_advance" ? `${s.name} — Advance ${money(s.price_per_day)} (monthly)` : `${s.name} — ${money(s.price_per_day)}/day`,
   }));
   const subjectOptions = [
     { value: "", label: `Myself${profile?.full_name ? ` (${profile.full_name})` : ""}` },
@@ -155,7 +155,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 <Text className="text-sm text-gray-600">
-                  {isFlatAdvance ? "Flat advance payment" : `${days} day${days > 1 ? "s" : ""} × ${money(selectedService?.price_per_day ?? 0)}/day`}
+                  {isFlatAdvance ? "Monthly advance payment" : `${days} day${days > 1 ? "s" : ""} × ${money(selectedService?.price_per_day ?? 0)}/day`}
                 </Text>
                 {!isFlatAdvance && days > 1 ? (
                   <Text className="mt-0.5 text-[11px] text-gray-400">
