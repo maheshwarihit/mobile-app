@@ -50,24 +50,18 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           }
           renderItem={({ item: s }) => (
             <Card className="p-4">
-              <View className="flex-row items-start justify-between gap-3">
-                <View className="flex-1 flex-row items-start gap-3">
-                  <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                    <Stethoscope size={18} color={BRAND} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
-                    {s.description ? <Text className="mt-0.5 text-sm text-gray-500">{s.description}</Text> : null}
-                  </View>
+              <View className="flex-row items-start gap-3">
+                <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
+                  <Stethoscope size={18} color={BRAND} />
                 </View>
-                <View className="items-end">
-                  <Text className="text-base font-bold text-gray-900">{money(s.price_per_day)}</Text>
-                  <Text className="text-[11px] text-gray-400">{s.pricing_model === "flat_advance" ? "advance" : "per day"}</Text>
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
+                  {s.description ? <Text className="mt-0.5 text-sm text-gray-500">{s.description}</Text> : null}
                 </View>
               </View>
               <View className="mt-3 flex-row justify-end">
                 <SmallPrimaryButton icon={ArrowRight} onPress={() => navigation.navigate("Appointment", { serviceId: s.id })}>
-                  Book
+                  {s.pricing_model === "flat_advance" ? `Book · ${money(s.price_per_day)} advance` : `Book · ${money(s.price_per_day)}/day`}
                 </SmallPrimaryButton>
               </View>
             </Card>

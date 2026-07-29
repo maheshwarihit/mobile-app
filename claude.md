@@ -425,3 +425,23 @@ the real gate).
   `expo export --platform web` bundles clean.
 - **Still outstanding, unchanged from prior rounds:** `install_all.sql` not yet run against the live
   Supabase project from this environment.
+
+## Change round — drop standalone customer Reports tab, simplify Services cards (user, 2026-07-29)
+Now that released reports show inside the customer's Health record (previous round), the user asked to
+drop the separate Reports tab entirely — one place to see reports, not two. Also asked to declutter the
+Services screen: no separate price/pricing-model block on each card, and the Nutrition/Physio "advance"
+booking should use the exact same Book action as every other service (no separate flow), landing at the
+end of the list.
+
+- [x] **Removed the customer `ReportsTab`.** Deleted `mobile/src/screens/ReportsScreen.tsx`; removed
+      `ReportsTab` from `AppTabsParamList` (`navigation/types.ts`) and its `Tabs.Screen` registration
+      (`navigation/AppNavigator.tsx`). `useMyReports` stays in use (now only from `ProfileScreen`'s
+      Health record).
+- [x] **Simplified `ServicesScreen` cards.** Removed the separate top-right price/"advance"/"per day"
+      block; the price and pricing model now live in the Book button's own label instead (e.g.
+      "Book · ₹2,000 advance" / "Book · ₹800/day") — one action per card, not a display block plus a
+      separate button. No sort change was needed: `useServices()` already orders by `price_per_day`
+      ascending, so the ₹2,000 flat-advance services (Nutrition, Physio) already land after the ₹800
+      per-day ones — i.e. at the end of the list, same Book flow as everything else, nothing separate.
+      The existing "Add a family member" footer (already at the very end of the list) is unchanged.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.

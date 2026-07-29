@@ -1,13 +1,12 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Stethoscope, ClipboardList, FileText, User } from "lucide-react-native";
+import { Stethoscope, ClipboardList, User } from "lucide-react-native";
 import { BRAND } from "@/theme";
 import type { ServicesStackParamList, AppTabsParamList } from "@/navigation/types";
 import { ServicesScreen } from "@/screens/ServicesScreen";
 import { AppointmentScreen } from "@/screens/AppointmentScreen";
 import { PaymentScreen } from "@/screens/PaymentScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
-import { ReportsScreen } from "@/screens/ReportsScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 
 const Stack = createNativeStackNavigator<ServicesStackParamList>();
@@ -42,11 +41,6 @@ export function AppNavigator() {
         name="AppointmentsTab"
         component={DashboardScreen}
         options={{ title: "Appointments", tabBarIcon: ({ color, size }) => <ClipboardList size={size} color={color} /> }}
-      />
-      <Tabs.Screen
-        name="ReportsTab"
-        component={ReportsScreen}
-        options={{ title: "Reports", tabBarIcon: ({ color, size }) => <FileText size={size} color={color} /> }}
       />
       <Tabs.Screen
         name="ProfileTab"

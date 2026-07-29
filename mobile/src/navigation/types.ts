@@ -35,7 +35,6 @@ export type ServicesStackParamList = {
 export type AppTabsParamList = {
   ServicesTab: undefined;
   AppointmentsTab: undefined;
-  ReportsTab: undefined;
   ProfileTab: undefined;
 };
 
