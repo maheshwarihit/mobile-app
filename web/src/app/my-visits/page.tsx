@@ -13,7 +13,7 @@ import {
   useCompleteVisit,
   money,
   formatDate,
-  BOOKING_STATUS_META,
+  bookingStatusMeta,
   type BookingWithNames,
 } from "@vagewell/shared";
 
@@ -60,7 +60,7 @@ function MyVisitsContent() {
 }
 
 function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames; onVitals: () => void; onReport: () => void }) {
-  const status = BOOKING_STATUS_META[booking.booking_status];
+  const status = bookingStatusMeta(booking.booking_status);
   const start = useStartVisit();
   const complete = useCompleteVisit();
   const [confirmOpen, setConfirmOpen] = useState(false);

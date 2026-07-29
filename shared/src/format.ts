@@ -39,6 +39,19 @@ export function isBookingTerminal(status: BookingStatus): boolean {
   return status === "completed" || status === "cancelled";
 }
 
+// Rows can carry a status written before a schema migration ran (e.g. the old
+// 'open'/'closed' values), so these two always return *something* instead of
+// letting a bare object-index crash the screen on stale data.
+const UNKNOWN_META = (value: string): PillColors => ({ label: value, bg: "bg-gray-100", text: "text-gray-600" });
+
+export function paymentStatusMeta(status: string): PillColors {
+  return PAYMENT_STATUS_META[status as PaymentStatus] ?? UNKNOWN_META(status);
+}
+
+export function bookingStatusMeta(status: string): PillColors {
+  return BOOKING_STATUS_META[status as BookingStatus] ?? UNKNOWN_META(status);
+}
+
 /** Build selectable 15-minute time slots within business hours (GR-4). */
 export function timeSlots(): { value: string; label: string }[] {
   const out: { value: string; label: string }[] = [];

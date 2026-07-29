@@ -11,7 +11,7 @@ import {
   money,
   formatDate,
   formatSlot,
-  BOOKING_STATUS_META,
+  bookingStatusMeta,
   isBookingTerminal,
   type Booking,
 } from "@vagewell/shared";
@@ -86,7 +86,7 @@ export function DashboardScreen() {
  * which must never appear on a finished booking.
  */
 function LastAppointment({ booking, subjectName }: { booking: Booking; subjectName: string }) {
-  const status = BOOKING_STATUS_META[booking.booking_status];
+  const status = bookingStatusMeta(booking.booking_status);
   return (
     <View className="mt-5">
       <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Last appointment</Text>

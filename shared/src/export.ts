@@ -1,5 +1,5 @@
 import type { BookingWithNames, ClinicalRecord } from "./types";
-import { PAYMENT_STATUS_META, BOOKING_STATUS_META } from "./format";
+import { paymentStatusMeta, bookingStatusMeta } from "./format";
 import { formatDate, formatSlot } from "./dates";
 
 /** The vitals a booking row carries inline, coalesced across a subject's records. */
@@ -80,8 +80,8 @@ export function liveSheetRows(bookings: BookingWithNames[], clinical: ClinicalRe
       "Total (INR)": b.total_amount,
       "Date/Time": `${formatDate(b.start_date)} · ${formatSlot(b.time_slot)}`,
       "Payment Method": b.payment_method,
-      "Payment Status": PAYMENT_STATUS_META[b.payment_status].label,
-      "Appointment Status": BOOKING_STATUS_META[b.booking_status].label,
+      "Payment Status": paymentStatusMeta(b.payment_status).label,
+      "Appointment Status": bookingStatusMeta(b.booking_status).label,
       "Booking ID": b.id,
       "Symptom Brief": b.symptom_brief ?? "",
       Created: b.created_at,

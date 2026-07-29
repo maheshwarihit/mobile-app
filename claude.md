@@ -362,3 +362,36 @@ Docker/Postgres in this environment, same as every prior migration.
 - **Not implemented (flagged, not guessed):** no real payment gateway ("Online Payment API" stays the
   existing UPI-QR + screenshot-proof flow — no credentials exist for a real gateway and none were
   requested); no Employee ID login (auth stays phone+OTP per the confirmed decision above).
+
+## Change round — post-expansion fixes: crash hardening, role landing, admin uploads, live sheet (user, 2026-07-29)
+User reported a mobile crash (`Cannot read property 'bg' of undefined`) after the platform-expansion
+migration shipped — root cause: any booking/payment row still carrying a pre-migration status value
+(e.g. old `open`/`closed`) has no entry in the new `BOOKING_STATUS_META`/`PAYMENT_STATUS_META` maps, so
+the direct object-index crashed the whole bundle the moment such a row rendered. Running the refreshed
+`install_all.sql` (still outstanding — see prior round) removes the stale data, but the lookup itself
+was also fragile by construction, so it's fixed at the source too.
+
+- [x] **Crash-proof status lookups.** New `paymentStatusMeta()`/`bookingStatusMeta()` in `shared/src/format.ts`
+      fall back to a plain grey pill (labelled with the raw value) instead of indexing straight into the
+      meta record. Replaced every direct `PAYMENT_STATUS_META[...]`/`BOOKING_STATUS_META[...]` call site
+      across both apps (`mobile/src/components/feature/PatientBookingCard.tsx`, `mobile/src/screens/DashboardScreen.tsx`,
+      `web/src/app/dashboard/page.tsx`, `web/src/app/my-visits/page.tsx`, `web/src/app/payment-proofs/page.tsx`,
+      `shared/src/export.ts`) — a stray legacy value now degrades gracefully instead of crashing.
+- [x] **Role-aware post-login landing.** `web/src/app/dashboard/page.tsx` (the hardcoded redirect target
+      after `/verify`) now bounces non-admin ops roles to `/my-visits` once their profile resolves, instead
+      of showing staff/leaf_node the full cross-account admin view (whose Approve/Assign actions would
+      fail for them under RLS anyway).
+- [x] **Admin can upload reports too.** `report_insert` RLS was already `is_staff()` (admin included) —
+      only the UI was missing. Added an "Upload Report" action (reusing `ReportUploadModal`) to every
+      non-`requested`, non-cancelled booking on the admin dashboard, so upload/scan/prescription capture
+      now exists in all three ops panels (staff, admin, leaf_node), not just staff/leaf_node's `/my-visits`.
+- [x] **Live sheet — Overall vs Updated view.** `web/src/app/live-sheet/page.tsx` gained a two-way toggle:
+      "Overall Sheet" (unchanged, full column set) and a new "Updated Sheet" — a condensed view in the
+      exact requested order (Account Holder, Appointment For, Patient Number, Service, Days/Months,
+      Appointment Date, Payment Status, Appointment Status; "Date/Time" relabelled "Appointment Date" for
+      this view only). CSV export downloads whichever view is active.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (15 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundles clean.
+- **Still outstanding, unchanged from the prior round:** `install_all.sql` has not been run against the
+  live Supabase project from this environment (no Docker/Postgres here) — the stale-status data causing
+  the reported crash won't fully clear until that migration runs.

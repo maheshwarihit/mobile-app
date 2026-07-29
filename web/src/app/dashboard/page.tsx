@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, FileSearch, UserPlus2, CalendarDays } from "lucide-react";
+import { Download, FileSearch, UserPlus2, CalendarDays, UploadCloud } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
+import { useAuth } from "@/providers/AuthProvider";
 import {
   Card,
   Pill,
@@ -16,24 +18,39 @@ import {
 } from "@/components/ui";
 import { PaymentReviewModal } from "@/components/PaymentReviewModal";
 import { ApproveAssignModal } from "@/components/ApproveAssignModal";
+import { ReportUploadModal } from "@/components/ReportUploadModal";
 import { exportAppointmentsToExcel } from "@/lib/export";
 import {
   useAllBookings,
   useAllClinicalRecords,
   money,
   formatDate,
-  PAYMENT_STATUS_META,
-  BOOKING_STATUS_META,
+  paymentStatusMeta,
+  bookingStatusMeta,
   type BookingWithNames,
 } from "@vagewell/shared";
 
+// Admin lands here after login; staff/leaf_node accounts belong on their own
+// scoped "My Visits" view (see OPS_NAV in AdminShell) — bounce them there
+// instead of showing the full cross-account appointment list.
+function AdminOnlyRedirect() {
+  const { role, profileLoading } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!profileLoading && role && role !== "admin") router.replace("/my-visits");
+  }, [profileLoading, role, router]);
+  return null;
+}
+
 function DashboardContent() {
+  const { role } = useAuth();
   const { data: bookings, isLoading, error } = useAllBookings(true);
   const clinical = useAllClinicalRecords(false);
   const [query, setQuery] = useState("");
   const [day, setDay] = useState("");
   const [selected, setSelected] = useState<BookingWithNames | null>(null);
   const [approving, setApproving] = useState<BookingWithNames | null>(null);
+  const [reporting, setReporting] = useState<BookingWithNames | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const filtered = useMemo(() => {
@@ -59,6 +76,8 @@ function DashboardContent() {
     }
     setExporting(false);
   };
+
+  if (role && role !== "admin") return <AdminOnlyRedirect />;
 
   return (
     <div>
@@ -88,13 +107,20 @@ function DashboardContent() {
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((b) => (
-            <BookingCard key={b.id} booking={b} onReview={() => setSelected(b)} onApprove={() => setApproving(b)} />
+            <BookingCard
+              key={b.id}
+              booking={b}
+              onReview={() => setSelected(b)}
+              onApprove={() => setApproving(b)}
+              onUploadReport={() => setReporting(b)}
+            />
           ))}
         </div>
       )}
 
       <PaymentReviewModal key={selected?.id ?? "none"} booking={selected} onClose={() => setSelected(null)} />
       <ApproveAssignModal key={approving?.id ?? "none-approve"} booking={approving} onClose={() => setApproving(null)} />
+      <ReportUploadModal key={reporting?.id ?? "none-report"} booking={reporting} onClose={() => setReporting(null)} />
     </div>
   );
 }
@@ -103,13 +129,15 @@ function BookingCard({
   booking,
   onReview,
   onApprove,
+  onUploadReport,
 }: {
   booking: BookingWithNames;
   onReview: () => void;
   onApprove: () => void;
+  onUploadReport: () => void;
 }) {
-  const m = PAYMENT_STATUS_META[booking.payment_status];
-  const status = BOOKING_STATUS_META[booking.booking_status];
+  const m = paymentStatusMeta(booking.payment_status);
+  const status = bookingStatusMeta(booking.booking_status);
   const isCancelled = booking.booking_status === "cancelled";
   const isRequested = booking.booking_status === "requested";
 
@@ -151,6 +179,12 @@ function BookingCard({
             <button onClick={onApprove} className="flex items-center gap-1 text-sm font-medium text-emerald-700 active:opacity-70">
               <UserPlus2 size={14} />
               Approve &amp; Assign
+            </button>
+          ) : null}
+          {!isRequested ? (
+            <button onClick={onUploadReport} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
+              <UploadCloud size={14} />
+              Upload Report
             </button>
           ) : null}
         </div>

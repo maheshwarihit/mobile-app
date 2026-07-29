@@ -11,7 +11,7 @@ import {
   useAllBookings,
   money,
   formatDate,
-  PAYMENT_STATUS_META,
+  paymentStatusMeta,
   PAYMENT_PROOF_BUCKET,
   SIGNED_URL_TTL_SECONDS,
   type BookingWithNames,
@@ -53,7 +53,7 @@ function PaymentProofsContent() {
       ) : (
         <div className="flex flex-col gap-3">
           {withProof.map((b) => {
-            const meta = PAYMENT_STATUS_META[b.payment_status];
+            const meta = paymentStatusMeta(b.payment_status);
             const url = urls[b.payment_proof_path];
             return (
               <button key={b.id} onClick={() => setSelected(b)} className="text-left active:opacity-80">

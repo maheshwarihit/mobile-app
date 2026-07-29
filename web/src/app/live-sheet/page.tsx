@@ -5,10 +5,10 @@ import { toast } from "sonner";
 import { Download, FileSpreadsheet, Search } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { FormInput, OutlineButton, LoadingState, EmptyState, PageHeader } from "@/components/ui";
-import { useAllBookings, useAllClinicalRecords } from "@vagewell/shared";
+import { useAllBookings, useAllClinicalRecords, type LiveSheetRow } from "@vagewell/shared";
 import { liveSheetRows, exportRowsToCSV } from "@/lib/export";
 
-const COLUMNS = [
+const OVERALL_COLUMNS = [
   "Account Holder",
   "Account Phone",
   "Appointment For",
@@ -32,16 +32,43 @@ const COLUMNS = [
   "Created",
 ] as const;
 
+// Condensed view — the exact column set/order requested for day-to-day
+// front-desk use, distinct from the full "Overall Sheet" export above.
+const UPDATED_COLUMNS = [
+  "Account Holder",
+  "Appointment For",
+  "Patient Number",
+  "Service",
+  "Days/Months",
+  "Appointment Date",
+  "Payment Status",
+  "Appointment Status",
+] as const;
+
+function toUpdatedRow(row: LiveSheetRow): Record<(typeof UPDATED_COLUMNS)[number], unknown> {
+  return {
+    "Account Holder": row["Account Holder"],
+    "Appointment For": row["Appointment For"],
+    "Patient Number": row["Patient Number"],
+    Service: row.Service,
+    "Days/Months": row.Days,
+    "Appointment Date": row["Date/Time"],
+    "Payment Status": row["Payment Status"],
+    "Appointment Status": row["Appointment Status"],
+  };
+}
+
 function LiveSheetContent() {
   const [exporting, setExporting] = useState(false);
   const [query, setQuery] = useState("");
+  const [sheet, setSheet] = useState<"overall" | "updated">("overall");
   const { data: bookings, isLoading: bookingsLoading } = useAllBookings(true);
   const { data: clinical, isLoading: clinicalLoading } = useAllClinicalRecords(true);
 
   const isLoading = bookingsLoading || clinicalLoading;
   const rows = useMemo(() => liveSheetRows(bookings ?? [], clinical ?? []), [bookings, clinical]);
 
-  const visible = useMemo(() => {
+  const visibleFull = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((row) =>
@@ -52,6 +79,12 @@ function LiveSheetContent() {
         .includes(q)
     );
   }, [rows, query]);
+
+  const columns = sheet === "overall" ? OVERALL_COLUMNS : UPDATED_COLUMNS;
+  const visible = useMemo(
+    () => (sheet === "overall" ? visibleFull : visibleFull.map(toUpdatedRow)),
+    [sheet, visibleFull]
+  );
 
   const doCsv = async () => {
     setExporting(true);
@@ -67,9 +100,29 @@ function LiveSheetContent() {
     <div>
       <PageHeader title="Live sheet" />
       <p className="mb-3 text-xs text-gray-500">
-        Every appointment with the patient&apos;s details and latest vitals. Search matches any column, and the CSV
-        downloads exactly what&apos;s listed. Scroll sideways to see every column.
+        {sheet === "overall"
+          ? "Every appointment with the patient's details and latest vitals. Search matches any column, and the CSV downloads exactly what's listed. Scroll sideways to see every column."
+          : "Condensed daily view — account holder, patient, service, schedule, and status."}
       </p>
+
+      <div className="mb-3 flex gap-1.5">
+        <button
+          onClick={() => setSheet("overall")}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            sheet === "overall" ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          Overall Sheet
+        </button>
+        <button
+          onClick={() => setSheet("updated")}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            sheet === "updated" ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600"
+          }`}
+        >
+          Updated Sheet
+        </button>
+      </div>
 
       <div className="mb-1.5">
         <FormInput
@@ -94,7 +147,7 @@ function LiveSheetContent() {
           <table className="min-w-full border-collapse text-left text-[11px] text-gray-700">
             <thead className="bg-gray-50">
               <tr>
-                {COLUMNS.map((c) => (
+                {columns.map((c) => (
                   <th key={c} className="whitespace-nowrap border-b border-gray-200 px-2 py-2 font-bold">
                     {c}
                   </th>
@@ -104,7 +157,7 @@ function LiveSheetContent() {
             <tbody>
               {visible.map((row, i) => (
                 <tr key={i} className={i % 2 ? "bg-gray-50" : "bg-white"}>
-                  {COLUMNS.map((c) => (
+                  {columns.map((c) => (
                     <td key={c} className="max-w-[220px] truncate whitespace-nowrap border-b border-gray-100 px-2 py-2">
                       {String((row as Record<string, unknown>)[c] ?? "")}
                     </td>

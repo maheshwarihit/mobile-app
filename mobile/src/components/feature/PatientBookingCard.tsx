@@ -9,8 +9,8 @@ import {
   useCancelBooking,
   useReuploadProof,
   money,
-  PAYMENT_STATUS_META,
-  BOOKING_STATUS_META,
+  paymentStatusMeta,
+  bookingStatusMeta,
   formatDate,
   formatSlot,
   ALLOWED_IMAGE_MIME,
@@ -31,8 +31,8 @@ export function PatientBookingCard({
   const reupload = useReuploadProof();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const pay = PAYMENT_STATUS_META[booking.payment_status];
-  const status = BOOKING_STATUS_META[booking.booking_status];
+  const pay = paymentStatusMeta(booking.payment_status);
+  const status = bookingStatusMeta(booking.booking_status);
   const wasRejected =
     booking.payment_status === "pending" && booking.payment_method === "online" && !!booking.payment_note;
 
