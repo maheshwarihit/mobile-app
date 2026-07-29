@@ -15,6 +15,7 @@ import {
   EmptyState,
   LoadingState,
   ConfirmModal,
+  Pill,
 } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { DependentModal } from "@/components/feature/DependentModal";
@@ -152,7 +153,11 @@ export function ProfileScreen() {
         </SectionCard>
 
         {/* ── Dependents ──────────────────────────────────── */}
-        <SectionCard icon={Users} title="Dependents" subtitle="Family members you can book care for.">
+        <SectionCard
+          icon={Users}
+          title="Dependents"
+          subtitle="Family members you can book care for. They can register with the same phone number to get their own login."
+        >
           {depsLoading ? (
             <LoadingState message="Loading dependents…" />
           ) : (dependents?.length ?? 0) === 0 ? (
@@ -171,7 +176,12 @@ export function ProfileScreen() {
               {dependents?.map((d) => (
                 <View key={d.id} className="flex-row items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
                   <View className="flex-1">
-                    <Text className="text-sm font-medium text-gray-900">{d.full_name}</Text>
+                    <View className="flex-row items-center gap-1.5">
+                      <Text className="text-sm font-medium text-gray-900">{d.full_name}</Text>
+                      <Pill bgClass={d.linked_profile_id ? "bg-emerald-50" : "bg-gray-100"} textClass={d.linked_profile_id ? "text-emerald-700" : "text-gray-500"}>
+                        {d.linked_profile_id ? "Has own login" : "Not registered yet"}
+                      </Pill>
+                    </View>
                     <Text className="text-xs capitalize text-gray-500">
                       {d.relationship}
                       {d.age != null ? ` · ${d.age} yrs` : ""}

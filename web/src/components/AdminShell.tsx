@@ -2,20 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, FileSpreadsheet, QrCode, FileImage, LayoutDashboard } from "lucide-react";
+import { Users, FileSpreadsheet, QrCode, FileImage, LayoutDashboard, ClipboardList, Sprout, FileCheck2 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 
-const NAV_LINKS = [
+const ADMIN_NAV = [
   { href: "/dashboard", label: "Appointments", icon: LayoutDashboard },
   { href: "/patients", label: "Patients", icon: Users },
+  { href: "/staff", label: "Staff", icon: ClipboardList },
+  { href: "/leaf-nodes", label: "Leaf Nodes", icon: Sprout },
+  { href: "/reports", label: "Reports", icon: FileCheck2 },
   { href: "/live-sheet", label: "Live sheet", icon: FileSpreadsheet },
   { href: "/payment-proofs", label: "Payment proofs", icon: FileImage },
   { href: "/payment-qr", label: "Payment QR", icon: QrCode },
 ];
 
+// Staff/leaf_node get a reduced nav — their own assigned work, not the full
+// operational surface.
+const OPS_NAV = [
+  { href: "/my-visits", label: "My Visits", icon: ClipboardList },
+  { href: "/live-sheet", label: "Live sheet", icon: FileSpreadsheet },
+];
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, role } = useAuth();
+  const navLinks = role === "admin" ? ADMIN_NAV : OPS_NAV;
+  const portalLabel = role === "admin" ? "Admin Portal" : role === "leaf_node" ? "Leaf Node Portal" : "Staff Portal";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -23,14 +35,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center justify-between px-5 py-4">
           <div>
             <p className="text-base font-bold">VAgeWell Care</p>
-            <p className="text-xs text-admin-muted">Staff Portal{profile?.full_name ? ` · ${profile.full_name}` : ""}</p>
+            <p className="text-xs text-admin-muted">{portalLabel}{profile?.full_name ? ` · ${profile.full_name}` : ""}</p>
           </div>
           <button onClick={signOut} className="text-sm font-semibold text-admin-accent active:opacity-70">
             Log out
           </button>
         </div>
         <nav className="flex gap-1 overflow-x-auto border-t border-admin-border px-3 pb-2 pt-2">
-          {NAV_LINKS.map((l) => {
+          {navLinks.map((l) => {
             const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
             const Icon = l.icon;
             return (

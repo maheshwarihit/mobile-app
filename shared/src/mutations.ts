@@ -1,8 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSupabase, toast, type ProofSource } from "./runtime";
 import { qk } from "./queryClient";
-import { PAYMENT_PROOF_BUCKET, ALLOWED_IMAGE_MIME, MAX_UPLOAD_BYTES } from "./constants";
-import type { Role } from "./types";
+import {
+  PAYMENT_PROOF_BUCKET,
+  ALLOWED_IMAGE_MIME,
+  MAX_UPLOAD_BYTES,
+  MEDICAL_REPORT_BUCKET,
+  ALLOWED_REPORT_MIME,
+  MAX_REPORT_UPLOAD_BYTES,
+} from "./constants";
+import type { Role, ServiceMode, ReportType } from "./types";
 
 function useInvalidate() {
   const qc = useQueryClient();
@@ -29,24 +36,84 @@ export function useCancelBooking() {
   });
 }
 
-/**
- * Staff/admin closes out a finished visit (open → closed). The DB update guard
- * already permits this transition for staff only; patients can only cancel.
- * Closing removes the booking from the patient's active list.
- */
-export function useCompleteBooking() {
+// ── Assignment pipeline (admin approve/assign, assigned member run-the-visit) ──
+
+/** Admin approves a `requested` booking and picks Clinic Visit vs Home Care. */
+export function useApproveBooking() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, serviceMode }: { id: string; serviceMode: ServiceMode }) => {
       const { error } = await getSupabase()
         .from("bookings")
-        .update({ booking_status: "closed" })
+        .update({ service_mode: serviceMode, booking_status: "approved" })
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      invalidate([qk.bookings("mine"), qk.bookings("all")]);
-      toast.success("Appointment marked complete");
+      invalidate([qk.bookings("all")]);
+      toast.success("Booking approved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/**
+ * Admin assigns a staff (clinic) or leaf_node (home care) member. `serviceMode`
+ * is optional — pass it to jump straight from `requested` to `assigned` in one
+ * step; omit it when the booking was already approved separately.
+ */
+export function useAssignBooking() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      assignedTo,
+      serviceMode,
+    }: {
+      id: string;
+      assignedTo: string;
+      serviceMode?: ServiceMode;
+    }) => {
+      const payload: Record<string, unknown> = { assigned_to: assignedTo, booking_status: "assigned" };
+      if (serviceMode) payload.service_mode = serviceMode;
+      const { error } = await getSupabase().from("bookings").update(payload).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.bookings("all")]);
+      toast.success("Booking assigned");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Assigned staff/leaf_node member marks a visit as started (assigned → in_progress). */
+export function useStartVisit() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await getSupabase().from("bookings").update({ booking_status: "in_progress" }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.bookings("assigned"), qk.bookings("all")]);
+      toast.success("Visit started");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Assigned member (or admin) closes out a visit — from in_progress or report_uploaded. */
+export function useCompleteVisit() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await getSupabase().from("bookings").update({ booking_status: "completed" }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.bookings("assigned"), qk.bookings("all"), qk.bookings("mine")]);
+      toast.success("Visit completed");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -195,6 +262,74 @@ export function useAddClinical() {
       qc.invalidateQueries({ queryKey: ["clinical"] });
       invalidate([]);
       toast.success("Vitals recorded");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ── Reports (staff/leaf_node upload; admin releases to the customer) ────────
+export function useUploadReport() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    // `source` is platform-neutral (see ProofSource): web wraps a File, mobile
+    // wraps an image-picker/document-picker asset.
+    mutationFn: async ({
+      bookingId,
+      reportType,
+      note,
+      source,
+    }: {
+      bookingId: string;
+      reportType: ReportType;
+      note: string;
+      source: ProofSource;
+    }) => {
+      if (!ALLOWED_REPORT_MIME.includes(source.contentType as (typeof ALLOWED_REPORT_MIME)[number]))
+        throw new Error("Please upload a PNG, JPG, WEBP, or PDF file.");
+      if (source.sizeBytes > MAX_REPORT_UPLOAD_BYTES) throw new Error("File exceeds the 10 MB limit.");
+      const sb = getSupabase();
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      if (!user) throw new Error("Not signed in.");
+      const ext =
+        source.contentType === "application/pdf"
+          ? "pdf"
+          : source.contentType === "image/png"
+            ? "png"
+            : source.contentType === "image/webp"
+              ? "webp"
+              : "jpg";
+      const path = `${bookingId}/${user.id}/${Date.now()}.${ext}`;
+      const body = await source.toArrayBuffer();
+      const { error: upErr } = await sb.storage
+        .from(MEDICAL_REPORT_BUCKET)
+        .upload(path, body, { contentType: source.contentType, upsert: true });
+      if (upErr) throw upErr;
+      const { error } = await sb
+        .from("report_uploads")
+        .insert({ booking_id: bookingId, report_type: reportType, storage_path: path, note: note || null });
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      invalidate([qk.reports(vars.bookingId), qk.bookings("assigned"), qk.bookings("all")]);
+      toast.success("Report uploaded — awaiting admin release to the customer");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Admin releases an uploaded report to the customer. */
+export function useReviewReport() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await getSupabase().rpc("review_report", { p_report: id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.reportsUnreviewed, ["reports", "__mine__"] as const]);
+      toast.success("Report released to the customer");
     },
     onError: (e: Error) => toast.error(e.message),
   });

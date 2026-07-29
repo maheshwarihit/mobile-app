@@ -18,7 +18,15 @@ export const SCREEN_IDS = {
 } as const;
 
 // ── Enums (arrays back the CHECK constraints & UI dropdowns) ──────
-export const ROLES = ["patient", "staff", "admin"] as const;
+export const ROLES = ["patient", "staff", "admin", "leaf_node"] as const;
+export const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
+  patient: "Patient",
+  staff: "Staff",
+  admin: "Admin",
+  leaf_node: "Leaf Node",
+};
+// Roles that operate the web portal (vs. the patient mobile app).
+export const OPS_ROLES = ["staff", "admin", "leaf_node"] as const;
 
 export const GENDERS = ["male", "female", "other", "prefer_not_to_say"] as const;
 export const GENDER_LABELS: Record<(typeof GENDERS)[number], string> = {
@@ -63,7 +71,36 @@ export const PAYMENT_STATUSES = [
   "paid",
   "pay_at_visit",
 ] as const;
-export const BOOKING_STATUSES = ["open", "closed", "cancelled"] as const;
+
+// Assignment pipeline (platform-expansion round): a booking moves through
+// these in order, or drops to `cancelled` at any point before `completed`.
+export const BOOKING_STATUSES = [
+  "requested",
+  "approved",
+  "assigned",
+  "in_progress",
+  "report_uploaded",
+  "completed",
+  "cancelled",
+] as const;
+
+export const SERVICE_MODES = ["clinic", "home_care"] as const;
+export const SERVICE_MODE_LABELS: Record<(typeof SERVICE_MODES)[number], string> = {
+  clinic: "Clinic Visit",
+  home_care: "Home Care",
+};
+
+// Nutrition/Physio are a flat advance regardless of days; Para-Medical/Mental
+// Wellbeing stay ₹/day × days booked.
+export const PRICING_MODELS = ["per_day", "flat_advance"] as const;
+
+export const REPORT_TYPES = ["medical_report", "image", "prescription", "pdf"] as const;
+export const REPORT_TYPE_LABELS: Record<(typeof REPORT_TYPES)[number], string> = {
+  medical_report: "Medical Report",
+  image: "Image",
+  prescription: "Prescription",
+  pdf: "PDF",
+};
 
 export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
@@ -90,16 +127,24 @@ export const SIGNED_URL_TTL_SECONDS = 300; // 5 min
 export const PAYMENT_QR_BUCKET = "payment-qr"; // public bucket (see migration 0005)
 export const PAYMENT_QR_OBJECT = "upi.png"; // single fixed object, upserted on upload
 
-// ── Seed catalog — confirmed 4-service catalog (mirror of supabase/seed.sql + 0006/0007) ──
+// ── Medical reports (staff/leaf_node upload; admin-gated before the customer sees them) ──
+export const MEDICAL_REPORT_BUCKET = "medical-reports"; // private (see migration 0009)
+export const MAX_REPORT_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+export const ALLOWED_REPORT_MIME = ["image/png", "image/jpeg", "image/webp", "application/pdf"] as const;
+
+// ── Seed catalog — confirmed 4-service catalog (mirror of supabase/seed.sql + install_all.sql) ──
 export const SEED_SERVICES = [
-  { name: "Nutrition", price_per_day: 800, description: "Diet adherence (supported by strategic meal provider partnerships)." },
-  { name: "Physio Therapy", price_per_day: 1500, description: "Exercise completion, mobility scores." },
-  { name: "Para-Medical", price_per_day: 800, description: "Vitals tracking (BP, Sugar, SpO2) and medication compliance." },
-  { name: "Mental Wellbeing", price_per_day: 800, description: "Mood scores and social engagement tracking." },
+  { name: "Nutrition", price_per_day: 2000, pricing_model: "flat_advance", description: "Diet adherence (supported by strategic meal provider partnerships)." },
+  { name: "Physio Therapy", price_per_day: 2000, pricing_model: "flat_advance", description: "Exercise completion, mobility scores." },
+  { name: "Para-Medical", price_per_day: 800, pricing_model: "per_day", description: "Vitals tracking (BP, Sugar, SpO2) and medication compliance." },
+  { name: "Mental Wellbeing", price_per_day: 800, pricing_model: "per_day", description: "Mood scores and social engagement tracking." },
 ] as const;
 
 // Service whose booking unlocks staff vitals entry (patient-facing panel shows Sugar + Blood Group).
 export const PARA_MEDICAL_SERVICE = "Para-Medical";
+
+// Placeholder — replace with the real front-desk/hospital number before shipping.
+export const HOSPITAL_CONTACT_PHONE = "+911234567890";
 
 // ── Machine error codes for user-facing failures ─────────────────
 export const ERROR_CODES = [

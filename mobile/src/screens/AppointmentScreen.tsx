@@ -49,11 +49,15 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
 
   const serviceId = form.service_id || services?.[0]?.id || "";
   const selectedService = useMemo(() => services?.find((s) => s.id === serviceId) ?? null, [services, serviceId]);
+  const isFlatAdvance = selectedService?.pricing_model === "flat_advance";
   const days = Math.max(1, Number(form.num_days) || 1);
-  const total = selectedService ? days * selectedService.price_per_day : 0;
+  const total = selectedService ? (isFlatAdvance ? selectedService.price_per_day : days * selectedService.price_per_day) : 0;
   const profileComplete = !!profile?.full_name;
 
-  const serviceOptions = (services ?? []).map((s) => ({ value: s.id, label: `${s.name} — ${money(s.price_per_day)}/day` }));
+  const serviceOptions = (services ?? []).map((s) => ({
+    value: s.id,
+    label: s.pricing_model === "flat_advance" ? `${s.name} — ${money(s.price_per_day)} advance` : `${s.name} — ${money(s.price_per_day)}/day`,
+  }));
   const subjectOptions = [
     { value: "", label: `Myself${profile?.full_name ? ` (${profile.full_name})` : ""}` },
     ...(dependents ?? []).map((d) => ({ value: d.id, label: `${d.full_name} (${d.relationship})` })),
@@ -90,6 +94,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
         service_id: selectedService.id,
         service_name: selectedService.name,
         price_per_day: selectedService.price_per_day,
+        pricing_model: selectedService.pricing_model,
         family_member_id: form.family_member_id || null,
         subject_name: subjectName,
         start_date: form.start_date,
@@ -142,9 +147,9 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
             <View className="flex-row items-center justify-between">
               <View className="flex-1">
                 <Text className="text-sm text-gray-600">
-                  {days} day{days > 1 ? "s" : ""} × {money(selectedService?.price_per_day ?? 0)}/day
+                  {isFlatAdvance ? "Flat advance payment" : `${days} day${days > 1 ? "s" : ""} × ${money(selectedService?.price_per_day ?? 0)}/day`}
                 </Text>
-                {days > 1 ? (
+                {!isFlatAdvance && days > 1 ? (
                   <Text className="mt-0.5 text-[11px] text-gray-400">
                     {form.start_date} → {addDays(form.start_date, days)} (consecutive)
                   </Text>

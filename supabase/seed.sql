@@ -3,11 +3,11 @@
 -- ============================================================================
 
 -- ── Service catalog ──────────────────────────────────────────────────────────
-insert into public.services (name, description, price_per_day) values
-  ('Nutrition',        'Diet adherence (supported by strategic meal provider partnerships).', 800),
-  ('Physio Therapy',   'Exercise completion, mobility scores.',                               1500),
-  ('Para-Medical',     'Vitals tracking (BP, Sugar, SpO2) and medication compliance.',        800),
-  ('Mental Wellbeing', 'Mood scores and social engagement tracking.',                         800)
+insert into public.services (name, description, price_per_day, pricing_model) values
+  ('Nutrition',        'Diet adherence (supported by strategic meal provider partnerships).', 2000, 'flat_advance'),
+  ('Physio Therapy',   'Exercise completion, mobility scores.',                               2000, 'flat_advance'),
+  ('Para-Medical',     'Vitals tracking (BP, Sugar, SpO2) and medication compliance.',        800,  'per_day'),
+  ('Mental Wellbeing', 'Mood scores and social engagement tracking.',                         800,  'per_day')
 on conflict (name) do nothing;
 
 -- ── Founding admin bootstrap ────────────────────────────────────────────────

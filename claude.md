@@ -305,3 +305,60 @@ bundles (2816 modules); `web` `tsc --noEmit` 0 errors, `eslint` 0 errors/warning
   — fill in the real `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` before deploying.
   Runtime click-through still needed: staff/admin OTP login on `web/`, a patient phone bouncing back
   out of `web/`, and a staff/admin phone bouncing to the new notice screen on `mobile/`.
+  **Resolved same day:** real Supabase project connected (`ccvpwfzqgrrhxrmzlkca`) — both `.env` files
+  hold the real URL/anon key now, not placeholders.
+
+## Change round — platform expansion: leaf_node, household logins, assignment pipeline, reports (user, 2026-07-29)
+User supplied a new end-to-end flowchart and confirmed it **supersedes** the earlier spec in several
+places (see the full decision list in the approved plan, `C:\Users\arunb\.claude\plans\modular-meandering-aho.md`).
+Net effect: **auth stays phone+OTP for everyone** (patients, staff, admin, and the new leaf_node role)
+— no passwords, no email, no Edge Function, contrary to the flowchart's literal "Email/Password" boxes.
+Verified: `web` `tsc`/`eslint`/`next build --webpack` all clean (15 routes); `mobile` `tsc --noEmit`
+clean + `expo export --platform web` bundles. **`0009_platform_expansion.sql` (or the refreshed
+`install_all.sql`) still needs to run in the Supabase SQL Editor** — not executed here, no
+Docker/Postgres in this environment, same as every prior migration.
+
+- [x] **New role: `leaf_node`.** `profiles.role` widened to `patient/staff/admin/leaf_node`.
+      `is_staff()` redefined to cover all three operational roles (the shared elevated-access
+      boundary); `is_admin()` stays the sole full-oversight gate. Onboarding is unchanged in kind:
+      a new team member self-registers via phone+OTP (lands as `patient`), an admin promotes them via
+      the existing role dropdown — now offering Leaf Node too. Zero new backend surface.
+- [x] **Household-linked family logins.** `profiles.primary_account_id` + `family_members.linked_profile_id`
+      + a new `in_household()` SQL helper. `handle_new_user()` now auto-claims a matching, unclaimed
+      `family_members.contact_phone` row on signup, linking the new account to its primary. `bk_select`/
+      `fam_select`/`clin_select`/`report_select` RLS all read through `in_household()` so a primary
+      account keeps seeing a linked dependent's own bookings/records. Mobile: dependents show a
+      "Has own login" / "Not registered yet" pill (`ProfileScreen`); registering as a family member is
+      the same Register screen any patient uses — the linking is entirely server-side.
+- [x] **Booking assignment pipeline.** `booking_status` replaces `open/closed/cancelled` with
+      `requested → approved → assigned → in_progress → report_uploaded → completed` (or `cancelled` any
+      time before `completed`). New `bookings.service_mode` (`clinic`/`home_care`) and `assigned_to`.
+      `tg_booking_update_guard()` rewritten as an explicit per-transition permission table (admin-only
+      for approve/assign; assigned member or admin for the rest). `bk_select` scopes plain staff/leaf_node
+      to `assigned_to = auth.uid()`; admin still sees everything. Web: dashboard's **Approve & Assign**
+      modal (`web/src/components/ApproveAssignModal.tsx`) replaces the old single-step "Complete" button;
+      new `/my-visits` page (Start Visit → Vitals/Upload Report → Complete) for staff/leaf_node, reusing
+      the existing `VitalsModal`. Mobile: patient cancel narrowed to `requested`/`approved` (was `open`);
+      `isBookingTerminal()` (new, in `shared/format.ts`) replaces the old `'open'`/`'closed'` checks in
+      `DashboardScreen`/`PatientBookingCard`.
+- [x] **Pricing model split.** `services.pricing_model` (`per_day` | `flat_advance`). Nutrition & Physio
+      Therapy → flat ₹2,000 advance regardless of days; Para-Medical & Mental Wellbeing stay ₹800/day
+      (unchanged mechanism). `bookings.total_amount` **stopped being a generated column** — a service's
+      pricing model can't be branched on from a same-row generated expression — now computed explicitly
+      in `tg_booking_snapshot()` and snapshotted alongside `pricing_model` itself. Mobile
+      `AppointmentScreen`/`PaymentScreen` branch their summary display on `pricing_model` (flat total vs
+      `days × price`); `num_days`/date fields stay for scheduling even under flat pricing.
+- [x] **Report uploads, admin-gated.** New `report_uploads` table + private `medical-reports` storage
+      bucket. Staff/leaf_node upload from `/my-visits` (`ReportUploadModal`); an `AFTER INSERT` trigger
+      auto-advances the booking to `report_uploaded`. Reports are `reviewed = false` until an admin
+      releases them (`review_report()` RPC, new admin `/reports` page) — only then does `report_select`
+      RLS let the customer's household see them. Mobile: new **Reports** tab (`ReportsScreen`,
+      `AppTabsParamList` gained `ReportsTab`) lists released reports with a tap-to-open signed URL.
+- [x] **Hospital Call button** — `HOSPITAL_CONTACT_PHONE` (placeholder, needs the real number) on
+      `ServicesScreen`'s header, `Linking.openURL('tel:...')`.
+- **Two lint fixes along the way** (same `react-hooks/set-state-in-effect` pattern hit twice already
+  this project): `web/src/app/reports/page.tsx`'s signed-URL fetch moved from local state + effect to
+  a `useQuery`, mirroring the earlier `payment-proofs` fix.
+- **Not implemented (flagged, not guessed):** no real payment gateway ("Online Payment API" stays the
+  existing UPI-QR + screenshot-proof flow — no credentials exist for a real gateway and none were
+  requested); no Employee ID login (auth stays phone+OTP per the confirmed decision above).

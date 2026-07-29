@@ -4,6 +4,7 @@ import {
   GENDERS,
   RELATIONSHIPS,
   BLOOD_GROUPS,
+  REPORT_TYPES,
   MIN_BOOKING_DAYS,
   MAX_BOOKING_DAYS,
 } from "./constants";
@@ -72,3 +73,10 @@ export const clinicalSchema = z.object({
   note: z.string().trim().max(1000).optional().default(""),
 });
 export type ClinicalInput = z.infer<typeof clinicalSchema>;
+
+// ── Report upload (staff/leaf_node, MY VISITS) ────────────────────
+export const reportUploadSchema = z.object({
+  report_type: z.enum(asTuple(REPORT_TYPES)),
+  note: z.string().trim().max(1000).optional().default(""),
+});
+export type ReportUploadInput = z.infer<typeof reportUploadSchema>;

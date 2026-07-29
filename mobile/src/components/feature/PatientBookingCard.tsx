@@ -99,7 +99,7 @@ export function PatientBookingCard({
         </View>
       ) : null}
 
-      {booking.booking_status === "open" ? (
+      {booking.booking_status === "requested" || booking.booking_status === "approved" ? (
         <View className="mt-3 flex-row justify-end">
           <DangerButton onPress={() => setConfirmOpen(true)}>Cancel</DangerButton>
         </View>

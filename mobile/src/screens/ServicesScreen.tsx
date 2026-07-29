@@ -1,9 +1,9 @@
-import { View, Text, FlatList } from "react-native";
+import { View, Text, FlatList, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Stethoscope, ArrowRight, UserPlus } from "lucide-react-native";
+import { Stethoscope, ArrowRight, UserPlus, PhoneCall } from "lucide-react-native";
 import { PageHeader, SmallPrimaryButton, OutlineButton, LoadingState, EmptyState, ErrorBanner, Card } from "@/components/ui";
 import { BRAND } from "@/theme";
-import { useServices, money } from "@vagewell/shared";
+import { useServices, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: SERVICE_LIST
@@ -13,7 +13,18 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <View className="flex-1 px-5 pt-4">
-        <PageHeader title="Our services" subtitle="Choose a service to begin your care journey." />
+        <PageHeader
+          title="Our services"
+          subtitle="Choose a service to begin your care journey."
+          action={
+            <Pressable
+              onPress={() => Linking.openURL(`tel:${HOSPITAL_CONTACT_PHONE}`)}
+              className="h-10 w-10 items-center justify-center rounded-full bg-purple-50 active:opacity-70"
+            >
+              <PhoneCall size={18} color={BRAND} />
+            </Pressable>
+          }
+        />
 
         {error ? <ErrorBanner message="Could not load services. Please try again." /> : null}
         {isLoading ? <LoadingState message="Loading services…" /> : null}
@@ -51,7 +62,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
                 </View>
                 <View className="items-end">
                   <Text className="text-base font-bold text-gray-900">{money(s.price_per_day)}</Text>
-                  <Text className="text-[11px] text-gray-400">per day</Text>
+                  <Text className="text-[11px] text-gray-400">{s.pricing_model === "flat_advance" ? "advance" : "per day"}</Text>
                 </View>
               </View>
               <View className="mt-3 flex-row justify-end">

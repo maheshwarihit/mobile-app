@@ -19,8 +19,11 @@ export const qk = {
   familyMembers: ["family_members"] as const,
   familyMembersAll: ["family_members", "__all__"] as const,
   familyMembersByAccount: (accountId: string) => ["family_members", accountId] as const,
-  bookings: (scope: "mine" | "all") => ["bookings", scope] as const,
+  bookings: (scope: "mine" | "all" | "assigned") => ["bookings", scope] as const,
   booking: (id: string) => ["booking", id] as const,
   clinical: (subject: string) => ["clinical", subject] as const,
   users: ["users"] as const,
+  usersByRole: (role: string) => ["users", role] as const,
+  reports: (booking: string) => ["reports", booking] as const,
+  reportsUnreviewed: ["reports", "__unreviewed__"] as const,
 };

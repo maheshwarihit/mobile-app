@@ -21,13 +21,23 @@ export const PAYMENT_STATUS_META: Record<PaymentStatus, PillColors> = {
   pay_at_visit: { label: "Pay at Visit", bg: "bg-blue-50", text: "text-blue-700" },
 };
 
+// Assignment pipeline (platform-expansion round): requested → approved →
+// assigned → in_progress → report_uploaded → completed, or cancelled at any
+// point before completed.
 export const BOOKING_STATUS_META: Record<BookingStatus, PillColors> = {
-  open: { label: "Open", bg: "bg-blue-50", text: "text-blue-700" },
-  // 'closed' is the DB value; the admin action that sets it is "Mark complete",
-  // so the user-facing label reads "Completed".
-  closed: { label: "Completed", bg: "bg-gray-100", text: "text-gray-500" },
+  requested: { label: "Requested", bg: "bg-gray-100", text: "text-gray-600" },
+  approved: { label: "Approved", bg: "bg-blue-50", text: "text-blue-700" },
+  assigned: { label: "Assigned", bg: "bg-indigo-50", text: "text-indigo-700" },
+  in_progress: { label: "In Progress", bg: "bg-amber-50", text: "text-amber-700" },
+  report_uploaded: { label: "Report Uploaded", bg: "bg-violet-50", text: "text-violet-700" },
+  completed: { label: "Completed", bg: "bg-emerald-50", text: "text-emerald-700" },
   cancelled: { label: "Cancelled", bg: "bg-red-50", text: "text-red-700" },
 };
+
+/** True once a booking has left the active pipeline (no further staff action expected). */
+export function isBookingTerminal(status: BookingStatus): boolean {
+  return status === "completed" || status === "cancelled";
+}
 
 /** Build selectable 15-minute time slots within business hours (GR-4). */
 export function timeSlots(): { value: string; label: string }[] {

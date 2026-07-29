@@ -12,6 +12,7 @@ import {
   formatDate,
   formatSlot,
   BOOKING_STATUS_META,
+  isBookingTerminal,
   type Booking,
 } from "@vagewell/shared";
 
@@ -30,13 +31,15 @@ export function DashboardScreen() {
   // Completed and cancelled visits both leave the active list, but only a
   // COMPLETED one is summarised at the bottom — "Last appointment" describes a
   // visit that happened, so a cancelled booking simply disappears from the tab.
+  // "Active" now spans the whole assignment pipeline (requested through
+  // report_uploaded), not just a single "open" status.
   const { active, last, hasAny } = useMemo(() => {
     const all = bookings ?? [];
     const completed = all
-      .filter((b) => b.booking_status === "closed")
+      .filter((b) => b.booking_status === "completed")
       .sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at));
     return {
-      active: all.filter((b) => b.booking_status === "open"),
+      active: all.filter((b) => !isBookingTerminal(b.booking_status)),
       last: completed[0] ?? null,
       hasAny: all.length > 0,
     };

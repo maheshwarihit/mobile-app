@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Download, FileSearch, Activity, CheckCircle2, CalendarDays } from "lucide-react";
+import { Download, FileSearch, UserPlus2, CalendarDays } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import {
   Card,
@@ -12,21 +12,18 @@ import {
   LoadingState,
   EmptyState,
   ErrorBanner,
-  ConfirmModal,
   PageHeader,
 } from "@/components/ui";
 import { PaymentReviewModal } from "@/components/PaymentReviewModal";
-import { VitalsModal, type VitalsSubject } from "@/components/VitalsModal";
+import { ApproveAssignModal } from "@/components/ApproveAssignModal";
 import { exportAppointmentsToExcel } from "@/lib/export";
 import {
   useAllBookings,
   useAllClinicalRecords,
-  useCompleteBooking,
   money,
   formatDate,
   PAYMENT_STATUS_META,
   BOOKING_STATUS_META,
-  PARA_MEDICAL_SERVICE,
   type BookingWithNames,
 } from "@vagewell/shared";
 
@@ -36,10 +33,8 @@ function DashboardContent() {
   const [query, setQuery] = useState("");
   const [day, setDay] = useState("");
   const [selected, setSelected] = useState<BookingWithNames | null>(null);
-  const [vitals, setVitals] = useState<VitalsSubject | null>(null);
+  const [approving, setApproving] = useState<BookingWithNames | null>(null);
   const [exporting, setExporting] = useState(false);
-
-  const all = bookings ?? [];
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -54,18 +49,11 @@ function DashboardContent() {
     });
   }, [bookings, query, day]);
 
-  const openVitals = (b: BookingWithNames) =>
-    setVitals(
-      b.family_member_id
-        ? { familyMemberId: b.family_member_id, name: b.subject_name ?? "Dependent" }
-        : { profileId: b.account_id, name: b.subject_name ?? b.account?.full_name ?? "Patient" }
-    );
-
   const doExport = async () => {
     setExporting(true);
     try {
       const { data: v } = await clinical.refetch();
-      await exportAppointmentsToExcel(all, v ?? []);
+      await exportAppointmentsToExcel(bookings ?? [], v ?? []);
     } catch {
       toast.error("Could not export. Please try again.");
     }
@@ -100,30 +88,30 @@ function DashboardContent() {
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((b) => (
-            <BookingCard key={b.id} booking={b} onReview={() => setSelected(b)} onVitals={() => openVitals(b)} />
+            <BookingCard key={b.id} booking={b} onReview={() => setSelected(b)} onApprove={() => setApproving(b)} />
           ))}
         </div>
       )}
 
       <PaymentReviewModal key={selected?.id ?? "none"} booking={selected} onClose={() => setSelected(null)} />
-      <VitalsModal
-        key={vitals ? `${vitals.profileId ?? ""}:${vitals.familyMemberId ?? ""}` : "none"}
-        open={!!vitals}
-        subject={vitals}
-        onClose={() => setVitals(null)}
-      />
+      <ApproveAssignModal key={approving?.id ?? "none-approve"} booking={approving} onClose={() => setApproving(null)} />
     </div>
   );
 }
 
-function BookingCard({ booking, onReview, onVitals }: { booking: BookingWithNames; onReview: () => void; onVitals: () => void }) {
+function BookingCard({
+  booking,
+  onReview,
+  onApprove,
+}: {
+  booking: BookingWithNames;
+  onReview: () => void;
+  onApprove: () => void;
+}) {
   const m = PAYMENT_STATUS_META[booking.payment_status];
   const status = BOOKING_STATUS_META[booking.booking_status];
-  const complete = useCompleteBooking();
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const showVitals = booking.service_name === PARA_MEDICAL_SERVICE;
-  const isOpen = booking.booking_status === "open";
   const isCancelled = booking.booking_status === "cancelled";
+  const isRequested = booking.booking_status === "requested";
 
   return (
     <Card className="p-4">
@@ -137,6 +125,9 @@ function BookingCard({ booking, onReview, onVitals }: { booking: BookingWithName
           <p className="mt-1 text-sm text-gray-600">
             {formatDate(booking.start_date)} · {money(booking.total_amount)}
           </p>
+          {booking.assigned_to_name ? (
+            <p className="mt-0.5 text-xs text-gray-500">Assigned to {booking.assigned_to_name}</p>
+          ) : null}
         </div>
         <div className="flex flex-col items-end gap-1">
           {!isCancelled ? (
@@ -144,57 +135,26 @@ function BookingCard({ booking, onReview, onVitals }: { booking: BookingWithName
               {m.label}
             </Pill>
           ) : null}
-          {!isOpen ? (
-            <Pill bgClass={status.bg} textClass={status.text}>
-              {status.label}
-            </Pill>
-          ) : null}
+          <Pill bgClass={status.bg} textClass={status.text}>
+            {status.label}
+          </Pill>
         </div>
       </div>
 
-      {!isCancelled || showVitals ? (
+      {!isCancelled ? (
         <div className="mt-3 flex gap-5 border-t border-gray-100 pt-3">
-          {!isCancelled ? (
-            <button onClick={onReview} className="flex items-center gap-1 text-sm font-medium text-brand-600 active:opacity-70">
-              <FileSearch size={14} />
-              Review
-            </button>
-          ) : null}
-          {showVitals ? (
-            <button onClick={onVitals} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
-              <Activity size={14} />
-              Vitals
-            </button>
-          ) : null}
-          {isOpen ? (
-            <button
-              onClick={() => setConfirmOpen(true)}
-              disabled={complete.isPending}
-              className="flex items-center gap-1 text-sm font-medium text-emerald-700 active:opacity-70"
-            >
-              <CheckCircle2 size={14} />
-              Complete
+          <button onClick={onReview} className="flex items-center gap-1 text-sm font-medium text-brand-600 active:opacity-70">
+            <FileSearch size={14} />
+            Review
+          </button>
+          {isRequested ? (
+            <button onClick={onApprove} className="flex items-center gap-1 text-sm font-medium text-emerald-700 active:opacity-70">
+              <UserPlus2 size={14} />
+              Approve &amp; Assign
             </button>
           ) : null}
         </div>
       ) : null}
-
-      <ConfirmModal
-        open={confirmOpen}
-        title="Mark appointment complete?"
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={() => {
-          complete.mutate(booking.id);
-          setConfirmOpen(false);
-        }}
-        confirmLabel="Mark complete"
-        cancelLabel="Not yet"
-      >
-        <p className="text-sm text-gray-600">
-          This closes the {booking.service_name} visit on {formatDate(booking.start_date)}. It will move out of the patient&apos;s
-          active appointments.
-        </p>
-      </ConfirmModal>
     </Card>
   );
 }

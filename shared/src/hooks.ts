@@ -8,6 +8,7 @@ import type {
   Profile,
   ClinicalRecord,
   BookingWithNames,
+  ReportUpload,
 } from "./types";
 
 // ── Services (SERVICE_LIST / APPOINTMENT) ────────────────────────
@@ -102,41 +103,72 @@ export function useMyBookings() {
   });
 }
 
-// ── All bookings with names (staff/admin DASHBOARD + export) ─────
+const BOOKING_WITH_NAMES_SELECT =
+  "*, account:profiles!bookings_account_id_fkey(full_name, phone, age), dependent:family_members(full_name, relationship, age, contact_phone), assignee:profiles!bookings_assigned_to_fkey(full_name)";
+
+function mapBookingWithNames(row: Record<string, unknown>): BookingWithNames {
+  const account = row.account as Pick<Profile, "full_name" | "phone" | "age"> | null;
+  const dependent = row.dependent as Pick<
+    FamilyMember,
+    "full_name" | "relationship" | "age" | "contact_phone"
+  > | null;
+  const assignee = row.assignee as Pick<Profile, "full_name"> | null;
+  return {
+    ...(row as unknown as Booking),
+    account: account ?? undefined,
+    subject_name: dependent?.full_name ?? account?.full_name ?? null,
+    subject_relationship: dependent?.relationship ?? "self",
+    subject_age: dependent ? dependent.age : account?.age ?? null,
+    subject_phone: dependent ? dependent.contact_phone : account?.phone ?? null,
+    assigned_to_name: assignee?.full_name ?? null,
+  } as BookingWithNames;
+}
+
+// ── All bookings with names (admin DASHBOARD + export) ────────────
 export function useAllBookings(enabled: boolean) {
   return useQuery({
     queryKey: qk.bookings("all"),
     enabled,
     queryFn: async (): Promise<BookingWithNames[]> => {
       const sb = getSupabase();
-      // RLS gives staff/admin every row; join names via related selects.
-      // The extra dependent/account columns feed the merged admin live sheet.
+      // RLS gives admin every row (and gives plain staff/leaf_node only their
+      // assigned rows — see useMyAssignedBookings for that dedicated view).
+      // Newest appointment first — the date every card and sheet row renders is
+      // start_date, so ordering on created_at made the visible column look
+      // unsorted. created_at only breaks ties within a day.
       const { data, error } = await sb
         .from("bookings")
-        .select(
-          "*, account:profiles!bookings_account_id_fkey(full_name, phone, age), dependent:family_members(full_name, relationship, age, contact_phone)"
-        )
-        // Newest appointment first — the date every card and sheet row renders is
-        // start_date, so ordering on created_at made the visible column look
-        // unsorted. created_at only breaks ties within a day.
+        .select(BOOKING_WITH_NAMES_SELECT)
         .order("start_date", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((row: Record<string, unknown>) => {
-        const account = row.account as Pick<Profile, "full_name" | "phone" | "age"> | null;
-        const dependent = row.dependent as Pick<
-          FamilyMember,
-          "full_name" | "relationship" | "age" | "contact_phone"
-        > | null;
-        return {
-          ...(row as unknown as Booking),
-          account: account ?? undefined,
-          subject_name: dependent?.full_name ?? account?.full_name ?? null,
-          subject_relationship: dependent?.relationship ?? "self",
-          subject_age: dependent ? dependent.age : account?.age ?? null,
-          subject_phone: dependent ? dependent.contact_phone : account?.phone ?? null,
-        } as BookingWithNames;
-      });
+      return (data ?? []).map(mapBookingWithNames);
+    },
+  });
+}
+
+// ── This staff/leaf_node member's assigned bookings (web MY VISITS) ─────
+export function useMyAssignedBookings(enabled: boolean) {
+  return useQuery({
+    queryKey: qk.bookings("assigned"),
+    enabled,
+    queryFn: async (): Promise<BookingWithNames[]> => {
+      const sb = getSupabase();
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      if (!user) return [];
+      // RLS already scopes non-admin staff/leaf_node to assigned_to = auth.uid(),
+      // but filter explicitly so an admin opening this page sees the same
+      // "my work" view rather than everything.
+      const { data, error } = await sb
+        .from("bookings")
+        .select(BOOKING_WITH_NAMES_SELECT)
+        .eq("assigned_to", user.id)
+        .order("start_date", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(mapBookingWithNames);
     },
   });
 }
@@ -183,7 +215,7 @@ export function useAllClinicalRecords(enabled: boolean) {
   });
 }
 
-// ── All users (admin Role Manager) ───────────────────────────────
+// ── All users (admin Role Manager, Staff/Leaf Node lists) ────────
 export function useAllProfiles(enabled: boolean) {
   return useQuery({
     queryKey: qk.users,
@@ -196,6 +228,61 @@ export function useAllProfiles(enabled: boolean) {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Profile[];
+    },
+  });
+}
+
+// ── Reports for one booking (patient REPORTS tab, admin/staff visit view) ───
+export function useReportsForBooking(bookingId: string | null) {
+  return useQuery({
+    queryKey: qk.reports(bookingId ?? "none"),
+    enabled: !!bookingId,
+    queryFn: async (): Promise<ReportUpload[]> => {
+      const sb = getSupabase();
+      const { data, error } = await sb
+        .from("report_uploads")
+        .select("*")
+        .eq("booking_id", bookingId as string)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ReportUpload[];
+    },
+  });
+}
+
+// ── Every reviewed report visible to the caller's household (patient REPORTS tab) ──
+export function useMyReports(enabled: boolean) {
+  return useQuery({
+    queryKey: ["reports", "__mine__"] as const,
+    enabled,
+    queryFn: async (): Promise<ReportUpload[]> => {
+      const sb = getSupabase();
+      // RLS (report_select) already restricts non-staff callers to reviewed
+      // rows for their own household's bookings.
+      const { data, error } = await sb
+        .from("report_uploads")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ReportUpload[];
+    },
+  });
+}
+
+// ── Unreviewed reports (admin REPORTS review page) ────────────────
+export function useUnreviewedReports(enabled: boolean) {
+  return useQuery({
+    queryKey: qk.reportsUnreviewed,
+    enabled,
+    queryFn: async (): Promise<ReportUpload[]> => {
+      const sb = getSupabase();
+      const { data, error } = await sb
+        .from("report_uploads")
+        .select("*")
+        .eq("reviewed", false)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ReportUpload[];
     },
   });
 }

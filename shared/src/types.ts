@@ -11,6 +11,9 @@ import type {
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
   BOOKING_STATUSES,
+  SERVICE_MODES,
+  PRICING_MODELS,
+  REPORT_TYPES,
   BLOOD_GROUPS,
   ERROR_CODES,
 } from "./constants";
@@ -22,6 +25,9 @@ export type HowHeard = (typeof HOW_HEARD_OPTIONS)[number];
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+export type ServiceMode = (typeof SERVICE_MODES)[number];
+export type PricingModel = (typeof PRICING_MODELS)[number];
+export type ReportType = (typeof REPORT_TYPES)[number];
 export type BloodGroup = (typeof BLOOD_GROUPS)[number];
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -36,6 +42,9 @@ export interface Profile {
   date_of_birth: string | null; // YYYY-MM-DD
   how_heard: HowHeard | null;
   wellness_note: string | null; // "How well are you?" (R1.5)
+  // Set once this account's phone auto-links to a family_members row on
+  // another account (household linking) — points at that account's id.
+  primary_account_id: string | null;
   created_at: string; // UTC ISO 8601
   updated_at: string;
 }
@@ -50,6 +59,8 @@ export interface FamilyMember {
   gender: Gender | null;
   relationship: Relationship;
   contact_phone: string | null;
+  // Set once this dependent's contact_phone registers its own account.
+  linked_profile_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -59,7 +70,8 @@ export interface Service {
   id: string;
   name: string;
   description: string | null;
-  price_per_day: number;
+  price_per_day: number; // per-day rate, OR the flat amount when pricing_model = 'flat_advance'
+  pricing_model: PricingModel;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -73,8 +85,9 @@ export interface Booking {
   service_id: string;
   service_name: string; // snapshot
   price_per_day: number; // snapshot
+  pricing_model: PricingModel | null; // snapshot
   num_days: number;
-  total_amount: number; // generated: num_days * price_per_day
+  total_amount: number; // server-computed at insert (flat, or num_days × price_per_day)
   start_date: string; // YYYY-MM-DD
   time_slot: string; // "HH:MM[:SS]" on a 15-min boundary
   symptom_brief: string | null;
@@ -82,7 +95,24 @@ export interface Booking {
   payment_status: PaymentStatus;
   payment_note: string | null; // admin rejection reason
   payment_proof_path: string | null; // storage object path (online)
+  service_mode: ServiceMode | null; // set on admin approval
+  assigned_to: string | null; // FK -> profiles.id (staff or leaf_node), set on assignment
   booking_status: BookingStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── report_uploads (staff/leaf_node uploads; admin-gated before customer sees them) ──
+export interface ReportUpload {
+  id: string;
+  booking_id: string;
+  uploaded_by: string; // FK -> profiles.id
+  report_type: ReportType;
+  storage_path: string;
+  note: string | null;
+  reviewed: boolean;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +144,7 @@ export interface BookingWithNames extends Booking {
   subject_relationship?: Relationship | "self";
   subject_age?: number | null;
   subject_phone?: string | null;
+  assigned_to_name?: string | null; // resolved from the assigned staff/leaf_node profile
 }
 
 

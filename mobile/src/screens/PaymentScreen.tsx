@@ -123,7 +123,8 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
     setDone(true);
   };
 
-  const total = draft.num_days * draft.price_per_day;
+  const isFlatAdvance = draft.pricing_model === "flat_advance";
+  const total = isFlatAdvance ? draft.price_per_day : draft.num_days * draft.price_per_day;
 
   if (done) {
     return (
@@ -172,7 +173,7 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
             <Row label="Start date" value={formatDate(draft.start_date)} />
             <Row label="Time" value={formatSlot(draft.time_slot)} />
             <Row label="Days" value={String(draft.num_days)} />
-            <Row label="Price / day" value={money(draft.price_per_day)} />
+            <Row label={isFlatAdvance ? "Advance amount" : "Price / day"} value={money(draft.price_per_day)} />
             <View className="mt-2 flex-row items-center justify-between border-t border-gray-100 pt-3">
               <Text className="text-sm font-semibold text-gray-900">Total payable</Text>
               <Text className="text-lg font-bold text-purple-700">{money(total)}</Text>
