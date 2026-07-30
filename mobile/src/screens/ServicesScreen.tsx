@@ -2,16 +2,17 @@ import { useState } from "react";
 import { View, Text, FlatList, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
-import { Stethoscope, CheckCircle2, ArrowRight, UserPlus, PhoneCall } from "lucide-react-native";
+import { Stethoscope, CheckCircle2, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
 import { PageHeader, PrimaryButton, OutlineButton, LoadingState, EmptyState, ErrorBanner, Card } from "@/components/ui";
 import { BRAND } from "@/theme";
-import { useServices, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
+import { useServices, useCreateBookingRequest, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: SERVICE_LIST
 export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Services">) {
   const { data: services, isLoading, error } = useServices();
   const [selected, setSelected] = useState<string | null>(null);
+  const requestBooking = useCreateBookingRequest();
 
   const book = () => {
     if (!selected) {
@@ -52,8 +53,19 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           ListFooterComponent={
             (services?.length ?? 0) > 0 ? (
               <View className="mt-2 gap-3">
+                <OutlineButton
+                  fullWidth
+                  icon={PhoneIncoming}
+                  disabled={requestBooking.isPending}
+                  onPress={() => requestBooking.mutate(undefined)}
+                >
+                  {requestBooking.isPending ? "Sending…" : "Request for Booking"}
+                </OutlineButton>
+                <Text className="-mt-2 text-center text-xs text-gray-400">
+                  Not ready to pick a service? Ask our team to call you back.
+                </Text>
                 <PrimaryButton fullWidth icon={ArrowRight} onPress={book}>
-                  Request Appointment
+                  Book Appointment
                 </PrimaryButton>
                 <OutlineButton fullWidth icon={UserPlus} onPress={() => navigation.navigate("ProfileTab")}>
                   Add a family member

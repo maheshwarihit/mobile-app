@@ -117,6 +117,21 @@ export interface ReportUpload {
   updated_at: string;
 }
 
+// ── booking_requests ("Request for Booking" — quick contact-me lead, admin inbox) ──
+export interface BookingRequest {
+  id: string;
+  account_id: string; // stamped server-side from auth.uid(), never client-supplied
+  note: string | null;
+  contacted: boolean;
+  contacted_by: string | null;
+  contacted_at: string | null;
+  created_at: string;
+}
+
+export interface BookingRequestWithAccount extends BookingRequest {
+  account?: Pick<Profile, "full_name" | "phone"> | null;
+}
+
 // ── clinical_records (vitals ledger; one subject per row) ────────
 export interface ClinicalRecord {
   id: string;

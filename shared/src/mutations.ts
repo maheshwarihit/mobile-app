@@ -335,6 +335,42 @@ export function useReviewReport() {
   });
 }
 
+// ── Booking requests — "Request for Booking" (customer) + admin inbox ────────
+/** Customer sends a quick "contact me about booking" lead — no service/date needed. */
+export function useCreateBookingRequest() {
+  return useMutation({
+    mutationFn: async (note?: string) => {
+      // account_id is stamped server-side from auth.uid() (tg_booking_request_stamp
+      // runs BEFORE INSERT, ahead of the NOT NULL check) — not sent from the client,
+      // same pattern as report_uploads.uploaded_by.
+      const { error } = await getSupabase()
+        .from("booking_requests")
+        .insert({ note: note || null });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Request sent — our team will contact you shortly.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Admin marks a booking request as contacted (removes it from the open inbox). */
+export function useMarkRequestContacted() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await getSupabase().rpc("mark_request_contacted", { p_request: id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.bookingRequests]);
+      toast.success("Marked as contacted");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ── Admin: role management ───────────────────────────────────────
 export function useSetUserRole() {
   const invalidate = useInvalidate();

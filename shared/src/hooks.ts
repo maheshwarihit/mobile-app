@@ -9,6 +9,7 @@ import type {
   ClinicalRecord,
   BookingWithNames,
   ReportUpload,
+  BookingRequestWithAccount,
 } from "./types";
 
 // ── Services (SERVICE_LIST / APPOINTMENT) ────────────────────────
@@ -283,6 +284,23 @@ export function useUnreviewedReports(enabled: boolean) {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ReportUpload[];
+    },
+  });
+}
+
+// ── Booking requests — "Request for Booking" inbox (admin panel only) ────────
+export function useBookingRequests(enabled: boolean) {
+  return useQuery({
+    queryKey: qk.bookingRequests,
+    enabled,
+    queryFn: async (): Promise<BookingRequestWithAccount[]> => {
+      const sb = getSupabase();
+      const { data, error } = await sb
+        .from("booking_requests")
+        .select("*, account:profiles!booking_requests_account_id_fkey(full_name, phone)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as BookingRequestWithAccount[];
     },
   });
 }

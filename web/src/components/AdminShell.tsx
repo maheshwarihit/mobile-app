@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, FileSpreadsheet, QrCode, FileImage, LayoutDashboard, ClipboardList, Sprout, FileCheck2 } from "lucide-react";
+import { Users, FileSpreadsheet, QrCode, FileImage, LayoutDashboard, ClipboardList, Sprout, FileCheck2, PhoneIncoming } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
+import { useBookingRequests } from "@vagewell/shared";
 
 const ADMIN_NAV = [
   { href: "/dashboard", label: "Appointments", icon: LayoutDashboard },
+  { href: "/requests", label: "Requests", icon: PhoneIncoming },
   { href: "/patients", label: "Patients", icon: Users },
   { href: "/staff", label: "Staff", icon: ClipboardList },
   { href: "/leaf-nodes", label: "Leaf Nodes", icon: Sprout },
@@ -28,6 +30,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { signOut, profile, role } = useAuth();
   const navLinks = role === "admin" ? ADMIN_NAV : OPS_NAV;
   const portalLabel = role === "admin" ? "Admin Portal" : role === "leaf_node" ? "Leaf Node Portal" : "Staff Portal";
+  const { data: requests } = useBookingRequests(role === "admin");
+  const openRequestCount = (requests ?? []).filter((r) => !r.contacted).length;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -55,6 +59,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               >
                 <Icon size={14} />
                 {l.label}
+                {l.href === "/requests" && openRequestCount > 0 ? (
+                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                    {openRequestCount}
+                  </span>
+                ) : null}
               </Link>
             );
           })}

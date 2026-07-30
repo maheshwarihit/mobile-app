@@ -495,3 +495,32 @@ after flow — no structural change made there.
       behavior — wording only.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (15 routes); `mobile` `tsc --noEmit` clean +
   `expo export --platform web` bundle clean.
+
+## Change round — "Request for Booking" quick-contact lead (user, 2026-07-29)
+User clarified via a follow-up question: notification of a new request should be **in-app, admin-panel
+only** (pull-based, matching the R3.4 precedent of no push/email/SMS alerts) — not a real Twilio SMS to
+the admin's phone. New feature, new migration.
+
+- [x] **New `booking_requests` table** (`supabase/migrations/0010_booking_requests.sql`, mirrored into
+      `install_all.sql`). Deliberately separate from `bookings` — no service, date, or payment; just
+      `account_id` (server-stamped from `auth.uid()` via a `BEFORE INSERT` trigger, same pattern as
+      `report_uploads.uploaded_by` — never client-supplied), an optional `note`, and a
+      `contacted`/`contacted_by`/`contacted_at` trail. RLS: insert own only; select own row or
+      `is_admin()`; a `mark_request_contacted()` RPC (admin-only, mirrors `review_report()`) is the only
+      write path for the contacted fields — no direct UPDATE grant.
+- [x] **Shared layer**: `BookingRequest`/`BookingRequestWithAccount` types, `qk.bookingRequests`,
+      `useBookingRequests(enabled)` (joins `profiles!booking_requests_account_id_fkey` for name/phone),
+      `useCreateBookingRequest()`, `useMarkRequestContacted()`.
+- [x] **Mobile — `ServicesScreen`**: new "Request for Booking" outline button *above* "Book Appointment"
+      (reverted from last round's "Request Appointment" rename now that there are genuinely two distinct
+      actions) — fires the insert directly with no service/date picker, toast confirms. "Book
+      Appointment" is unchanged: still the full select-a-service-then-book flow.
+- [x] **Web — new `/requests` admin page** (`web/src/components/AdminShell.tsx` nav gained "Requests"
+      with a red unread-count badge sourced from the same `useBookingRequests` hook; `RequireStaff`-gated
+      like every other page, not further admin-restricted since no other admin-only page in this codebase
+      is either — nav-hiding + RLS is the established pattern). Lists open requests (name, phone,
+      tap-to-call, "Mark contacted") with a collapsed "Contacted" section below.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (16 routes, new `/requests`); `mobile`
+  `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+- **Needs the user's machine, same as every prior migration:** `0010_booking_requests.sql` (or the
+  refreshed `install_all.sql`) has not run against the live Supabase project from this environment.
