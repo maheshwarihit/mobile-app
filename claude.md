@@ -618,3 +618,18 @@ mobile screens, and the web patient self-edit form.
   `install_all.sql`) has not run against the live Supabase project from this environment. The pricing
   data issue from the previous round (Physio Therapy still reading ₹1,500/day) is a separate, already-
   flagged problem in the same category — still unresolved as of this round.
+
+## Change round — only the most recent missed appointment surfaces on Dashboard (user, 2026-07-30)
+User clarified the missed-appointments section from the previous round: don't list *every* missed
+booking on the Appointments tab — just the latest one, as a nudge — while the full history (all missed,
+completed, cancelled) keeps living in the Profile's Checkup list.
+
+- [x] `mobile/src/screens/DashboardScreen.tsx`'s `missed` array (rendered as a full list) replaced with
+      `recentMissed` — a single booking, the one with the latest `start_date` among missed bookings.
+      Section heading changed to "Recently missed" to match. `ProfileScreen`'s Checkup history was
+      already unfiltered by recency, so it needed no change — it already stores everything.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+- **Still outstanding, unrelated to this round:** the Nutrition/Physio pricing display depends entirely
+  on `services.pricing_model`/`price_per_day` in the live database — this has been diagnosed multiple
+  times now (see prior rounds) and is not a code issue; the fix SQL has been provided but its effect
+  hasn't yet been confirmed via the verification query requested earlier.

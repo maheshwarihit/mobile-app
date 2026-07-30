@@ -33,15 +33,19 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
     navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id } });
 
   // A missed booking (scheduled date already passed, never reached a terminal
-  // state) leaves the plain "upcoming" list and gets its own section instead —
-  // completed/cancelled history lives in the Profile's Health record Checkup
-  // list, not here.
-  const { active, missed, hasAny } = useMemo(() => {
+  // state) leaves the plain "upcoming" list. Only the single most recent one
+  // surfaces here as a nudge to reschedule — the complete history (every past
+  // checkup, missed or otherwise) lives in the Profile's Health record Checkup
+  // list, not this tab.
+  const { active, recentMissed, hasAny } = useMemo(() => {
     const all = bookings ?? [];
     const notTerminal = all.filter((b) => !isBookingTerminal(b.booking_status));
+    const missedSorted = notTerminal
+      .filter((b) => isBookingMissed(b.booking_status, b.start_date))
+      .sort((a, b) => b.start_date.localeCompare(a.start_date));
     return {
       active: notTerminal.filter((b) => !isBookingMissed(b.booking_status, b.start_date)),
-      missed: notTerminal.filter((b) => isBookingMissed(b.booking_status, b.start_date)),
+      recentMissed: missedSorted[0] ?? null,
       hasAny: all.length > 0,
     };
   }, [bookings]);
@@ -58,12 +62,14 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
             <View>
               {error ? <ErrorBanner message="Could not load your appointments." /> : null}
               {isLoading ? <LoadingState message="Loading appointments…" /> : null}
-              {missed.length > 0 ? (
-                <View className="mb-4 gap-3">
-                  <Text className="text-xs font-semibold uppercase tracking-wide text-red-500">Missed</Text>
-                  {missed.map((b) => (
-                    <MissedAppointment key={b.id} booking={b} subjectName={nameFor(b)} onReschedule={() => reschedule(b)} />
-                  ))}
+              {recentMissed ? (
+                <View className="mb-4 gap-2">
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-red-500">Recently missed</Text>
+                  <MissedAppointment
+                    booking={recentMissed}
+                    subjectName={nameFor(recentMissed)}
+                    onReschedule={() => reschedule(recentMissed)}
+                  />
                 </View>
               ) : null}
             </View>
