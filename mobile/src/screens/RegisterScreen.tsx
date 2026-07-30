@@ -39,6 +39,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
     phone: "",
     age: "",
     gender: "male",
+    address: "",
     how_heard: HOW_HEARD_DEFAULT as string,
     wellness_note: "",
   });
@@ -59,6 +60,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
           full_name: form.full_name.trim(),
           age: form.age || "",
           gender: form.gender || "",
+          address: form.address.trim() || "",
           how_heard: form.how_heard,
           wellness_note: form.wellness_note || "",
         },
@@ -122,6 +124,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
             full_name: parsed.data.full_name,
             age: parsed.data.age,
             gender: parsed.data.gender || null,
+            address: parsed.data.address || null,
             how_heard: parsed.data.how_heard,
             wellness_note: parsed.data.wellness_note || null,
           })
@@ -175,6 +178,14 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
                   error={errors.age}
                 />
                 <ChoiceChips label="Gender" value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} />
+                <TextareaInput
+                  label="Address"
+                  value={form.address}
+                  onChangeText={set("address")}
+                  placeholder="House/street, city, pincode…"
+                  rows={2}
+                  maxLength={500}
+                />
                 <SelectSheet
                   label="How do you know about VAgeWell?"
                   value={form.how_heard}

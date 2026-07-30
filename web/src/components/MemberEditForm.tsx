@@ -52,7 +52,7 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
   const addClinical = useAddClinical();
   const busy = update.isPending || saveDep.isPending || addClinical.isPending;
 
-  const [form, setForm] = useState({ full_name: name, phone: "", age: "", blood_group: "", bp: "", sugar: "", conditions: "" });
+  const [form, setForm] = useState({ full_name: name, phone: "", age: "", address: "", blood_group: "", bp: "", sugar: "", conditions: "" });
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
@@ -68,6 +68,7 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
       full_name: bioName ?? name,
       phone: localPhone(bioPhone ?? null),
       age: bioAge != null ? String(bioAge) : "",
+      address: subject.kind === "self" ? (profile?.address ?? "") : "",
       blood_group: latest?.blood_group ?? "",
       bp: latest?.systolic && latest?.diastolic ? `${latest.systolic}/${latest.diastolic}` : "",
       sugar: latest?.blood_glucose != null ? String(latest.blood_glucose) : "",
@@ -87,6 +88,7 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
           age: ageNum,
           date_of_birth: profile?.date_of_birth ?? null,
           gender: profile?.gender ?? null,
+          address: form.address.trim() ? form.address.trim() : null,
         },
         { onSuccess: () => qc.invalidateQueries({ queryKey: qk.users }) }
       );
@@ -141,6 +143,9 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
             editable={!phoneReadOnly}
           />
           <FormInput label="Age" value={form.age} onChangeText={set("age")} type="number" />
+          {subject.kind === "self" ? (
+            <TextareaInput label="Address" value={form.address} onChangeText={set("address")} rows={2} maxLength={500} />
+          ) : null}
         </div>
       </SectionCard>
 

@@ -23,6 +23,7 @@ export const registerSchema = z.object({
   phone,
   age: optionalAge,
   gender: z.union([z.enum(asTuple(GENDERS)), z.literal("")]).optional(),
+  address: z.string().trim().max(500).optional().default(""),
   how_heard: z.enum(asTuple(HOW_HEARD_OPTIONS)),
   wellness_note: z.string().trim().max(1000).optional().default(""),
 });

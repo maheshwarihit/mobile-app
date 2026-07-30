@@ -236,6 +236,7 @@ export function useUpdateProfile() {
       age: number | null;
       date_of_birth: string | null;
       gender: string | null;
+      address?: string | null;
     }) => {
       const { id, ...rest } = payload;
       const { error } = await getSupabase().from("profiles").update(rest).eq("id", id);

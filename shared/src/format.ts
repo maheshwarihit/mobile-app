@@ -4,6 +4,7 @@ import {
   BOOKING_START_HOUR,
   BOOKING_END_HOUR,
 } from "./constants";
+import { todayISODate } from "./dates";
 
 export function money(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -37,6 +38,15 @@ export const BOOKING_STATUS_META: Record<BookingStatus, PillColors> = {
 /** True once a booking has left the active pipeline (no further staff action expected). */
 export function isBookingTerminal(status: BookingStatus): boolean {
   return status === "completed" || status === "cancelled";
+}
+
+/**
+ * A booking whose scheduled start has already passed without ever reaching a
+ * terminal state — the pipeline itself has no "missed" status (that's a
+ * client-side read on stale-but-still-active bookings, not a server state).
+ */
+export function isBookingMissed(status: BookingStatus, startDate: string): boolean {
+  return !isBookingTerminal(status) && startDate < todayISODate();
 }
 
 // Rows can carry a status written before a schema migration ran (e.g. the old

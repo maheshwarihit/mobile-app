@@ -1,8 +1,8 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0009. Fixes a project that was set up piecemeal, and also converges an
--- already-migrated project onto the 0009 platform-expansion shape.
+-- 0001–0011. Fixes a project that was set up piecemeal, and also converges an
+-- already-migrated project onto the latest shape.
 -- ============================================================================
 
 create extension if not exists pgcrypto;
@@ -27,6 +27,8 @@ create table if not exists public.profiles (
 alter table public.profiles add column if not exists primary_account_id uuid references public.profiles(id);
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('patient','staff','admin','leaf_node'));
+-- Repair path: address on a table that predates 0011.
+alter table public.profiles add column if not exists address text;
 
 create table if not exists public.family_members (
   id                uuid primary key default gen_random_uuid(),
@@ -207,10 +209,11 @@ declare v_age int; v_family_row public.family_members;
 begin
   if coalesce(new.raw_user_meta_data->>'age','') ~ '^\d+$'
     then v_age := (new.raw_user_meta_data->>'age')::int; else v_age := null; end if;
-  insert into public.profiles (id, role, phone, full_name, age, gender, how_heard, wellness_note)
+  insert into public.profiles (id, role, phone, full_name, age, gender, address, how_heard, wellness_note)
   values (new.id, 'patient', new.phone,
           nullif(new.raw_user_meta_data->>'full_name',''), v_age,
           nullif(new.raw_user_meta_data->>'gender',''),
+          nullif(new.raw_user_meta_data->>'address',''),
           coalesce(nullif(new.raw_user_meta_data->>'how_heard',''),'web_search'),
           nullif(new.raw_user_meta_data->>'wellness_note',''))
   on conflict (id) do nothing;

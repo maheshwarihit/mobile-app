@@ -573,3 +573,48 @@ amount regardless of what's entered (no `months × price` multiplication, same a
 - [x] **`mobile/src/screens/PaymentScreen.tsx`** — the summary's "Days" row now reads "Months" for
       flat-advance bookings.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+
+## Change round — vc.pdf: missed/reschedule + Checkup history, no-select Services, immutable profile + address (user, 2026-07-30)
+Source: `vc.pdf`. New migration (`0011_profile_address.sql`), touches shared types/schemas/mutations, three
+mobile screens, and the web patient self-edit form.
+
+- [x] **Missed appointments + Reschedule, Checkup history in Health record.** New `isBookingMissed(status,
+      startDate)` (`shared/src/format.ts`) — client-side read on a non-terminal booking whose `start_date`
+      has already passed (the pipeline itself has no "missed" state). `mobile/src/screens/DashboardScreen.tsx`
+      now splits into an "upcoming" list (not terminal, not missed) and a "Missed" section (red card, "You
+      missed it" pill, **Reschedule** button) — the old single "Last appointment" footer is gone entirely.
+      Reschedule uses nested tab navigation (`navigation.navigate("ServicesTab", { screen: "Appointment",
+      params: { serviceId } })`) — required widening `AppTabsParamList.ServicesTab` from `undefined` to
+      `NavigatorScreenParams<ServicesStackParamList> | undefined` (`navigation/types.ts`), plus a new
+      `AppTabScreenProps<T>` helper so `DashboardScreen` (previously prop-less) can receive `navigation`.
+      Past checkups (completed, cancelled, *or* missed) for the selected subject now live in a new
+      "Checkup history" list inside `ProfileScreen`'s Health record card, sorted newest first — this is
+      where finished visits are found now, not the Appointments tab.
+- [x] **Services screen has no selection step at all.** Removed the tap-to-select card state entirely
+      (`ServicesScreen.tsx` — no more `selected`/`CheckCircle2`/highlighted border); it's a pure browse
+      list now. "Book Appointment" always navigates to the Appointment screen with no `serviceId`, which
+      already defaults to the first service — the Service dropdown there is the only place a service is
+      actually chosen. Pricing wording: "Advance ₹2,000 **(monthly package)**" (was "(monthly)").
+- [x] **Mobile profile is read-only after registration.** Removed `ProfileScreen`'s entire edit branch
+      (`editing` state, `startEdit`/`saveBio`, the bio `FormInput`/`DateField`/`ChoiceChips` form) — "Your
+      details" is now always the plain read-only rows, with a note that corrections go through VAgeWell
+      staff (i.e. the web admin panel's existing patient-edit form), not a self-service edit here.
+      `useUpdateProfile` itself is untouched (still used by the web `MemberEditForm`).
+- [x] **New `address` field.** `profiles.address text` (migration `0011`, mirrored into `install_all.sql`
+      — `handle_new_user()` now also reads `raw_user_meta_data->>'address'`). Captured on
+      `RegisterScreen` (new Address field, sent through OTP signup metadata same as age/gender, backfilled
+      post-verify same as the others), shown as a read-only row in `ProfileScreen`, and editable from the
+      web admin's `MemberEditForm` (self subject only — dependents have no `address` column) via a new
+      optional `address` field on `useUpdateProfile`'s payload.
+- [x] **Vitals now show "as of" a date.** `ProfileScreen`'s `VitalsView` reads whichever of the Sugar/Blood
+      Group source records is more recent and prints "As of <date>" underneath the tiles — vitals values
+      were already the latest-non-null-per-field, but had no date shown at all before.
+- **Not changed:** Age is — and was already — optional everywhere it appears (`optionalAge` in
+  `shared/src/schemas.ts`, no `required` prop on either Age `FormInput`); found no spot in the code where
+  it was actually mandatory, so nothing needed fixing there.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (16 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean.
+- **Needs the user's machine, same as every prior migration:** `0011_profile_address.sql` (or refreshed
+  `install_all.sql`) has not run against the live Supabase project from this environment. The pricing
+  data issue from the previous round (Physio Therapy still reading ₹1,500/day) is a separate, already-
+  flagged problem in the same category — still unresolved as of this round.

@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
-import type { CompositeScreenProps } from "@react-navigation/native";
+import type { CompositeScreenProps, NavigatorScreenParams } from "@react-navigation/native";
 import type { PricingModel } from "@vagewell/shared";
 
 // ── Auth stack (signed-out) ──────────────────────────────────────
@@ -33,7 +33,7 @@ export type ServicesStackParamList = {
 };
 
 export type AppTabsParamList = {
-  ServicesTab: undefined;
+  ServicesTab: NavigatorScreenParams<ServicesStackParamList> | undefined;
   AppointmentsTab: undefined;
   ProfileTab: undefined;
 };
@@ -42,3 +42,5 @@ export type ServicesStackScreenProps<T extends keyof ServicesStackParamList> = C
   NativeStackScreenProps<ServicesStackParamList, T>,
   BottomTabScreenProps<AppTabsParamList>
 >;
+
+export type AppTabScreenProps<T extends keyof AppTabsParamList> = BottomTabScreenProps<AppTabsParamList, T>;

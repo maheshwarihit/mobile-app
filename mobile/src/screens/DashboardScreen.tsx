@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { View, Text, FlatList } from "react-native";
+import { View, Text, FlatList, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CalendarCheck, CalendarClock } from "lucide-react-native";
+import { CalendarCheck, AlertTriangle, RotateCcw } from "lucide-react-native";
 import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
@@ -11,14 +11,15 @@ import {
   money,
   formatDate,
   formatSlot,
-  bookingStatusMeta,
   isBookingTerminal,
+  isBookingMissed,
   type Booking,
 } from "@vagewell/shared";
+import type { AppTabScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: DASHBOARD — patient "My Appointments" (AppointmentsTab).
 // Staff/admin use the separate web portal (web/), not this app.
-export function DashboardScreen() {
+export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsTab">) {
   const { profile, user } = useAuth();
   const { data: bookings, isLoading, error } = useMyBookings();
   const { data: deps } = useFamilyMembers();
@@ -28,19 +29,19 @@ export function DashboardScreen() {
 
   const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? "Dependent" : profileName);
 
-  // Completed and cancelled visits both leave the active list, but only a
-  // COMPLETED one is summarised at the bottom — "Last appointment" describes a
-  // visit that happened, so a cancelled booking simply disappears from the tab.
-  // "Active" now spans the whole assignment pipeline (requested through
-  // report_uploaded), not just a single "open" status.
-  const { active, last, hasAny } = useMemo(() => {
+  const reschedule = (b: Booking) =>
+    navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id } });
+
+  // A missed booking (scheduled date already passed, never reached a terminal
+  // state) leaves the plain "upcoming" list and gets its own section instead —
+  // completed/cancelled history lives in the Profile's Health record Checkup
+  // list, not here.
+  const { active, missed, hasAny } = useMemo(() => {
     const all = bookings ?? [];
-    const completed = all
-      .filter((b) => b.booking_status === "completed")
-      .sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at));
+    const notTerminal = all.filter((b) => !isBookingTerminal(b.booking_status));
     return {
-      active: all.filter((b) => !isBookingTerminal(b.booking_status)),
-      last: completed[0] ?? null,
+      active: notTerminal.filter((b) => !isBookingMissed(b.booking_status, b.start_date)),
+      missed: notTerminal.filter((b) => isBookingMissed(b.booking_status, b.start_date)),
       hasAny: all.length > 0,
     };
   }, [bookings]);
@@ -57,12 +58,20 @@ export function DashboardScreen() {
             <View>
               {error ? <ErrorBanner message="Could not load your appointments." /> : null}
               {isLoading ? <LoadingState message="Loading appointments…" /> : null}
+              {missed.length > 0 ? (
+                <View className="mb-4 gap-3">
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-red-500">Missed</Text>
+                  {missed.map((b) => (
+                    <MissedAppointment key={b.id} booking={b} subjectName={nameFor(b)} onReschedule={() => reschedule(b)} />
+                  ))}
+                </View>
+              ) : null}
             </View>
           }
           ListEmptyComponent={
             !isLoading ? (
-              // Finished and cancelled visits are filtered out, so "none yet"
-              // would be wrong for anyone who has ever booked.
+              // Finished, cancelled and missed visits are filtered out, so
+              // "none yet" would be wrong for anyone who has ever booked.
               <EmptyState
                 icon={CalendarCheck}
                 title={hasAny ? "No upcoming appointments" : "No appointments yet"}
@@ -70,7 +79,6 @@ export function DashboardScreen() {
               />
             ) : null
           }
-          ListFooterComponent={last ? <LastAppointment booking={last} subjectName={nameFor(last)} /> : null}
           renderItem={({ item: b }) => (
             <PatientBookingCard booking={b} userId={userId} subjectName={nameFor(b)} />
           )}
@@ -80,43 +88,47 @@ export function DashboardScreen() {
   );
 }
 
-/**
- * Read-only summary of the most recent completed/cancelled visit. Deliberately
- * NOT a PatientBookingCard — that one carries Cancel and re-upload affordances
- * which must never appear on a finished booking.
- */
-function LastAppointment({ booking, subjectName }: { booking: Booking; subjectName: string }) {
-  const status = bookingStatusMeta(booking.booking_status);
+/** A booking whose date has passed with nothing done about it — offer a reschedule. */
+function MissedAppointment({
+  booking,
+  subjectName,
+  onReschedule,
+}: {
+  booking: Booking;
+  subjectName: string;
+  onReschedule: () => void;
+}) {
   return (
-    <View className="mt-5">
-      <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Last appointment</Text>
-      <Card className="bg-gray-50 p-4">
-        <View className="flex-row items-start justify-between gap-3">
-          <View className="flex-1 flex-row items-start gap-3">
-            <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-gray-200">
-              <CalendarClock size={18} color="#6b7280" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-gray-700">{booking.service_name}</Text>
-              <Text className="text-xs text-gray-500">
-                Patient <Text className="font-medium text-purple-600">{subjectName}</Text>
-              </Text>
-              <Text className="mt-1 text-sm text-gray-600">
-                {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)} · {booking.num_days} day
-                {booking.num_days > 1 ? "s" : ""}
-              </Text>
-            </View>
+    <Card className="border border-red-100 bg-red-50/40 p-4">
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 flex-row items-start gap-3">
+          <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-red-100">
+            <AlertTriangle size={18} color="#b91c1c" />
           </View>
-          <View className="items-end">
-            <Text className="text-base font-bold text-gray-700">{money(booking.total_amount)}</Text>
-            <View className="mt-1">
-              <Pill bgClass={status.bg} textClass={status.text}>
-                {status.label}
-              </Pill>
-            </View>
+          <View className="flex-1">
+            <Text className="text-base font-semibold text-gray-900">{booking.service_name}</Text>
+            <Text className="text-xs text-gray-500">
+              Patient <Text className="font-medium text-purple-600">{subjectName}</Text>
+            </Text>
+            <Text className="mt-1 text-sm text-gray-600">
+              {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
+            </Text>
           </View>
         </View>
-      </Card>
-    </View>
+        <View className="items-end">
+          <Text className="text-base font-bold text-gray-900">{money(booking.total_amount)}</Text>
+          <Pill bgClass="bg-red-100" textClass="text-red-700">
+            You missed it
+          </Pill>
+        </View>
+      </View>
+      <Pressable
+        onPress={onReschedule}
+        className="mt-3 flex-row items-center justify-center gap-1.5 self-end rounded-lg bg-red-600 px-3 py-1.5 active:bg-red-700"
+      >
+        <RotateCcw size={13} color="#fff" />
+        <Text className="text-xs font-medium text-white">Reschedule</Text>
+      </Pressable>
+    </Card>
   );
 }

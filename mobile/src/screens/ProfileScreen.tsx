@@ -2,15 +2,11 @@ import { useMemo, useState } from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
-import { UserCircle, Users, Activity, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download } from "lucide-react-native";
+import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download } from "lucide-react-native";
 import {
   PageHeader,
   SectionCard,
-  FormInput,
   SelectSheet,
-  ChoiceChips,
-  DateField,
-  PrimaryButton,
   OutlineButton,
   IconButton,
   EmptyState,
@@ -24,85 +20,36 @@ import { supabase } from "@/lib/supabase";
 import {
   useFamilyMembers,
   useClinicalRecords,
-  useUpdateProfile,
   useDeleteDependent,
   useMyReports,
   useMyBookings,
-  profileSchema,
   formatDate,
   formatLocalDateTime,
   localPhone,
-  GENDERS,
   GENDER_LABELS,
   REPORT_TYPE_LABELS,
   MEDICAL_REPORT_BUCKET,
   SIGNED_URL_TTL_SECONDS,
+  isBookingTerminal,
+  isBookingMissed,
+  bookingStatusMeta,
   type FamilyMember,
   type ClinicalRecord,
   type ReportUpload,
+  type Booking,
 } from "@vagewell/shared";
-
-const GENDER_OPTIONS = [{ value: "", label: "—" }, ...GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }))];
 
 // SCREEN_ID: PROFILE
 export function ProfileScreen() {
-  const { profile, user, loading, refreshProfile, signOut } = useAuth();
+  const { profile, user, loading, signOut } = useAuth();
   const { data: dependents, isLoading: depsLoading } = useFamilyMembers();
-  const update = useUpdateProfile();
   const del = useDeleteDependent();
-
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "" });
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [depModalOpen, setDepModalOpen] = useState(false);
   const [editingDep, setEditingDep] = useState<FamilyMember | null>(null);
   const [deleteDep, setDeleteDep] = useState<FamilyMember | null>(null);
 
   const [subject, setSubject] = useState("self");
-
-  const startEdit = () => {
-    setErrors({});
-    setForm({
-      full_name: profile?.full_name ?? "",
-      age: profile?.age?.toString() ?? "",
-      date_of_birth: profile?.date_of_birth ?? "",
-      gender: profile?.gender ?? "",
-    });
-    setEditing(true);
-  };
-
-  const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-
-  const saveBio = () => {
-    setErrors({});
-    const parsed = profileSchema.safeParse(form);
-    if (!parsed.success) {
-      const errs: Record<string, string> = {};
-      for (const i of parsed.error.issues) errs[String(i.path[0])] = i.message;
-      setErrors(errs);
-      return;
-    }
-    if (!user) return;
-    update.mutate(
-      {
-        id: user.id,
-        full_name: parsed.data.full_name,
-        age: parsed.data.age,
-        date_of_birth: form.date_of_birth || null,
-        gender: form.gender || null,
-      },
-      {
-        onSuccess: () => {
-          // Collapse to the read-only rows immediately — qk.profile is already
-          // invalidated and the toast has fired; don't wait on the auth-provider
-          // refetch round-trip.
-          setEditing(false);
-          void refreshProfile();
-        },
-      }
-    );
-  };
 
   const subjectOptions = [
     { value: "self", label: "Myself" },
@@ -119,6 +66,10 @@ export function ProfileScreen() {
   // reports don't carry a direct subject column, so match through their booking.
   const { data: reports, isLoading: reportsLoading } = useMyReports(true);
   const { data: myBookings } = useMyBookings();
+  const bookingsForSubject = useMemo(
+    () => (myBookings ?? []).filter((b) => (subject === "self" ? !b.family_member_id : b.family_member_id === subject)),
+    [myBookings, subject]
+  );
   const reportsForSubject = useMemo(() => {
     const bookingMap = new Map((myBookings ?? []).map((b) => [b.id, b]));
     return (reports ?? []).filter((r) => {
@@ -127,6 +78,17 @@ export function ProfileScreen() {
       return subject === "self" ? !b.family_member_id : b.family_member_id === subject;
     });
   }, [reports, myBookings, subject]);
+
+  // Checkup history — every past visit for this subject (completed, cancelled,
+  // or missed), newest first. Upcoming/active bookings live on the
+  // Appointments tab instead, not here.
+  const checkupHistory = useMemo(
+    () =>
+      bookingsForSubject
+        .filter((b) => isBookingTerminal(b.booking_status) || isBookingMissed(b.booking_status, b.start_date))
+        .sort((a, b) => b.start_date.localeCompare(a.start_date)),
+    [bookingsForSubject]
+  );
 
   const openReport = async (r: ReportUpload) => {
     const { data, error: signErr } = await supabase.storage
@@ -146,44 +108,21 @@ export function ProfileScreen() {
       <ScrollView contentContainerClassName="px-5 pt-4 pb-10" keyboardShouldPersistTaps="handled">
         <PageHeader title="Profile" subtitle="Your details, dependents, and health record." />
 
-        {/* ── Bio ─────────────────────────────────────────── */}
+        {/* ── Bio (read-only — contact VAgeWell staff to correct anything) ── */}
         <SectionCard icon={UserCircle} title="Your details">
-          {!editing ? (
-            <View>
-              <View className="gap-2">
-                <Row label="Name" value={profile?.full_name ?? "—"} />
-                <Row label="Mobile" value={localPhone(profile?.phone) || "—"} />
-                <Row label="Age" value={profile?.age?.toString() ?? "—"} />
-                <Row label="Date of birth" value={profile?.date_of_birth ? formatDate(profile.date_of_birth) : "—"} />
-                <Row label="Gender" value={profile?.gender ? GENDER_LABELS[profile.gender] : "—"} />
-              </View>
-              <View className="mt-4">
-                <OutlineButton icon={Pencil} onPress={startEdit}>
-                  Edit details
-                </OutlineButton>
-              </View>
-            </View>
-          ) : (
-            <View className="gap-4">
-              <FormInput label="Full name" value={form.full_name} onChangeText={set("full_name")} error={errors.full_name} autoCapitalize="words" required />
-              <FormInput label="Mobile (verified)" value={localPhone(profile?.phone)} onChangeText={() => {}} editable={false} />
-              <View className="flex-row gap-3">
-                <View className="flex-1">
-                  <FormInput label="Age" value={form.age} onChangeText={set("age")} keyboardType="number-pad" error={errors.age} />
-                </View>
-                <View className="flex-1">
-                  <DateField label="Date of birth" value={form.date_of_birth} onChange={set("date_of_birth")} placeholder="Select" />
-                </View>
-              </View>
-              <ChoiceChips label="Gender" value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} />
-              <View className="flex-row justify-end gap-2">
-                <OutlineButton onPress={() => setEditing(false)}>Cancel</OutlineButton>
-                <PrimaryButton loading={update.isPending} onPress={saveBio}>
-                  Save
-                </PrimaryButton>
-              </View>
-            </View>
-          )}
+          <View className="gap-2">
+            <Row label="Name" value={profile?.full_name ?? "—"} />
+            <Row label="Mobile" value={localPhone(profile?.phone) || "—"} />
+            <Row label="Age" value={profile?.age?.toString() ?? "—"} />
+            <Row label="Gender" value={profile?.gender ? GENDER_LABELS[profile.gender] : "—"} />
+            <Row label="Address" value={profile?.address ?? "—"} />
+          </View>
+          <View className="mt-3 flex-row items-center gap-1.5">
+            <Lock size={12} color="#9ca3af" />
+            <Text className="flex-1 text-[11px] text-gray-400">
+              Set once at registration. Contact our team if anything needs correcting.
+            </Text>
+          </View>
         </SectionCard>
 
         {/* ── Dependents ──────────────────────────────────── */}
@@ -275,6 +214,19 @@ export function ProfileScreen() {
               </View>
             )}
           </View>
+
+          <View className="mt-4 border-t border-gray-100 pt-4">
+            <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Checkup history</Text>
+            {checkupHistory.length === 0 ? (
+              <Text className="text-xs text-gray-400">No past checkups yet for this person.</Text>
+            ) : (
+              <View className="gap-2">
+                {checkupHistory.map((b) => (
+                  <CheckupRow key={b.id} booking={b} />
+                ))}
+              </View>
+            )}
+          </View>
         </SectionCard>
 
         <OutlineButton icon={LogOut} fullWidth onPress={signOut}>
@@ -316,14 +268,37 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+function CheckupRow({ booking: b }: { booking: Booking }) {
+  const missed = isBookingMissed(b.booking_status, b.start_date);
+  const status = missed
+    ? { label: "Missed", bg: "bg-red-100", text: "text-red-700" }
+    : bookingStatusMeta(b.booking_status);
+  return (
+    <View className="flex-row items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+      <View className="h-8 w-8 items-center justify-center rounded-lg bg-gray-200">
+        <ClipboardList size={15} color="#6b7280" />
+      </View>
+      <View className="flex-1">
+        <Text className="text-xs font-medium text-gray-900">{b.service_name}</Text>
+        <Text className="text-[11px] text-gray-500">{formatDate(b.start_date)}</Text>
+      </View>
+      <Pill bgClass={status.bg} textClass={status.text}>
+        {status.label}
+      </Pill>
+    </View>
+  );
+}
+
 function VitalsView({ records }: { records: ClinicalRecord[] }) {
   // Patient panel shows only Sugar (blood glucose) + Blood Group.
   // `records` is ordered recorded_at desc and each visit is saved as its own
   // dated row carrying only the fields staff filled in — so read the most recent
   // NON-NULL value per field. Taking records[0] wholesale would blank out a blood
   // group captured on an earlier visit (there is no History list to fall back on).
-  const sugar = records.find((r) => r.blood_glucose != null)?.blood_glucose ?? null;
-  const bloodGroup = records.find((r) => !!r.blood_group)?.blood_group ?? null;
+  const sugarRecord = records.find((r) => r.blood_glucose != null);
+  const bloodGroupRecord = records.find((r) => !!r.blood_group);
+  const sugar = sugarRecord?.blood_glucose ?? null;
+  const bloodGroup = bloodGroupRecord?.blood_group ?? null;
   if (sugar == null && bloodGroup == null) {
     return (
       <EmptyState
@@ -333,19 +308,23 @@ function VitalsView({ records }: { records: ClinicalRecord[] }) {
       />
     );
   }
+  const latestDate = [sugarRecord?.recorded_at, bloodGroupRecord?.recorded_at].filter(Boolean).sort().at(-1);
   const tiles = [
     { label: "Sugar", value: sugar?.toString() ?? "—", unit: "mg/dL" },
     { label: "Blood Group", value: bloodGroup ?? "—", unit: "" },
   ];
   return (
-    <View className="flex-row flex-wrap gap-3">
-      {tiles.map((t) => (
-        <View key={t.label} className="min-w-[45%] flex-1 items-center rounded-xl border border-gray-100 bg-white p-3">
-          <Text className="text-lg font-bold text-gray-900">{t.value}</Text>
-          <Text className="text-[10px] text-gray-400">{t.unit}</Text>
-          <Text className="mt-1 text-[11px] font-medium text-gray-500">{t.label}</Text>
-        </View>
-      ))}
+    <View>
+      <View className="flex-row flex-wrap gap-3">
+        {tiles.map((t) => (
+          <View key={t.label} className="min-w-[45%] flex-1 items-center rounded-xl border border-gray-100 bg-white p-3">
+            <Text className="text-lg font-bold text-gray-900">{t.value}</Text>
+            <Text className="text-[10px] text-gray-400">{t.unit}</Text>
+            <Text className="mt-1 text-[11px] font-medium text-gray-500">{t.label}</Text>
+          </View>
+        ))}
+      </View>
+      {latestDate ? <Text className="mt-2 text-[11px] text-gray-400">As of {formatLocalDateTime(latestDate)}</Text> : null}
     </View>
   );
 }

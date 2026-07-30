@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { View, Text, FlatList, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
-import { Stethoscope, CheckCircle2, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
+import { Stethoscope, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
 import { PageHeader, PrimaryButton, OutlineButton, LoadingState, EmptyState, ErrorBanner, Card } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { BRAND } from "@/theme";
@@ -45,17 +44,16 @@ function ProfileCompletionButton({ percent, onPress }: { percent: number; onPres
 export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Services">) {
   const { data: services, isLoading, error } = useServices();
   const { profile } = useAuth();
-  const [selected, setSelected] = useState<string | null>(null);
   const requestBooking = useCreateBookingRequest();
 
-  // "Your details" fields (ProfileScreen's edit form) — same 4 fields count toward
-  // completeness there, so this ring and the Profile tab always agree.
+  // Same 4 fields ProfileScreen's "Your details" card shows, so this ring and
+  // the Profile tab always agree.
   const profileFields = [profile?.full_name, profile?.age, profile?.date_of_birth, profile?.gender];
   const profilePercent = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100);
 
-  const book = () => {
-    navigation.navigate("Appointment", { serviceId: selected ?? undefined });
-  };
+  // No service picker here — this page is browse-only; the Service dropdown on
+  // the Appointment screen is where a service is actually chosen.
+  const book = () => navigation.navigate("Appointment", undefined);
 
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
@@ -114,28 +112,22 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
               </View>
             ) : null
           }
-          renderItem={({ item: s }) => {
-            const isSelected = selected === s.id;
-            return (
-              <Pressable onPress={() => setSelected(s.id)}>
-                <Card className={`p-4 ${isSelected ? "border-2 border-purple-500" : ""}`}>
-                  <View className="flex-row items-start gap-3">
-                    <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                      <Stethoscope size={18} color={BRAND} />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
-                      {s.description ? <Text className="mt-0.5 text-sm text-gray-500">{s.description}</Text> : null}
-                      <Text className="mt-1 text-sm font-semibold text-purple-700">
-                        {s.pricing_model === "flat_advance" ? `Advance ${money(s.price_per_day)} (monthly)` : `${money(s.price_per_day)}/day`}
-                      </Text>
-                    </View>
-                    {isSelected ? <CheckCircle2 size={20} color={BRAND} /> : null}
-                  </View>
-                </Card>
-              </Pressable>
-            );
-          }}
+          renderItem={({ item: s }) => (
+            <Card className="p-4">
+              <View className="flex-row items-start gap-3">
+                <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
+                  <Stethoscope size={18} color={BRAND} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
+                  {s.description ? <Text className="mt-0.5 text-sm text-gray-500">{s.description}</Text> : null}
+                  <Text className="mt-1 text-sm font-semibold text-purple-700">
+                    {s.pricing_model === "flat_advance" ? `Advance ${money(s.price_per_day)} (monthly package)` : `${money(s.price_per_day)}/day`}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          )}
         />
       </View>
     </SafeAreaView>
