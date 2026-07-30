@@ -41,10 +41,10 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
     const all = bookings ?? [];
     const notTerminal = all.filter((b) => !isBookingTerminal(b.booking_status));
     const missedSorted = notTerminal
-      .filter((b) => isBookingMissed(b.booking_status, b.start_date))
+      .filter((b) => isBookingMissed(b.booking_status, b.start_date, b.time_slot))
       .sort((a, b) => b.start_date.localeCompare(a.start_date));
     return {
-      active: notTerminal.filter((b) => !isBookingMissed(b.booking_status, b.start_date)),
+      active: notTerminal.filter((b) => !isBookingMissed(b.booking_status, b.start_date, b.time_slot)),
       recentMissed: missedSorted[0] ?? null,
       hasAny: all.length > 0,
     };

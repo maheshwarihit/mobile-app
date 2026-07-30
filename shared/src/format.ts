@@ -4,7 +4,6 @@ import {
   BOOKING_START_HOUR,
   BOOKING_END_HOUR,
 } from "./constants";
-import { todayISODate } from "./dates";
 
 export function money(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -41,12 +40,20 @@ export function isBookingTerminal(status: BookingStatus): boolean {
 }
 
 /**
- * A booking whose scheduled start has already passed without ever reaching a
- * terminal state — the pipeline itself has no "missed" status (that's a
- * client-side read on stale-but-still-active bookings, not a server state).
+ * A booking whose scheduled start (date AND time slot, not date alone) has
+ * already passed without ever reaching a terminal state — the pipeline itself
+ * has no "missed" status (this is a client-side read on a stale-but-still-
+ * active booking, not a server state). A same-day booking isn't "missed" the
+ * moment the calendar flips — it's missed once its actual time slot has gone
+ * by, e.g. a 9 AM slot is missed by 6 PM the same day, not just tomorrow.
  */
-export function isBookingMissed(status: BookingStatus, startDate: string): boolean {
-  return !isBookingTerminal(status) && startDate < todayISODate();
+export function isBookingMissed(status: BookingStatus, startDate: string, timeSlot: string): boolean {
+  if (isBookingTerminal(status)) return false;
+  const [y, m, d] = startDate.split("-").map(Number);
+  const [hh, mm] = timeSlot.split(":").map(Number);
+  if (!y || !m || !d) return false;
+  const scheduled = new Date(y, m - 1, d, hh || 0, mm || 0);
+  return scheduled.getTime() < Date.now();
 }
 
 // Rows can carry a status written before a schema migration ran (e.g. the old

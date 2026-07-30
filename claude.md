@@ -633,3 +633,16 @@ completed, cancelled) keeps living in the Profile's Checkup list.
   on `services.pricing_model`/`price_per_day` in the live database — this has been diagnosed multiple
   times now (see prior rounds) and is not a code issue; the fix SQL has been provided but its effect
   hasn't yet been confirmed via the verification query requested earlier.
+
+## Change round — "missed" now checks time, not just date (user, 2026-07-30)
+`isBookingMissed()` previously compared `start_date` alone against today, so a same-day booking was
+never "missed" until the calendar day fully rolled over — a 9 AM slot sat as merely "upcoming" all the
+way until midnight even though the visit clearly didn't happen.
+
+- [x] **`shared/src/format.ts`** — `isBookingMissed(status, startDate, timeSlot)` now takes the time slot
+      too and compares the full scheduled `Date` (start_date + time_slot combined) against `Date.now()`,
+      not just the date string against `todayISODate()`. All three call sites
+      (`DashboardScreen.tsx` ×2, `ProfileScreen.tsx` ×2) updated to pass `b.time_slot`.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+- **Still outstanding, unrelated to this round:** Nutrition/Physio pricing and the `booking_requests`
+  table both still depend on the live database migration, still not confirmed as applied.

@@ -85,7 +85,7 @@ export function ProfileScreen() {
   const checkupHistory = useMemo(
     () =>
       bookingsForSubject
-        .filter((b) => isBookingTerminal(b.booking_status) || isBookingMissed(b.booking_status, b.start_date))
+        .filter((b) => isBookingTerminal(b.booking_status) || isBookingMissed(b.booking_status, b.start_date, b.time_slot))
         .sort((a, b) => b.start_date.localeCompare(a.start_date)),
     [bookingsForSubject]
   );
@@ -269,7 +269,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function CheckupRow({ booking: b }: { booking: Booking }) {
-  const missed = isBookingMissed(b.booking_status, b.start_date);
+  const missed = isBookingMissed(b.booking_status, b.start_date, b.time_slot);
   const status = missed
     ? { label: "Missed", bg: "bg-red-100", text: "text-red-700" }
     : bookingStatusMeta(b.booking_status);
