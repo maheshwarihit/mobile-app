@@ -697,3 +697,28 @@ depending on invalidation timing or a server permission outcome.
       in server-side (staff still see and handle the real row via the web portal as before).
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 
+## Change round — dismiss on actual booking, not on tapping Reschedule (user, 2026-07-30)
+User corrected the previous round: dismissing "Recently missed" the moment Reschedule is *tapped* was
+too early — the customer might open the form and back out without booking anything, and the old missed
+booking would incorrectly vanish forever. It should only clear once the replacement is actually booked.
+
+- [x] **Dismissal logic moved from `DashboardScreen` to `PaymentScreen`.** `reschedule()` on the Dashboard
+      now only navigates (`{ serviceId, rescheduleOf: b.id }` — new `rescheduleOf` param on
+      `ServicesStackParamList.Appointment`); it no longer cancels or dismisses anything itself.
+      `AppointmentScreen` threads `route.params.rescheduleOf` into a new `BookingDraft.reschedule_of`
+      field. `PaymentScreen.confirm()` — only once its own booking insert has actually succeeded — cancels
+      the old booking (best-effort; a no-op if it's already past requested/approved) and calls the new
+      `dismissMissedBooking()` helper.
+- [x] **New `mobile/src/lib/dismissedMissed.ts`** — extracted the `AsyncStorage`-backed dismissed-IDs
+      logic (previously inline in `DashboardScreen`) into shared `loadDismissedMissedIds()` /
+      `dismissMissedBooking()` functions, since both `DashboardScreen` (reads, to filter) and
+      `PaymentScreen` (writes, on success) need it now.
+- [x] **`DashboardScreen`'s `useFocusEffect` also reloads dismissed IDs**, not just refetches bookings —
+      the actual dismissal now happens on a different screen (Payment), so this tab needs to notice it
+      whenever it's returned to.
+- Clarified for the user, not a code change: the **Cancel** button already exists on every booking card
+  (`PatientBookingCard.tsx`) — it only shows while `booking_status` is `requested` or `approved`, the
+  same server-enforced window a patient can act in. Once staff assigns/starts a visit, only staff can
+  cancel it from the web portal.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+

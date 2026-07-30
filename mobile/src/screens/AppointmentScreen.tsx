@@ -101,6 +101,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
         num_days: days,
         time_slot: form.time_slot,
         symptom_brief: form.symptom_brief,
+        reschedule_of: route.params?.rescheduleOf ?? null,
       },
     });
   };

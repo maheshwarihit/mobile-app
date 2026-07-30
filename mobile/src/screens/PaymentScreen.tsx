@@ -16,6 +16,7 @@ import { BRAND } from "@/theme";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { imageUriToBytes } from "@/lib/fileBytes";
+import { dismissMissedBooking } from "@/lib/dismissedMissed";
 import upiQr from "../../assets/upi-qr.png";
 import {
   ALLOWED_IMAGE_MIME,
@@ -104,6 +105,17 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
       // invalidates the cache — without this, My Appointments keeps showing
       // stale data until its 60s staleTime lapses on its own.
       void qc.invalidateQueries({ queryKey: qk.bookings("mine") });
+
+      // This booking replaces a missed one — only now (the new booking is
+      // actually confirmed, not merely started) does the old one get cleared.
+      // Cancel only succeeds while it's still requested/approved (server-
+      // enforced); if it's already further along, the update is a no-op and
+      // staff close it out from the web portal instead — either way it's
+      // dismissed from "Recently missed" on this device.
+      if (draft.reschedule_of) {
+        await supabase.from("bookings").update({ booking_status: "cancelled" }).eq("id", draft.reschedule_of);
+        await dismissMissedBooking(draft.reschedule_of);
+      }
     }
 
     if (method === "online" && image) {
