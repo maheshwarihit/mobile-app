@@ -351,7 +351,10 @@ export function useCreateBookingRequest() {
     onSuccess: () => {
       toast.success("Request sent — our team will contact you shortly.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    // A customer-facing surface — never show a raw DB/schema error here (e.g. a
+    // pending migration reads as "Could not find the table…", which means
+    // nothing to someone trying to book care).
+    onError: () => toast.error("Could not send your request. Please try again shortly."),
   });
 }
 

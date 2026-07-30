@@ -524,3 +524,32 @@ the admin's phone. New feature, new migration.
   `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 - **Needs the user's machine, same as every prior migration:** `0010_booking_requests.sql` (or the
   refreshed `install_all.sql`) has not run against the live Supabase project from this environment.
+
+## Change round — booking flow no longer requires pre-selection, profile completion ring, friendlier errors (user, 2026-07-29)
+User hit the still-outstanding `0010` migration gap live (screenshot: "Could not find the table
+'public.booking_requests'") — confirmed to them again this is a pending-migration issue, not a code bug.
+Alongside that, three UX asks:
+
+- [x] **"Book Appointment" no longer requires selecting a service card first.** `mobile/src/screens/ServicesScreen.tsx`'s
+      `book()` dropped its "choose a service first" toast guard — it now always navigates to Appointment
+      with `serviceId: selected ?? undefined`, and `AppointmentScreen` already falls back to the first
+      service when none is passed. Tapping a card still highlights it and pre-fills the picker; it's just
+      no longer mandatory. (This reverses the "select first, then Book" behavior confirmed two rounds
+      ago — the user's latest instruction explicitly asked for booking to open "without clicking the
+      service" first.)
+- [x] **Profile completion ring, Naukri-style.** New `ProfileCompletionButton` (inline in `ServicesScreen.tsx`,
+      built on `react-native-svg` — already a transitive dependency via `lucide-react-native`, so no new
+      package) sits next to the hospital call button in the header: a circular progress ring (grey track,
+      brand-teal progress arc) with the percentage as center text, tap-through to the Profile tab.
+      Percentage = how many of `full_name`/`age`/`date_of_birth`/`gender` are filled in — the same 4
+      fields `ProfileScreen`'s "Your details" edit form covers, so the two never disagree.
+- [x] **Booking-request errors no longer leak raw DB text to customers.** `useCreateBookingRequest`'s
+      `onError` (`shared/src/mutations.ts`) now always shows a generic "Could not send your request.
+      Please try again shortly." instead of `e.message` — a schema-cache error like the one above meant
+      nothing to a customer trying to book care. (Every other mutation in this file still surfaces
+      `e.message` directly; this one's the exception because its errors are almost always infra-side,
+      never something the customer did wrong.)
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean (SVG ring resolved
+  fine); `web` `tsc`/`eslint` clean (shares the edited mutation).
+- **Still outstanding:** `0010_booking_requests.sql` / refreshed `install_all.sql` not yet run — the
+  screenshot's error will keep appearing (now with friendlier wording) until it is.

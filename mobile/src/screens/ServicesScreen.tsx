@@ -1,25 +1,60 @@
 import { useState } from "react";
 import { View, Text, FlatList, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { toast } from "sonner-native";
+import Svg, { Circle } from "react-native-svg";
 import { Stethoscope, CheckCircle2, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
 import { PageHeader, PrimaryButton, OutlineButton, LoadingState, EmptyState, ErrorBanner, Card } from "@/components/ui";
+import { useAuth } from "@/providers/AuthProvider";
 import { BRAND } from "@/theme";
 import { useServices, useCreateBookingRequest, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
+const RING_SIZE = 44;
+const RING_STROKE = 3;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+/** Naukri-style profile completion ring — tap to jump to the Profile tab. */
+function ProfileCompletionButton({ percent, onPress }: { percent: number; onPress: () => void }) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  const offset = RING_CIRCUMFERENCE * (1 - clamped / 100);
+  return (
+    <Pressable onPress={onPress} className="h-11 w-11 items-center justify-center active:opacity-70">
+      <Svg width={RING_SIZE} height={RING_SIZE} style={{ position: "absolute" }}>
+        <Circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS} stroke="#e5e7eb" strokeWidth={RING_STROKE} fill="none" />
+        <Circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_RADIUS}
+          stroke={BRAND}
+          strokeWidth={RING_STROKE}
+          fill="none"
+          strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+        />
+      </Svg>
+      <Text className="text-[9px] font-bold text-gray-700">{clamped}%</Text>
+    </Pressable>
+  );
+}
+
 // SCREEN_ID: SERVICE_LIST
 export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Services">) {
   const { data: services, isLoading, error } = useServices();
+  const { profile } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const requestBooking = useCreateBookingRequest();
 
+  // "Your details" fields (ProfileScreen's edit form) — same 4 fields count toward
+  // completeness there, so this ring and the Profile tab always agree.
+  const profileFields = [profile?.full_name, profile?.age, profile?.date_of_birth, profile?.gender];
+  const profilePercent = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100);
+
   const book = () => {
-    if (!selected) {
-      toast.error("Choose a service first.");
-      return;
-    }
-    navigation.navigate("Appointment", { serviceId: selected });
+    navigation.navigate("Appointment", { serviceId: selected ?? undefined });
   };
 
   return (
@@ -29,12 +64,15 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           title="Our services"
           subtitle="Choose a service to begin your care journey."
           action={
-            <Pressable
-              onPress={() => Linking.openURL(`tel:${HOSPITAL_CONTACT_PHONE}`)}
-              className="h-10 w-10 items-center justify-center rounded-full bg-purple-50 active:opacity-70"
-            >
-              <PhoneCall size={18} color={BRAND} />
-            </Pressable>
+            <View className="flex-row items-center gap-2">
+              <Pressable
+                onPress={() => Linking.openURL(`tel:${HOSPITAL_CONTACT_PHONE}`)}
+                className="h-10 w-10 items-center justify-center rounded-full bg-purple-50 active:opacity-70"
+              >
+                <PhoneCall size={18} color={BRAND} />
+              </Pressable>
+              <ProfileCompletionButton percent={profilePercent} onPress={() => navigation.navigate("ProfileTab")} />
+            </View>
           }
         />
 
