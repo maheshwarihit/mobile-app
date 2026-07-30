@@ -553,3 +553,23 @@ Alongside that, three UX asks:
   fine); `web` `tsc`/`eslint` clean (shares the edited mutation).
 - **Still outstanding:** `0010_booking_requests.sql` / refreshed `install_all.sql` not yet run — the
   screenshot's error will keep appearing (now with friendlier wording) until it is.
+
+## Change round — flat-advance services collect months, not days (user, 2026-07-29)
+`num_days` was previously hidden entirely for Nutrition/Physio (forced to `1` on submit) — the user
+asked for a duration field back, but in **months**, and confirmed the total must stay the flat advance
+amount regardless of what's entered (no `months × price` multiplication, same as it was never
+`days × price` for these two).
+
+- [x] **`mobile/src/screens/AppointmentScreen.tsx`** — the day-count `FormInput` is no longer hidden for
+      flat-advance services; it's relabeled "Number of months" (vs "Number of days" for per-day services)
+      and feeds the same `form.num_days`/DB column — no schema change, since `bookings.num_days` is just
+      an integer and the web live-sheet's "Days/Months" column already anticipated exactly this dual
+      meaning. The `effectiveDays = isFlatAdvance ? 1 : days` clamp from two rounds ago is gone; whatever
+      the customer enters is now genuinely persisted (previously always saved as `1`, discarding it).
+      Total calculation is unchanged — `isFlatAdvance` already ignored `days` when pricing, so unhiding
+      the field required no pricing-logic change, only removing the clamp and relabeling. The summary
+      panel now reads "Advance payment · N months" with a small "Flat ₹X advance — not multiplied by
+      months" note directly underneath, so the flat-vs-multiplied distinction is explicit on screen.
+- [x] **`mobile/src/screens/PaymentScreen.tsx`** — the summary's "Days" row now reads "Months" for
+      flat-advance bookings.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
