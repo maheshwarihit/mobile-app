@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, ScrollView, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { Wallet, Banknote, Upload, ShieldCheck, CheckCircle2, type LucideIcon } from "lucide-react-native";
 import {
   PageHeader,
@@ -25,6 +26,7 @@ import {
   money,
   formatSlot,
   formatDate,
+  qk,
 } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
@@ -33,6 +35,7 @@ type Method = "online" | "direct" | "";
 // SCREEN_ID: PAYMENT
 export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"Payment">) {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const { draft } = route.params;
   const [method, setMethod] = useState<Method>("");
   const [image, setImage] = useState<PickedImage | null>(null);
@@ -96,6 +99,11 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
       }
       bookingId = data.id as string;
       setCreatedId(bookingId);
+      // This insert bypasses the shared mutation hooks (server-authored fields
+      // like total_amount only exist after the trigger runs), so nothing else
+      // invalidates the cache — without this, My Appointments keeps showing
+      // stale data until its 60s staleTime lapses on its own.
+      void qc.invalidateQueries({ queryKey: qk.bookings("mine") });
     }
 
     if (method === "online" && image) {
@@ -109,6 +117,7 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
         if (upErr) throw upErr;
         const { error: updErr } = await supabase.from("bookings").update({ payment_proof_path: path }).eq("id", bookingId);
         if (updErr) throw updErr;
+        void qc.invalidateQueries({ queryKey: qk.bookings("mine") });
       } catch {
         setBusy(false);
         setErr("Your booking was created but the screenshot upload failed. You can re-upload it from your dashboard.");

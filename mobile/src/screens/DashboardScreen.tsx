@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CalendarCheck, AlertTriangle, RotateCcw } from "lucide-react-native";
+import { CalendarCheck, AlertTriangle, RotateCcw, CalendarClock } from "lucide-react-native";
 import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
@@ -14,6 +14,7 @@ import {
   formatSlot,
   isBookingTerminal,
   isBookingMissed,
+  bookingStatusMeta,
   type Booking,
 } from "@vagewell/shared";
 import type { AppTabScreenProps } from "@/navigation/types";
@@ -50,15 +51,19 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
   // surfaces here as a nudge to reschedule — the complete history (every past
   // checkup, missed or otherwise) lives in the Profile's Health record Checkup
   // list, not this tab.
-  const { active, recentMissed, hasAny } = useMemo(() => {
+  const { active, recentMissed, lastCompleted, hasAny } = useMemo(() => {
     const all = bookings ?? [];
     const notTerminal = all.filter((b) => !isBookingTerminal(b.booking_status));
     const missedSorted = notTerminal
       .filter((b) => isBookingMissed(b.booking_status, b.start_date, b.time_slot))
       .sort((a, b) => b.start_date.localeCompare(a.start_date));
+    const completedSorted = all
+      .filter((b) => b.booking_status === "completed")
+      .sort((a, b) => b.start_date.localeCompare(a.start_date));
     return {
       active: notTerminal.filter((b) => !isBookingMissed(b.booking_status, b.start_date, b.time_slot)),
       recentMissed: missedSorted[0] ?? null,
+      lastCompleted: completedSorted[0] ?? null,
       hasAny: all.length > 0,
     };
   }, [bookings]);
@@ -98,12 +103,57 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
               />
             ) : null
           }
+          ListFooterComponent={
+            lastCompleted ? <LastCompletedCheckup booking={lastCompleted} subjectName={nameFor(lastCompleted)} /> : null
+          }
           renderItem={({ item: b }) => (
             <PatientBookingCard booking={b} userId={userId} subjectName={nameFor(b)} />
           )}
         />
       </View>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Read-only summary of the most recent completed visit. Deliberately NOT a
+ * PatientBookingCard — that one carries Cancel/re-upload affordances which
+ * must never appear on a finished booking. The full checkup history (every
+ * completed/cancelled/missed visit) lives in the Profile's Health record;
+ * this is just an at-a-glance pointer to the latest one.
+ */
+function LastCompletedCheckup({ booking, subjectName }: { booking: Booking; subjectName: string }) {
+  const status = bookingStatusMeta(booking.booking_status);
+  return (
+    <View className="mt-5">
+      <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Last checkup completed</Text>
+      <Card className="bg-gray-50 p-4">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="flex-1 flex-row items-start gap-3">
+            <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-gray-200">
+              <CalendarClock size={18} color="#6b7280" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-gray-700">{booking.service_name}</Text>
+              <Text className="text-xs text-gray-500">
+                Patient <Text className="font-medium text-purple-600">{subjectName}</Text>
+              </Text>
+              <Text className="mt-1 text-sm text-gray-600">
+                {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
+              </Text>
+            </View>
+          </View>
+          <View className="items-end">
+            <Text className="text-base font-bold text-gray-700">{money(booking.total_amount)}</Text>
+            <View className="mt-1">
+              <Pill bgClass={status.bg} textClass={status.text}>
+                {status.label}
+              </Pill>
+            </View>
+          </View>
+        </View>
+      </Card>
+    </View>
   );
 }
 

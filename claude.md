@@ -658,3 +658,22 @@ was — so it kept sitting in "Recently missed" even after a new one was booked 
       than firing a cancel the trigger would reject anyway — that one needs staff to close out. Then
       navigates to the Appointment screen exactly as before.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+
+## Change round — stale My Appointments after booking, "Last checkup completed" footer back (user, 2026-07-30)
+Two follow-ups: booking a new appointment didn't show up immediately on My Appointments, and the old
+"last completed checkup" summary (removed when Checkup history moved into the Profile screen) was wanted
+back on the Dashboard too.
+
+- [x] **`mobile/src/screens/PaymentScreen.tsx`'s booking insert never invalidated any query cache** — it
+      writes straight via `supabase.from("bookings").insert(...)` (not a shared mutation hook, since
+      server-authored fields like `total_amount` only exist after the trigger runs), so `useMyBookings()`
+      kept serving up to 60s of stale data (its configured `staleTime`) after a fresh booking, a payment
+      proof upload, or a reschedule. Added `qc.invalidateQueries({ queryKey: qk.bookings("mine") })` right
+      after both the booking insert and the payment-proof update succeed.
+- [x] **"Last checkup completed" footer restored on `DashboardScreen`.** A new `lastCompleted` (most
+      recent `booking_status === 'completed'`, independent of the "Recently missed" section — both can
+      show at once) renders via a read-only `LastCompletedCheckup` card in the `FlatList`'s footer. This
+      doesn't duplicate the Profile's full Checkup history — it's just an at-a-glance pointer to the
+      latest one, restoring what the pre-vc.pdf `LastAppointment` component used to do.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+
