@@ -677,3 +677,23 @@ back on the Dashboard too.
       latest one, restoring what the pre-vc.pdf `LastAppointment` component used to do.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 
+## Change round — belt-and-braces on stale data + missed dismissal (user, 2026-07-30)
+User reported the previous round's fixes still weren't reliable enough — asked to "change it clearly."
+Rather than re-diagnose the same cache-timing question, made both behaviors deterministic instead of
+depending on invalidation timing or a server permission outcome.
+
+- [x] **`DashboardScreen` now refetches on every focus**, via `useFocusEffect` (`@react-navigation/native`)
+      calling `refetch()` from `useMyBookings()`. Booking, uploading a payment proof, and rescheduling all
+      happen on a *different* screen/tab, so relying solely on `invalidateQueries` fired from elsewhere
+      left a window where this tab wouldn't notice. Refetching on focus means the tab is always correct
+      the moment it's actually looked at, regardless of what happened on another screen or when.
+- [x] **"Recently missed" now clears unconditionally the instant Reschedule is tapped** — a new locally-
+      persisted dismissed-IDs set (`AsyncStorage`, key `vagewell.dismissedMissedBookingIds`) is checked
+      alongside the existing cancel attempt, not instead of it. Previously, clearing the banner depended
+      on the server cancel actually succeeding (only true for `requested`/`approved` bookings) — a missed
+      booking already `assigned` or further along would cancel-attempt silently and then keep reappearing
+      forever, since nothing else ever removed it from view. Now the nudge disappears on this device the
+      moment the user acts on it, independent of whatever state the underlying booking is actually left
+      in server-side (staff still see and handle the real row via the web portal as before).
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+

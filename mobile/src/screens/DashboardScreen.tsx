@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CalendarCheck, AlertTriangle, RotateCcw, CalendarClock } from "lucide-react-native";
 import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
@@ -19,15 +21,45 @@ import {
 } from "@vagewell/shared";
 import type { AppTabScreenProps } from "@/navigation/types";
 
+// Rescheduling a missed booking doesn't always mean it can be cancelled
+// server-side (a patient can only self-cancel while requested/approved — see
+// `reschedule` below), so "I've handled this one" is tracked locally too.
+// That guarantees the "Recently missed" nudge clears the instant Reschedule
+// is tapped, independent of any server round-trip or RLS permission outcome.
+const DISMISSED_MISSED_KEY = "vagewell.dismissedMissedBookingIds";
+
+async function loadDismissedMissedIds(): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(DISMISSED_MISSED_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 // SCREEN_ID: DASHBOARD — patient "My Appointments" (AppointmentsTab).
 // Staff/admin use the separate web portal (web/), not this app.
 export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsTab">) {
   const { profile, user } = useAuth();
-  const { data: bookings, isLoading, error } = useMyBookings();
+  const { data: bookings, isLoading, error, refetch } = useMyBookings();
   const { data: deps } = useFamilyMembers();
   const depMap = useMemo(() => Object.fromEntries((deps ?? []).map((d) => [d.id, d.full_name])), [deps]);
   const profileName = profile?.full_name ?? "Myself";
   const userId = user?.id ?? "";
+  const [dismissedMissed, setDismissedMissed] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    loadDismissedMissedIds().then(setDismissedMissed);
+  }, []);
+
+  // Belt-and-braces: refetch every time this tab gains focus (booking a new
+  // appointment, uploading a payment proof, or rescheduling all happen on a
+  // different tab/screen) so nothing here is ever left showing stale data.
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch])
+  );
 
   const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? "Dependent" : profileName);
 
@@ -38,11 +70,17 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
   // A patient can only cancel their own booking while it's still
   // requested/approved (server-enforced); a missed booking further along the
   // pipeline (assigned, in_progress…) is left for staff to close out — we
-  // don't attempt a cancel that the trigger would reject anyway.
+  // don't attempt a cancel that the trigger would reject anyway. Either way,
+  // it's dismissed from this local device's "Recently missed" immediately.
   const reschedule = (b: Booking) => {
     if (b.booking_status === "requested" || b.booking_status === "approved") {
       cancel.mutate(b.id);
     }
+    setDismissedMissed((prev) => {
+      const next = new Set(prev).add(b.id);
+      void AsyncStorage.setItem(DISMISSED_MISSED_KEY, JSON.stringify([...next]));
+      return next;
+    });
     navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id } });
   };
 
@@ -55,7 +93,7 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
     const all = bookings ?? [];
     const notTerminal = all.filter((b) => !isBookingTerminal(b.booking_status));
     const missedSorted = notTerminal
-      .filter((b) => isBookingMissed(b.booking_status, b.start_date, b.time_slot))
+      .filter((b) => isBookingMissed(b.booking_status, b.start_date, b.time_slot) && !dismissedMissed.has(b.id))
       .sort((a, b) => b.start_date.localeCompare(a.start_date));
     const completedSorted = all
       .filter((b) => b.booking_status === "completed")
@@ -66,7 +104,7 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
       lastCompleted: completedSorted[0] ?? null,
       hasAny: all.length > 0,
     };
-  }, [bookings]);
+  }, [bookings, dismissedMissed]);
 
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
