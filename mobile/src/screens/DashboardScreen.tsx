@@ -8,6 +8,7 @@ import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
 import {
   useMyBookings,
   useFamilyMembers,
+  useCancelBooking,
   money,
   formatDate,
   formatSlot,
@@ -29,8 +30,20 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
 
   const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? "Dependent" : profileName);
 
-  const reschedule = (b: Booking) =>
+  const cancel = useCancelBooking();
+
+  // Rescheduling books a fresh appointment for the same service — clear the
+  // stale missed one out of the way first so it doesn't keep sitting there.
+  // A patient can only cancel their own booking while it's still
+  // requested/approved (server-enforced); a missed booking further along the
+  // pipeline (assigned, in_progress…) is left for staff to close out — we
+  // don't attempt a cancel that the trigger would reject anyway.
+  const reschedule = (b: Booking) => {
+    if (b.booking_status === "requested" || b.booking_status === "approved") {
+      cancel.mutate(b.id);
+    }
     navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id } });
+  };
 
   // A missed booking (scheduled date already passed, never reached a terminal
   // state) leaves the plain "upcoming" list. Only the single most recent one

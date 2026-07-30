@@ -646,3 +646,15 @@ way until midnight even though the visit clearly didn't happen.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 - **Still outstanding, unrelated to this round:** Nutrition/Physio pricing and the `booking_requests`
   table both still depend on the live database migration, still not confirmed as applied.
+
+## Change round — Reschedule clears the missed booking it replaces (user, 2026-07-30)
+Tapping Reschedule opened a fresh Appointment form but left the original missed booking exactly as it
+was — so it kept sitting in "Recently missed" even after a new one was booked for the same service.
+
+- [x] **`mobile/src/screens/DashboardScreen.tsx`'s `reschedule()`** now cancels the missed booking first
+      (via `useCancelBooking`) when its `booking_status` is still `requested` or `approved` — the only
+      statuses a patient is allowed to self-cancel (server-enforced by `tg_booking_update_guard`).
+      A missed booking further along the pipeline (`assigned`, `in_progress`, …) is left alone rather
+      than firing a cancel the trigger would reject anyway — that one needs staff to close out. Then
+      navigates to the Appointment screen exactly as before.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
