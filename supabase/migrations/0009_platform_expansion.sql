@@ -100,14 +100,28 @@ create index if not exists idx_bookings_assigned_to on public.bookings(assigned_
 -- the snapshotted pricing_model (flat vs per-day), not a fixed formula.
 alter table public.bookings alter column total_amount drop expression if exists;
 
--- Migrate existing rows into the new status vocabulary before tightening the
--- CHECK constraint (old values would violate the new one otherwise).
-update public.bookings set booking_status = 'requested' where booking_status = 'open';
-update public.bookings set booking_status = 'completed' where booking_status = 'closed';
-
+-- Widen the CHECK constraint BEFORE migrating existing rows into the new
+-- status vocabulary (old values would violate the old constraint otherwise),
+-- and disable the assignment-pipeline update guard around the conversion
+-- itself — on a re-run of this migration (or of install_all.sql, which
+-- bundles it), that trigger already exists and has no rule for a bare
+-- 'open'/'closed' transition, so it raises "illegal booking_status
+-- transition" and aborts the rest of the script.
 alter table public.bookings drop constraint if exists bookings_booking_status_check;
 alter table public.bookings add constraint bookings_booking_status_check
   check (booking_status in ('requested','approved','assigned','in_progress','report_uploaded','completed','cancelled'));
+do $$ begin
+  if exists (select 1 from pg_trigger where tgname = 'tg_bookings_before_update' and tgrelid = 'public.bookings'::regclass) then
+    execute 'alter table public.bookings disable trigger tg_bookings_before_update';
+  end if;
+end $$;
+update public.bookings set booking_status = 'requested' where booking_status = 'open';
+update public.bookings set booking_status = 'completed' where booking_status = 'closed';
+do $$ begin
+  if exists (select 1 from pg_trigger where tgname = 'tg_bookings_before_update' and tgrelid = 'public.bookings'::regclass) then
+    execute 'alter table public.bookings enable trigger tg_bookings_before_update';
+  end if;
+end $$;
 
 create or replace function public.tg_booking_snapshot() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$

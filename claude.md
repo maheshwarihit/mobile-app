@@ -771,3 +771,35 @@ customer now picks the visit type themselves on the Appointment screen, same as 
   until it does, a customer picking a visit type will hit the new "choose a visit type" server error on
   submit, since the column-level insert grant doesn't exist there yet either.
 
+## Bugfix — install_all.sql aborted partway through on every re-run (user, 2026-07-30)
+**Root cause of essentially every "nothing changed" / stale-pricing / missing-table report across this
+entire project.** User finally pasted the actual SQL Editor error: `ERROR: 42501: illegal
+booking_status transition` from `tg_booking_update_guard()`, thrown *while running the migration script
+itself* — not from the app.
+
+The script's legacy-data backfill (`update bookings set booking_status = 'requested' where
+booking_status = 'open'`, the 0009-era `open`/`closed` → new-pipeline conversion) is an `UPDATE` on
+`public.bookings`. The very first time the script ran, `tg_bookings_before_update` didn't exist yet, so
+this succeeded fine. But `install_all.sql` is explicitly meant to be re-run repeatedly ("idempotent, safe
+to re-run") — and on every run *after* the first, that trigger already exists, fires on this UPDATE, and
+`tg_booking_update_guard()` has no rule permitting a bare `'open'` → `'requested'` transition (only the
+seven pipeline states know each other), so it hits the catch-all `raise exception 'illegal
+booking_status transition'` and the **entire script aborts right there** — meaning every single change
+positioned after it in the file (the full 0009–0012 feature set, the services reseed, the
+`booking_requests` table, all of it) silently never ran, on every attempt. This is exactly consistent
+with everything reported over the last several rounds: stale Physio Therapy pricing (the reseed is near
+the end of the script), the missing `booking_requests` table (created even later), etc. — all downstream
+of the script dying at this one line, every time.
+
+- [x] **Fixed in both `supabase/migrations/0009_platform_expansion.sql` and `supabase/install_all.sql`.**
+      Two changes: (1) the status `CHECK` constraint is now widened *before* the legacy-value backfill
+      runs (previously backwards — on a truly fresh pre-0009 table the old constraint would have rejected
+      `'requested'`/`'completed'` outright, a second latent bug); (2) the backfill is now wrapped in a
+      trigger-existence check that disables `tg_bookings_before_update` immediately before the two
+      `UPDATE`s and re-enables it immediately after — using `pg_trigger` existence checks (not a bare
+      `ALTER TABLE ... DISABLE TRIGGER`, which errors if the trigger doesn't exist yet on a genuinely
+      fresh install) so it's correct on both a first-ever run and every subsequent re-run.
+- **Action for the user:** re-run the now-fixed `install_all.sql` in the Supabase SQL Editor — this
+  should finally get all the way through and actually create `booking_requests`, fix the services
+  pricing, and apply everything else that's been silently skipped every time before.
+
