@@ -803,3 +803,20 @@ of the script dying at this one line, every time.
   should finally get all the way through and actually create `booking_requests`, fix the services
   pricing, and apply everything else that's been silently skipped every time before.
 
+## Bugfix #2 — the trigger-guard fix above had its own chicken-and-egg bug (user, 2026-07-30)
+User re-ran the fixed script and hit a *new* error: `23514: check constraint
+"bookings_booking_status_check" of relation "bookings" is violated by some row`. The previous fix
+widened the constraint before the legacy-value backfill specifically to avoid the *old* constraint
+rejecting the *new* values — but that meant the constraint-widening `ALTER TABLE ... ADD CONSTRAINT`
+itself now validated all existing rows against the new 7-value set immediately, and any row still
+sitting on `'open'`/`'closed'` (which the backfill hadn't run yet at that point) violated it outright.
+Textbook chicken-and-egg: neither ordering works with a plain `ADD CONSTRAINT`.
+
+- [x] **Fixed in both files** by adding the constraint as `not valid` first — enforced for every write
+  from that point forward, but skips the initial full-table validation scan of existing rows — then
+  running the trigger-guarded backfill exactly as before, then `alter table ... validate constraint
+  bookings_booking_status_check` at the end to confirm the whole table is now clean. This is the
+  standard Postgres pattern for widening a constraint across a data migration and has no ordering
+  conflict either way.
+- **Action for the user:** re-run `install_all.sql` again — this should now finally complete end to end.
+

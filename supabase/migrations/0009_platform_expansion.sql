@@ -100,16 +100,21 @@ create index if not exists idx_bookings_assigned_to on public.bookings(assigned_
 -- the snapshotted pricing_model (flat vs per-day), not a fixed formula.
 alter table public.bookings alter column total_amount drop expression if exists;
 
--- Widen the CHECK constraint BEFORE migrating existing rows into the new
--- status vocabulary (old values would violate the old constraint otherwise),
--- and disable the assignment-pipeline update guard around the conversion
--- itself — on a re-run of this migration (or of install_all.sql, which
--- bundles it), that trigger already exists and has no rule for a bare
--- 'open'/'closed' transition, so it raises "illegal booking_status
--- transition" and aborts the rest of the script.
+-- Chicken-and-egg fix: the OLD constraint rejects the new values
+-- ('requested' etc.) but the NEW constraint rejects the still-present old
+-- ones ('open'/'closed') until they're converted. `not valid` adds the new
+-- constraint (enforced for all writes from this point on) WITHOUT scanning
+-- existing rows, so the backfill below can convert the old values first;
+-- `validate constraint` afterward confirms the whole table is clean. Also
+-- disable the assignment-pipeline update guard around the conversion itself
+-- — on a re-run of this migration (or of install_all.sql, which bundles it),
+-- that trigger already exists and has no rule for a bare 'open'/'closed'
+-- transition, so it raises "illegal booking_status transition" and aborts
+-- the rest of the script.
 alter table public.bookings drop constraint if exists bookings_booking_status_check;
 alter table public.bookings add constraint bookings_booking_status_check
-  check (booking_status in ('requested','approved','assigned','in_progress','report_uploaded','completed','cancelled'));
+  check (booking_status in ('requested','approved','assigned','in_progress','report_uploaded','completed','cancelled'))
+  not valid;
 do $$ begin
   if exists (select 1 from pg_trigger where tgname = 'tg_bookings_before_update' and tgrelid = 'public.bookings'::regclass) then
     execute 'alter table public.bookings disable trigger tg_bookings_before_update';
@@ -122,6 +127,7 @@ do $$ begin
     execute 'alter table public.bookings enable trigger tg_bookings_before_update';
   end if;
 end $$;
+alter table public.bookings validate constraint bookings_booking_status_check;
 
 create or replace function public.tg_booking_snapshot() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$

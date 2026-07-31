@@ -111,10 +111,13 @@ do $$ begin
       check (service_mode is null or service_mode in ('clinic','home_care'));
   end if;
 end $$;
--- Widen the status constraint BEFORE converting legacy values (the old
--- constraint on a pre-0009 table only allows open/closed/cancelled, so
--- writing 'requested'/'completed' first would fail outright), and disable
--- the assignment-pipeline update guard around the conversion itself — that
+-- Chicken-and-egg fix: the OLD constraint rejects the new values ('requested'
+-- etc.) but the NEW constraint rejects the still-present old ones ('open'/
+-- 'closed') until they're converted. `not valid` adds the new constraint
+-- (enforced for all writes from this point on) WITHOUT scanning existing rows,
+-- so the backfill below can convert the old values first; `validate
+-- constraint` afterward confirms the whole table is clean. Also disable the
+-- assignment-pipeline update guard around the conversion itself — that
 -- trigger has no rule for a bare 'open'/'closed' transition and would raise
 -- "illegal booking_status transition" the moment it already exists on the
 -- table (i.e. every re-run after the first), aborting the entire script
@@ -122,7 +125,8 @@ end $$;
 -- services reseed and the booking_requests table further down.
 alter table public.bookings drop constraint if exists bookings_booking_status_check;
 alter table public.bookings add constraint bookings_booking_status_check
-  check (booking_status in ('requested','approved','assigned','in_progress','report_uploaded','completed','cancelled'));
+  check (booking_status in ('requested','approved','assigned','in_progress','report_uploaded','completed','cancelled'))
+  not valid;
 do $$ begin
   if exists (select 1 from pg_trigger where tgname = 'tg_bookings_before_update' and tgrelid = 'public.bookings'::regclass) then
     execute 'alter table public.bookings disable trigger tg_bookings_before_update';
@@ -135,6 +139,7 @@ do $$ begin
     execute 'alter table public.bookings enable trigger tg_bookings_before_update';
   end if;
 end $$;
+alter table public.bookings validate constraint bookings_booking_status_check;
 
 create table if not exists public.clinical_records (
   id                 uuid primary key default gen_random_uuid(),
