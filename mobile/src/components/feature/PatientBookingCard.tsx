@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { toast } from "sonner-native";
-import { CalendarClock, Upload, AlertTriangle } from "lucide-react-native";
+import { CalendarClock, Upload, AlertTriangle, Building2, Home } from "lucide-react-native";
 import { Pill, DangerButton, ConfirmModal, Card } from "@/components/ui";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
 import { BRAND } from "@/theme";
@@ -15,6 +15,7 @@ import {
   formatSlot,
   ALLOWED_IMAGE_MIME,
   MAX_UPLOAD_BYTES,
+  SERVICE_MODE_LABELS,
   type Booking,
 } from "@vagewell/shared";
 
@@ -70,6 +71,18 @@ export function PatientBookingCard({
               {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)} · {booking.num_days} day
               {booking.num_days > 1 ? "s" : ""}
             </Text>
+            {booking.service_mode ? (
+              <View className="mt-1.5 flex-row items-center gap-1 self-start rounded-md bg-indigo-50 px-2 py-1">
+                {booking.service_mode === "clinic" ? (
+                  <Building2 size={12} color="#4338ca" />
+                ) : (
+                  <Home size={12} color="#4338ca" />
+                )}
+                <Text className="text-[11px] font-medium text-indigo-700">{SERVICE_MODE_LABELS[booking.service_mode]}</Text>
+              </View>
+            ) : booking.booking_status === "requested" ? (
+              <Text className="mt-1.5 text-[11px] text-gray-400">Clinic or home visit — decided once approved</Text>
+            ) : null}
           </View>
         </View>
         <View className="items-end">

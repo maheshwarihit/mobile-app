@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { CalendarCheck, AlertTriangle, RotateCcw, CalendarClock } from "lucide-react-native";
+import { CalendarCheck, AlertTriangle, RotateCcw, CalendarClock, Building2, Home } from "lucide-react-native";
 import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
@@ -16,6 +16,7 @@ import {
   isBookingTerminal,
   isBookingMissed,
   bookingStatusMeta,
+  SERVICE_MODE_LABELS,
   type Booking,
 } from "@vagewell/shared";
 import type { AppTabScreenProps } from "@/navigation/types";
@@ -122,6 +123,17 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
   );
 }
 
+/** Small "Clinic Visit" / "Home Care" indicator — only present once admin has approved and picked one. */
+function ServiceModeBadge({ booking }: { booking: Booking }) {
+  if (!booking.service_mode) return null;
+  return (
+    <View className="mt-1.5 flex-row items-center gap-1 self-start rounded-md bg-indigo-50 px-2 py-1">
+      {booking.service_mode === "clinic" ? <Building2 size={12} color="#4338ca" /> : <Home size={12} color="#4338ca" />}
+      <Text className="text-[11px] font-medium text-indigo-700">{SERVICE_MODE_LABELS[booking.service_mode]}</Text>
+    </View>
+  );
+}
+
 /**
  * Read-only summary of the most recent completed visit. Deliberately NOT a
  * PatientBookingCard — that one carries Cancel/re-upload affordances which
@@ -148,6 +160,7 @@ function LastCompletedCheckup({ booking, subjectName }: { booking: Booking; subj
               <Text className="mt-1 text-sm text-gray-600">
                 {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
               </Text>
+              <ServiceModeBadge booking={booking} />
             </View>
           </View>
           <View className="items-end">
@@ -189,6 +202,7 @@ function MissedAppointment({
             <Text className="mt-1 text-sm text-gray-600">
               {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
             </Text>
+            <ServiceModeBadge booking={booking} />
           </View>
         </View>
         <View className="items-end">

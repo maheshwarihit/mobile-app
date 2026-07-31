@@ -722,3 +722,17 @@ booking would incorrectly vanish forever. It should only clear once the replacem
   cancel it from the web portal.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 
+## Change round — surface Clinic Visit / Home Care to the customer (user, 2026-07-30)
+User asked how a customer is supposed to know which mode (Clinic Visit vs Home Care) admin picked when
+approving their booking — `bookings.service_mode` existed server-side (set on approval) but nothing in
+the mobile app ever displayed it back to the patient.
+
+- [x] **New `ServiceModeBadge`** (small indigo pill, `Building2`/`Home` icon + `SERVICE_MODE_LABELS`
+      text) shown once `booking.service_mode` is set — i.e. from `approved` onward, since that's the
+      admin action that decides it. Wired into `mobile/src/components/feature/PatientBookingCard.tsx`
+      (every active booking) and `mobile/src/screens/DashboardScreen.tsx`'s `MissedAppointment` /
+      `LastCompletedCheckup` summary cards, so it's visible everywhere a booking shows up. While a
+      booking is still `requested` (mode not decided yet), `PatientBookingCard` shows a small "Clinic or
+      home visit — decided once approved" hint instead, so the absence doesn't read as a bug.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+
