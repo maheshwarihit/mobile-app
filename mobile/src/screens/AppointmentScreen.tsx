@@ -65,7 +65,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
     value: s.id,
     label:
       s.pricing_model === "flat_advance"
-        ? `${s.name} — Advance ${money(s.price_per_day)} (Monthly Followup)`
+        ? `${s.name} — Advance ${money(s.price_per_day)} (monthly package)`
         : `${s.name} — ${money(s.price_per_day)}/day`,
   }));
   const subjectOptions = [
