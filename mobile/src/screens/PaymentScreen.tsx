@@ -108,12 +108,12 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
       // stale data until its 60s staleTime lapses on its own.
       void qc.invalidateQueries({ queryKey: qk.bookings("mine") });
 
-      // This booking replaces a missed one — only now (the new booking is
-      // actually confirmed, not merely started) does the old one get cleared.
-      // Cancel only succeeds while it's still requested/approved (server-
-      // enforced); if it's already further along, the update is a no-op and
-      // staff close it out from the web portal instead — either way it's
-      // dismissed from "Recently missed" on this device.
+      // This booking replaces a missed one — the "Recently missed" nudge was
+      // already dismissed the moment Reschedule was tapped (Dashboard), so
+      // this just tries the actual server-side cancel of the old booking now
+      // that a replacement genuinely exists. Only succeeds while it's still
+      // requested/approved (server-enforced); if it's already further along,
+      // the update is a no-op and staff close it out from the web portal.
       if (draft.reschedule_of) {
         await supabase.from("bookings").update({ booking_status: "cancelled" }).eq("id", draft.reschedule_of);
         await dismissMissedBooking(draft.reschedule_of);

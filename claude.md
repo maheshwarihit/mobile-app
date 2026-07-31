@@ -820,3 +820,19 @@ Textbook chicken-and-egg: neither ordering works with a plain `ADD CONSTRAINT`.
   conflict either way.
 - **Action for the user:** re-run `install_all.sql` again — this should now finally complete end to end.
 
+## Change round — Reschedule clears "Recently missed" on tap, not on booking completion (user, 2026-07-30)
+User reversed the earlier "only dismiss once the replacement is actually booked" decision: tapping
+Reschedule should empty the "Recently missed" space immediately.
+
+- [x] **`mobile/src/screens/DashboardScreen.tsx`'s `reschedule()`** now calls `dismissMissedBooking()`
+      (and updates local state) the moment Reschedule is tapped, then navigates — same as the very first
+      version of this feature, before the mid-conversation correction. `PaymentScreen.tsx`'s own dismiss
+      call on successful booking is left in place too (idempotent no-op at that point) since the actual
+      server-side cancel of the old booking still only happens once a replacement is genuinely created —
+      only the local "hide the nudge" behavior moved earlier.
+- **Trade-off, stated plainly:** if the customer taps Reschedule and then backs out of the Appointment
+  form without completing a new booking, the missed one will no longer reappear in "Recently missed" on
+  this device (though it's untouched server-side, and still visible in the Profile's Checkup history).
+  This is the explicit trade-off of the current request; flag if that turns out to be unwanted.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+

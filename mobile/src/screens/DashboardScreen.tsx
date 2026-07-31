@@ -6,7 +6,7 @@ import { CalendarCheck, AlertTriangle, RotateCcw, CalendarClock, Building2, Home
 import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
-import { loadDismissedMissedIds } from "@/lib/dismissedMissed";
+import { loadDismissedMissedIds, dismissMissedBooking } from "@/lib/dismissedMissed";
 import {
   useMyBookings,
   useFamilyMembers,
@@ -33,11 +33,9 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
   const [dismissedMissed, setDismissedMissed] = useState<Set<string>>(new Set());
 
   // Belt-and-braces: refetch every time this tab gains focus (booking a new
-  // appointment, uploading a payment proof, or rescheduling all happen on a
-  // different tab/screen) so nothing here is ever left showing stale data.
-  // Dismissed-missed IDs are also reloaded on focus — the actual dismissal
-  // happens in PaymentScreen once a reschedule is genuinely booked, so this
-  // tab needs to pick that up whenever it's returned to, not just once.
+  // appointment or uploading a payment proof happens on a different screen)
+  // so nothing here is ever left showing stale data. Dismissed-missed IDs are
+  // also reloaded on focus, in case they changed on another mounted instance.
   useFocusEffect(
     useCallback(() => {
       void refetch();
@@ -47,12 +45,15 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
 
   const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? "Dependent" : profileName);
 
-  // Just opens the Appointment form for the same service — the missed
-  // booking is NOT touched (cancelled/dismissed) yet. Tapping Reschedule
-  // doesn't commit to anything; only actually completing the new booking in
-  // PaymentScreen does, since the customer might back out of the form first.
-  const reschedule = (b: Booking) =>
+  // Tapping Reschedule clears it from "Recently missed" immediately (on this
+  // device) — the actual booking row is only cancelled once a replacement is
+  // genuinely created (see PaymentScreen), but the nudge itself shouldn't
+  // keep sitting there once the customer has acted on it.
+  const reschedule = (b: Booking) => {
+    setDismissedMissed((prev) => new Set(prev).add(b.id));
+    void dismissMissedBooking(b.id);
     navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id, rescheduleOf: b.id } });
+  };
 
   // A missed booking (scheduled date already passed, never reached a terminal
   // state) leaves the plain "upcoming" list. Only the single most recent one
