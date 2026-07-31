@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Lock } from "lucide-react";
 import { normalizePhone, OPS_ROLES, ROLE_LABELS, type Role } from "@vagewell/shared";
 import { supabase } from "@/lib/supabase";
@@ -91,6 +92,11 @@ export default function LoginPage() {
             Send OTP
           </PrimaryButton>
         </form>
+        <div className="mt-6 flex justify-center">
+          <Link href="/register" className="text-sm text-admin-muted">
+            New to VAgeWell? <span className="font-semibold text-brand-700">Register</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

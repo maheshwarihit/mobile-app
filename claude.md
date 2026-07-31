@@ -892,3 +892,26 @@ force a reschedule.
       never happened," just "stop showing me this."
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 
+## Change round — self-service registration on the web staff portal (user, 2026-07-31)
+User asked how a brand-new staff/leaf_node hire is supposed to get into the web portal, since `/login`
+was login-only (`shouldCreateUser: false`) — there was no way in without already having an account.
+Given a choice between just pointing new hires at the mobile app to register vs. letting a brand-new
+number register directly on the web portal, the user chose the latter.
+
+- [x] **New `web/src/app/register/page.tsx`.** Phone+OTP self-registration mirroring the mobile app's
+      `RegisterScreen` two-step (details → OTP) pattern, but trimmed to just Full Name + Mobile Number —
+      the other patient-only fields (age/gender/how_heard/wellness_note) don't apply to an ops account.
+      `signInWithOtp({ shouldCreateUser: true, data: { full_name } })` lets a genuinely new number create
+      an account here (unlike `/login`'s `shouldCreateUser: false`); `handle_new_user()` is unchanged and
+      unaware of which app called it, so the new profile lands exactly like any mobile signup.
+- [x] **Self-registered accounts always land as plain `role='patient'`, never an elevated role** —
+      deliberately preserving the project's existing "no self-service elevated access" principle (staff/
+      leaf_node/admin has always required an admin promotion via the role dropdown, never a self-pick).
+      After OTP verification the page signs the session back out immediately (a patient-role session has
+      nothing to do in this portal, and `RequireStaff` would bounce it on the next load anyway) and shows
+      a "Account created — ask an admin to grant you access" message instead of attempting any redirect.
+- [x] **`web/src/app/login/page.tsx`** gained a "New to VAgeWell? Register" link to the new page, mirroring
+      the mobile Login screen's "New to VAgeWell? Create an account" link to Register.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes, new `/register`). No DB
+  migration — reuses `handle_new_user()` and the existing role-promotion flow as-is.
+
