@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0012. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0013. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -227,14 +227,25 @@ create trigger tg_clinical_updated_at       before update on public.clinical_rec
 create trigger tg_report_uploads_updated_at before update on public.report_uploads   for each row execute function public.tg_set_updated_at();
 
 -- ── AUTO-PROVISION PROFILE ON SIGNUP (+ household auto-link) ────────────────
+-- `requested_role` (0013): read from client-supplied signup metadata so the
+-- web staff portal's Register page can let a brand-new number self-select
+-- Staff/Admin/Leaf Node immediately, no admin approval step (explicit user
+-- decision, accepting that any signup — not just the web UI — could set
+-- this field; the mobile Register screen never sends it, so patient signups
+-- are unaffected in practice). Only fires on account CREATION, so an
+-- existing account has no way to use this path to escalate itself later.
 create or replace function public.handle_new_user() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$
-declare v_age int; v_family_row public.family_members;
+declare v_age int; v_family_row public.family_members; v_role text;
 begin
   if coalesce(new.raw_user_meta_data->>'age','') ~ '^\d+$'
     then v_age := (new.raw_user_meta_data->>'age')::int; else v_age := null; end if;
+  v_role := nullif(new.raw_user_meta_data->>'requested_role','');
+  if v_role is null or v_role not in ('staff','admin','leaf_node') then
+    v_role := 'patient';
+  end if;
   insert into public.profiles (id, role, phone, full_name, age, gender, address, how_heard, wellness_note)
-  values (new.id, 'patient', new.phone,
+  values (new.id, v_role, new.phone,
           nullif(new.raw_user_meta_data->>'full_name',''), v_age,
           nullif(new.raw_user_meta_data->>'gender',''),
           nullif(new.raw_user_meta_data->>'address',''),

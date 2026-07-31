@@ -915,3 +915,39 @@ number register directly on the web portal, the user chose the latter.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes, new `/register`). No DB
   migration — reuses `handle_new_user()` and the existing role-promotion flow as-is.
 
+## Change round — self-registration now grants the picked role immediately (user, 2026-07-31)
+User rejected the "lands as patient, needs admin approval" design from the previous round: the Register
+page should show the same role picker as `/login` and grant that role the moment OTP verifies — no
+approval step. Asked directly which of three trade-offs to accept (immediate self-assign of Staff/Leaf
+Node only, immediate self-assign of all three including Admin, or picker-as-request-only keeping the
+approval step); user explicitly chose **immediate self-assign, all three roles including Admin**, having
+been told plainly that this means anyone who can complete an OTP verification can make themselves an
+admin.
+
+- [x] **New migration `0013_self_select_role.sql`** (mirrored into `install_all.sql`, header bumped to
+      "Combines migrations 0001–0013"). `handle_new_user()` now reads `requested_role` from the signup's
+      `raw_user_meta_data` — if it's one of `staff`/`admin`/`leaf_node` the new profile is created with
+      that role directly; anything else (including absent, the mobile Register screen's case) still
+      defaults to `patient`, unchanged from before. This only ever runs on account **creation** — the
+      trigger fires once per new `auth.users` row, so an already-existing account has no way to call this
+      path again later to escalate itself; only a fresh signup can land with an elevated role this way.
+- [x] **`web/src/app/register/page.tsx`** gained the same "Registering as" Staff/Admin/Leaf Node picker
+      as `/login` (`OPS_ROLES`/`ROLE_LABELS`), sends the pick as `requested_role` in the signup metadata,
+      and — since the account now already has the right role the instant OTP verifies — routes straight
+      into the portal (`/dashboard` for Admin, `/my-visits` for Staff/Leaf Node) instead of signing out
+      to a "wait for approval" screen.
+- **Accepted, stated risk (not a bug):** `requested_role` is read from client-supplied signup metadata,
+  so this isn't confined to the web UI's picker — any brand-new signup that includes
+  `requested_role: 'admin'` in its metadata lands as admin immediately, whether it comes through this
+  page, a hand-crafted call to the Supabase Auth API, or in principle the mobile app's own signup call
+  (its `RegisterScreen` never sends this field today, so ordinary patient signups are unaffected in
+  practice, but nothing at the database layer distinguishes "came from the web register page" from any
+  other caller). This is the direct, explicit consequence of the "immediate, all three roles" choice
+  above, not an oversight — flagging it here in case a future hardening pass is wanted (e.g. requiring an
+  invite code, or restricting self-assignable roles to Staff/Leaf Node only and keeping Admin
+  promotion-only).
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). **Needs the user's machine,
+  same as every prior migration:** `0013_self_select_role.sql` (or the refreshed `install_all.sql`) has
+  not run against the live Supabase project from this environment — until it does, a new signup's
+  `requested_role` is silently ignored and every new account still lands as `patient`, same as before.
+
