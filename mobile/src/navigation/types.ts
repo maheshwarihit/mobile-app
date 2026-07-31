@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps, NavigatorScreenParams } from "@react-navigation/native";
-import type { PricingModel } from "@vagewell/shared";
+import type { PricingModel, ServiceMode } from "@vagewell/shared";
 
 // ── Auth stack (signed-out) ──────────────────────────────────────
 export type AuthStackParamList = {
@@ -19,6 +19,7 @@ export interface BookingDraft {
   pricing_model: PricingModel;
   family_member_id: string | null;
   subject_name: string;
+  service_mode: ServiceMode;
   start_date: string;
   num_days: number;
   time_slot: string;

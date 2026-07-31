@@ -5,6 +5,7 @@ import {
   RELATIONSHIPS,
   BLOOD_GROUPS,
   REPORT_TYPES,
+  SERVICE_MODES,
   MIN_BOOKING_DAYS,
   MAX_BOOKING_DAYS,
 } from "./constants";
@@ -56,6 +57,7 @@ export type ProfileInput = z.infer<typeof profileSchema>;
 export const appointmentSchema = z.object({
   service_id: z.string().uuid("Select a service"),
   family_member_id: z.string().optional().default(""), // "" = self
+  service_mode: z.enum(asTuple(SERVICE_MODES)),
   start_date: z.string().min(1, "Pick a start date"),
   num_days: z.coerce.number().int().min(MIN_BOOKING_DAYS, "At least 1 day").max(MAX_BOOKING_DAYS),
   time_slot: z.string().regex(/^\d{2}:\d{2}$/, "Pick a time slot"),

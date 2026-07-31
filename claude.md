@@ -736,3 +736,38 @@ the mobile app ever displayed it back to the patient.
       home visit — decided once approved" hint instead, so the absence doesn't read as a bug.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 
+## Change round — customer picks Clinic Visit or Home Care at booking time (user, 2026-07-30)
+Reframes the previous round's badge: instead of just *displaying* whatever admin later decides, the
+customer now picks the visit type themselves on the Appointment screen, same as any other booking field
+— admin's job becomes assigning a matching staff/leaf_node member, not choosing the mode.
+
+- [x] **DB (migration `0012_customer_chosen_service_mode.sql`, mirrored into `install_all.sql`).**
+      `tg_booking_snapshot()` (the `BEFORE INSERT` trigger) previously hard-set `new.service_mode := null`
+      unconditionally — now it validates the client-supplied value (`raise exception 'choose a visit type
+      (clinic or home care)'` if missing/invalid) and leaves it as given. Also had to widen the column-
+      level `grant insert (...)` on `bookings` to include `service_mode` — patients literally could not
+      write that column before, regardless of RLS, since the grant list never named it.
+- [x] **Shared**: `appointmentSchema` (`shared/src/schemas.ts`) gained a required `service_mode` enum
+      field.
+- [x] **Mobile `AppointmentScreen.tsx`**: new "Visit type" `ChoiceChips` (Clinic Visit / Home Care,
+      default Clinic) between "Care for" and the date/duration row; threaded through `BookingDraft`
+      (`navigation/types.ts` gained `service_mode: ServiceMode`) into `PaymentScreen`, whose insert
+      payload now includes it — the booking summary there also gained a "Visit type" row so the customer
+      sees their own choice before confirming.
+- [x] **Web `ApproveAssignModal.tsx` no longer lets admin pick the mode** — it reads `booking.service_mode`
+      (now already set by the customer) and shows it as a read-only "(chosen by customer)" line, filtering
+      assignable staff/leaf_node candidates off that value directly. The old mode dropdown only reappears
+      as a fallback for a booking created *before* this change, where `service_mode` is still `null` —
+      `useAssignBooking`'s existing optional `serviceMode` param is only sent in that legacy case, so a
+      customer's real choice is never silently overwritten.
+- [x] **Pricing wording** — "Advance ₹2,000 (monthly package)" → "Advance ₹2,000 **(Monthly Followup)**"
+      on `ServicesScreen.tsx`'s cards and `AppointmentScreen.tsx`'s service dropdown, matching the exact
+      phrase requested. The summary panel's "not multiplied by months" note was already accurate and
+      unchanged.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (16 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean.
+- **Needs the user's machine, same as every prior migration:** `0012_customer_chosen_service_mode.sql`
+  (or refreshed `install_all.sql`) has not run against the live Supabase project from this environment —
+  until it does, a customer picking a visit type will hit the new "choose a visit type" server error on
+  submit, since the column-level insert grant doesn't exist there yet either.
+

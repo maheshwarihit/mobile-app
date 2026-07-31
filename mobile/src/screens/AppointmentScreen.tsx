@@ -10,6 +10,7 @@ import {
   DateField,
   TextareaInput,
   TimeField,
+  ChoiceChips,
   PrimaryButton,
   WarningBanner,
   TextButton,
@@ -24,10 +25,14 @@ import {
   timeSlots,
   todayISODate,
   addDays,
+  SERVICE_MODES,
+  SERVICE_MODE_LABELS,
+  type ServiceMode,
 } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 const SLOTS = timeSlots();
+const SERVICE_MODE_OPTIONS = SERVICE_MODES.map((m) => ({ value: m, label: SERVICE_MODE_LABELS[m] }));
 
 // SCREEN_ID: APPOINTMENT
 export function AppointmentScreen({ navigation, route }: ServicesStackScreenProps<"Appointment">) {
@@ -38,6 +43,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
   const [form, setForm] = useState({
     service_id: route.params?.serviceId ?? "",
     family_member_id: "",
+    service_mode: "clinic" as ServiceMode,
     start_date: todayISODate(),
     num_days: "1",
     time_slot: SLOTS[0].value,
@@ -46,6 +52,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const setServiceMode = (v: string) => setForm((f) => ({ ...f, service_mode: v as ServiceMode }));
 
   const serviceId = form.service_id || services?.[0]?.id || "";
   const selectedService = useMemo(() => services?.find((s) => s.id === serviceId) ?? null, [services, serviceId]);
@@ -56,7 +63,10 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
 
   const serviceOptions = (services ?? []).map((s) => ({
     value: s.id,
-    label: s.pricing_model === "flat_advance" ? `${s.name} — Advance ${money(s.price_per_day)} (monthly)` : `${s.name} — ${money(s.price_per_day)}/day`,
+    label:
+      s.pricing_model === "flat_advance"
+        ? `${s.name} — Advance ${money(s.price_per_day)} (Monthly Followup)`
+        : `${s.name} — ${money(s.price_per_day)}/day`,
   }));
   const subjectOptions = [
     { value: "", label: `Myself${profile?.full_name ? ` (${profile.full_name})` : ""}` },
@@ -68,6 +78,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
     const candidate = {
       service_id: serviceId,
       family_member_id: form.family_member_id,
+      service_mode: form.service_mode,
       start_date: form.start_date,
       num_days: days,
       time_slot: form.time_slot,
@@ -97,6 +108,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
         pricing_model: selectedService.pricing_model,
         family_member_id: form.family_member_id || null,
         subject_name: subjectName,
+        service_mode: form.service_mode,
         start_date: form.start_date,
         num_days: days,
         time_slot: form.time_slot,
@@ -131,6 +143,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
             <View className="gap-4">
               <SelectSheet label="Service" value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
               <SelectSheet label="Care for" value={form.family_member_id} onValueChange={set("family_member_id")} options={subjectOptions} />
+              <ChoiceChips label="Visit type" value={form.service_mode} onChange={setServiceMode} options={SERVICE_MODE_OPTIONS} />
               <View className="flex-row gap-3">
                 <View className="flex-1">
                   <DateField label="Start date" value={form.start_date} onChange={set("start_date")} error={errors.start_date} minimumDate={new Date()} required />

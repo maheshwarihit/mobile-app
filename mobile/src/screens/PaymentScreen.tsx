@@ -28,6 +28,7 @@ import {
   formatSlot,
   formatDate,
   qk,
+  SERVICE_MODE_LABELS,
 } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
@@ -85,6 +86,7 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
         .insert({
           service_id: draft.service_id,
           family_member_id: draft.family_member_id,
+          service_mode: draft.service_mode,
           num_days: draft.num_days,
           start_date: draft.start_date,
           time_slot: draft.time_slot,
@@ -191,6 +193,7 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
           <View className="gap-2">
             <Row label="Service" value={draft.service_name} />
             <Row label="Care for" value={draft.subject_name} />
+            <Row label="Visit type" value={SERVICE_MODE_LABELS[draft.service_mode]} />
             <Row label="Start date" value={formatDate(draft.start_date)} />
             <Row label="Time" value={formatSlot(draft.time_slot)} />
             <Row label={isFlatAdvance ? "Months" : "Days"} value={String(draft.num_days)} />

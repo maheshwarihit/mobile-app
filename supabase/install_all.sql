@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0011. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0012. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -257,6 +257,9 @@ begin
       raise exception 'family_member does not belong to caller' using errcode = '42501';
     end if;
   end if;
+  if new.service_mode is null or new.service_mode not in ('clinic','home_care') then
+    raise exception 'choose a visit type (clinic or home care)' using errcode = '23514';
+  end if;
   select price_per_day, name, active, pricing_model into v_price, v_name, v_active, v_pricing_model
   from public.services where id = new.service_id;
   if not found or not v_active then raise exception 'service unavailable' using errcode = '23503'; end if;
@@ -271,7 +274,8 @@ begin
                                then 'pending_verification' else 'pending' end;
   end if;
   new.booking_status := 'requested';
-  new.service_mode   := null;
+  -- service_mode (0012): left as the customer's choice, validated above — no
+  -- longer forced to null for admin to decide later at approval time.
   new.assigned_to    := null;
   return new;
 end; $$;
@@ -454,7 +458,7 @@ grant select on public.profiles to authenticated;
 grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note) on public.profiles to authenticated;
 revoke insert, update, delete on public.bookings from anon, authenticated;
 grant select on public.bookings to authenticated;
-grant insert (service_id, family_member_id, num_days, start_date, time_slot, symptom_brief, payment_method, payment_proof_path) on public.bookings to authenticated;
+grant insert (service_id, family_member_id, num_days, start_date, time_slot, symptom_brief, payment_method, payment_proof_path, service_mode) on public.bookings to authenticated;
 grant update (booking_status, symptom_brief, payment_proof_path, service_mode, assigned_to) on public.bookings to authenticated;
 grant select, insert, update, delete on public.family_members   to authenticated;
 grant select, insert, update, delete on public.services         to authenticated;
