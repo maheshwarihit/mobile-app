@@ -58,9 +58,10 @@ auth_token = "env(TWILIO_AUTH_TOKEN)"
 # GO-4 dev behavior: fixed test codes so local dev needs no live SMS.
 # Format: "phone = code". Add your own test numbers here.
 "+919000000001" = "123456"
-"+919000000002" = "123456"
+"+919000000002" = "098765"
 "+919000000009" = "123456"
 "+918925929237" = "902561"
+"+919000000003" = "345678"
 
 [edge_runtime]
 enabled = true
