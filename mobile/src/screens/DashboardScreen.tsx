@@ -10,6 +10,7 @@ import { loadDismissedMissedIds, dismissMissedBooking } from "@/lib/dismissedMis
 import {
   useMyBookings,
   useFamilyMembers,
+  useCancelBooking,
   money,
   formatDate,
   formatSlot,
@@ -45,14 +46,23 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
 
   const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? "Dependent" : profileName);
 
-  // Tapping Reschedule clears it from "Recently missed" immediately (on this
-  // device) — the actual booking row is only cancelled once a replacement is
-  // genuinely created (see PaymentScreen), but the nudge itself shouldn't
-  // keep sitting there once the customer has acted on it.
+  const cancel = useCancelBooking();
+
+  // Tapping Reschedule clears it from "Recently missed" right away, two ways
+  // at once: (1) actually cancels the booking server-side when the patient is
+  // allowed to (requested/approved — server-enforced), which permanently
+  // removes it from every future "missed" computation regardless of device,
+  // reload, or reinstall; (2) also dismisses it locally as a belt-and-braces
+  // for the case where the server cancel isn't permitted (already assigned/
+  // in_progress) — that one is left for staff to close out from the web
+  // portal, but shouldn't keep nagging this device either.
   const reschedule = (b: Booking) => {
+    if (b.booking_status === "requested" || b.booking_status === "approved") {
+      cancel.mutate(b.id);
+    }
     setDismissedMissed((prev) => new Set(prev).add(b.id));
     void dismissMissedBooking(b.id);
-    navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id, rescheduleOf: b.id } });
+    navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id } });
   };
 
   // A missed booking (scheduled date already passed, never reached a terminal

@@ -24,16 +24,12 @@ export interface BookingDraft {
   num_days: number;
   time_slot: string;
   symptom_brief: string;
-  // Set when this booking started life as a Reschedule of a missed one — only
-  // cleared from "Recently missed" once THIS booking is actually created, not
-  // the moment Reschedule is tapped (the customer might back out first).
-  reschedule_of: string | null;
 }
 
 // ── App tabs (signed-in) ─────────────────────────────────────────
 export type ServicesStackParamList = {
   Services: undefined;
-  Appointment: { serviceId?: string; rescheduleOf?: string } | undefined;
+  Appointment: { serviceId?: string } | undefined;
   Payment: { draft: BookingDraft };
 };
 

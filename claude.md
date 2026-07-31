@@ -836,3 +836,24 @@ Reschedule should empty the "Recently missed" space immediately.
   This is the explicit trade-off of the current request; flag if that turns out to be unwanted.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 
+## Change round — Reschedule now actually cancels the missed booking server-side (user, 2026-07-30)
+User reported the previous round's fix still didn't work: rescheduled and booked a replacement, but the
+original missed booking kept showing in "Recently missed." The local-only `AsyncStorage` dismiss depends
+on that exact device still having that exact persisted flag on every subsequent load — fragile across
+reloads, and impossible to verify from this environment. Made it work unconditionally by actually
+cancelling the old booking on the server the moment Reschedule is tapped, not waiting on anything else.
+
+- [x] **`DashboardScreen.tsx`'s `reschedule()`** now calls `useCancelBooking().mutate(b.id)` immediately
+      when the booking is still `requested`/`approved` (the only statuses a patient can self-cancel,
+      server-enforced) — this permanently removes it from every future "missed" computation on every
+      device, since a `cancelled` booking is terminal. The local dismiss (`dismissMissedBooking`) still
+      also fires as a belt-and-braces for a missed booking already past that stage (`assigned`+), which a
+      patient can't cancel themselves — that one is left for staff to close out via the web portal, but at
+      least stops nagging this device.
+- [x] **Removed the now-dead `reschedule_of`/`rescheduleOf` threading entirely** — since the cancel no
+      longer waits for a replacement booking to exist, there's nothing left for `PaymentScreen` to do with
+      it. Removed from `BookingDraft` (`navigation/types.ts`), `ServicesStackParamList.Appointment`'s
+      params, `AppointmentScreen`'s draft construction, and `PaymentScreen`'s insert handler (which no
+      longer imports `dismissMissedBooking` at all).
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+
