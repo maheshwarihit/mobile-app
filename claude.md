@@ -878,3 +878,17 @@ the moment it exists, since it genuinely is.
       silently creating an already-missed booking.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 
+## Change round — dismiss "Recently missed" without rescheduling (user, 2026-07-30)
+The prior screenshot confirmed the cancel-on-reschedule fix genuinely worked (a *different* stale test
+booking took the missed one's place, unrelated). New ask: a way to clear the "Recently missed" nudge
+when the customer simply doesn't want to reschedule that visit at all — not every missed booking should
+force a reschedule.
+
+- [x] **New "✕" button on `MissedAppointment`** (`DashboardScreen.tsx`), top-right of the card, next to
+      the total. Calls a new `dismissOnly(b)` — local dismiss only (`dismissMissedBooking` +
+      `dismissedMissed` state), no server-side cancel. The underlying booking is left exactly as it is;
+      staff still see and can act on the real row via the web portal. This is deliberately different from
+      `reschedule()`, which does attempt an actual cancel — dismissing isn't the same as saying "this
+      never happened," just "stop showing me this."
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+

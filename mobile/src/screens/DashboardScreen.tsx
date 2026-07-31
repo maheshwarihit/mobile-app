@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { CalendarCheck, AlertTriangle, RotateCcw, CalendarClock, Building2, Home } from "lucide-react-native";
+import { CalendarCheck, AlertTriangle, RotateCcw, CalendarClock, Building2, Home, X } from "lucide-react-native";
 import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
@@ -65,6 +65,14 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
     navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id } });
   };
 
+  // The "X" — for when the customer doesn't want to reschedule at all, just
+  // stop being nagged about it. Local dismiss only: the booking itself is
+  // left exactly as it is (staff still see and can act on the real row).
+  const dismissOnly = (b: Booking) => {
+    setDismissedMissed((prev) => new Set(prev).add(b.id));
+    void dismissMissedBooking(b.id);
+  };
+
   // A missed booking (scheduled date already passed, never reached a terminal
   // state) leaves the plain "upcoming" list. Only the single most recent one
   // surfaces here as a nudge to reschedule — the complete history (every past
@@ -106,6 +114,7 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
                     booking={recentMissed}
                     subjectName={nameFor(recentMissed)}
                     onReschedule={() => reschedule(recentMissed)}
+                    onDismiss={() => dismissOnly(recentMissed)}
                   />
                 </View>
               ) : null}
@@ -188,15 +197,17 @@ function LastCompletedCheckup({ booking, subjectName }: { booking: Booking; subj
   );
 }
 
-/** A booking whose date has passed with nothing done about it — offer a reschedule. */
+/** A booking whose date has passed with nothing done about it — offer a reschedule, or dismiss it. */
 function MissedAppointment({
   booking,
   subjectName,
   onReschedule,
+  onDismiss,
 }: {
   booking: Booking;
   subjectName: string;
   onReschedule: () => void;
+  onDismiss: () => void;
 }) {
   return (
     <Card className="border border-red-100 bg-red-50/40 p-4">
@@ -216,7 +227,10 @@ function MissedAppointment({
             <ServiceModeBadge booking={booking} />
           </View>
         </View>
-        <View className="items-end">
+        <View className="items-end gap-1">
+          <Pressable onPress={onDismiss} hitSlop={8} className="p-1 active:opacity-60">
+            <X size={16} color="#9ca3af" />
+          </Pressable>
           <Text className="text-base font-bold text-gray-900">{money(booking.total_amount)}</Text>
           <Pill bgClass="bg-red-100" textClass="text-red-700">
             You missed it
