@@ -91,6 +91,17 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
       setErrors(errs);
       return;
     }
+    // The date picker only blocks past dates, not a past time slot on today's
+    // date — defaults (today + the earliest slot) would otherwise create a
+    // booking that's already "missed" the instant it's submitted.
+    if (form.start_date === todayISODate()) {
+      const now = new Date();
+      const nowHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      if (form.time_slot <= nowHHMM) {
+        setErrors({ time_slot: "That time has already passed today — pick a later time or a future date." });
+        return;
+      }
+    }
     if (!selectedService) {
       setErrors({ service_id: "Select a service" });
       return;

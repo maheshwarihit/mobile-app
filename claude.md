@@ -857,3 +857,24 @@ cancelling the old booking on the server the moment Reschedule is tapped, not wa
       longer imports `dismissMissedBooking` at all).
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
 
+## Bugfix — new bookings could be "missed" the instant they're created (user, 2026-07-30)
+Good news buried in the bug report: the previous round's fix actually worked — the original missed
+Nutrition booking (Maheshwari S, 06:00 AM) genuinely disappeared from "Recently missed" after Reschedule
+was tapped and a replacement booked. But a **different** Nutrition booking (a dependent, 07:00 AM, same
+date) immediately took its place as "missed" — a brand-new booking, showing up already missed.
+
+Root cause: `AppointmentScreen`'s form defaults to `start_date: todayISODate()` and
+`time_slot: SLOTS[0].value` (the earliest slot, 06:00). The date picker (`DateField`) only blocks
+picking a date *before* today — it says nothing about the time slot. If the customer submits without
+changing the date/time away from those defaults (very easy to do on a Reschedule, where the flow already
+feels "done" once you've picked a service), and the current time of day is already past whatever slot is
+selected, the booking is created already in the past — `isBookingMissed()` correctly flags it as missed
+the moment it exists, since it genuinely is.
+
+- [x] **`AppointmentScreen.tsx`'s `submit()`** now checks, when `start_date` equals today, whether the
+      chosen `time_slot` is still later than the current clock time — if not, blocks submission with
+      "That time has already passed today — pick a later time or a future date" (same
+      `errors`/`FormInput`-style validation pattern already used for the other fields), instead of
+      silently creating an already-missed booking.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+
