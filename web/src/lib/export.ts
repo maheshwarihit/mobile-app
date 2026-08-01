@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { liveSheetRows, type BookingWithNames, type ClinicalRecord } from "@vagewell/shared";
+import { liveSheetRows } from "@vagewell/shared";
 
 export { liveSheetRows };
 
@@ -26,11 +26,6 @@ function downloadSheet(records: Record<string, unknown>[], bookType: "xlsx" | "c
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
-}
-
-/** Excel export (staff/admin dashboard "Export"). */
-export async function exportAppointmentsToExcel(rows: BookingWithNames[], clinical: ClinicalRecord[]): Promise<void> {
-  downloadSheet(liveSheetRows(rows, clinical), "xlsx", "Appointments", "vagewell-appointments");
 }
 
 /** CSV export (live sheet "Download as CSV") — takes rows the caller already built, so it matches the on-screen filter. */

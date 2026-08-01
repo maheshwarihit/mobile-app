@@ -2,27 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Download, FileSearch, UserPlus2, CalendarDays, UploadCloud } from "lucide-react";
+import { FileSearch, UserPlus2, CalendarDays, UploadCloud } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { useAuth } from "@/providers/AuthProvider";
-import {
-  Card,
-  Pill,
-  FormInput,
-  OutlineButton,
-  LoadingState,
-  EmptyState,
-  ErrorBanner,
-  PageHeader,
-} from "@/components/ui";
+import { Card, Pill, FormInput, LoadingState, EmptyState, ErrorBanner, PageHeader } from "@/components/ui";
 import { PaymentReviewModal } from "@/components/PaymentReviewModal";
 import { ApproveAssignModal } from "@/components/ApproveAssignModal";
 import { ReportUploadModal } from "@/components/ReportUploadModal";
-import { exportAppointmentsToExcel } from "@/lib/export";
 import {
   useAllBookings,
-  useAllClinicalRecords,
   useReportsForBooking,
   money,
   formatDate,
@@ -47,14 +35,12 @@ function AdminOnlyRedirect() {
 function DashboardContent() {
   const { role } = useAuth();
   const { data: bookings, isLoading, error } = useAllBookings(true);
-  const clinical = useAllClinicalRecords(false);
   const [query, setQuery] = useState("");
   const [dayFrom, setDayFrom] = useState("");
   const [dayTo, setDayTo] = useState("");
   const [selected, setSelected] = useState<BookingWithNames | null>(null);
   const [approving, setApproving] = useState<BookingWithNames | null>(null);
   const [reporting, setReporting] = useState<BookingWithNames | null>(null);
-  const [exporting, setExporting] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,38 +51,26 @@ function DashboardContent() {
       return (
         (b.subject_name ?? "").toLowerCase().includes(q) ||
         (b.account?.full_name ?? "").toLowerCase().includes(q) ||
+        (b.assigned_to_name ?? "").toLowerCase().includes(q) ||
         b.service_name.toLowerCase().includes(q)
       );
     });
   }, [bookings, query, dayFrom, dayTo]);
 
-  const doExport = async () => {
-    setExporting(true);
-    try {
-      const { data: v } = await clinical.refetch();
-      await exportAppointmentsToExcel(bookings ?? [], v ?? []);
-    } catch {
-      toast.error("Could not export. Please try again.");
-    }
-    setExporting(false);
-  };
-
   if (role && role !== "admin") return <AdminOnlyRedirect />;
 
   return (
     <div>
-      <PageHeader
-        title="All appointments"
-        right={
-          <OutlineButton icon={Download} onClick={doExport} loading={exporting}>
-            Export
-          </OutlineButton>
-        }
-      />
+      <PageHeader title="All appointments" />
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
         <div className="flex-1">
-          <FormInput label="Search by patient or service" value={query} onChangeText={setQuery} placeholder="Name or service…" />
+          <FormInput
+            label="Search by patient, service, staff, or leaf node"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Name or service…"
+          />
         </div>
         <div className="sm:w-40">
           <FormInput label="From" value={dayFrom} onChangeText={setDayFrom} type="date" icon={CalendarDays} />

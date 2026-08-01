@@ -1244,3 +1244,16 @@ patient's history on the Live Sheet, not just visits assigned to them; (2) the R
   environment — until it does, a staff/leaf_node account's Live Sheet search still only surfaces their
   own assigned bookings.
 
+## Change round — drop Dashboard's Export button, search now matches staff/leaf_node too (user, 2026-07-31)
+Two small asks on the admin "All appointments" dashboard.
+
+- [x] **Removed the "Export" button** from the dashboard's `PageHeader` — the Live Sheet's own "Download as
+      CSV" already covers this (and, unlike the dashboard's version, respects the on-screen search/date
+      filter). Deleted the now-dead `exportAppointmentsToExcel()` (`web/src/lib/export.ts`) along with it,
+      since nothing else called it — `exportRowsToCSV()` (Live Sheet) is untouched.
+- [x] **Search now matches the assigned staff/leaf_node member's name too**, not just patient/account/
+      service — typing "Sutha" now finds every booking assigned to Sutha, the same way typing a patient's
+      name already did. Label updated to "Search by patient, service, staff, or leaf node" so this is
+      discoverable without reading the code.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB/shared/mobile changes.
+
