@@ -82,16 +82,37 @@ export default function RegisterPage() {
       setErr(error.message);
       return;
     }
-    // Backfill the profile row (the signup trigger also reads the metadata above).
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user?.id ?? "")
+      .maybeSingle();
+    const actualRole = (profileRow?.role as Role | undefined) ?? null;
+
+    // Only ever true for a genuinely brand-new number: if this phone already
+    // had an account (from before, or from before 0013 ran), handle_new_user
+    // never re-fires and requested_role is silently ignored — the account
+    // keeps whatever role it already had. Don't pretend it worked.
+    if (actualRole !== role) {
+      // Don't touch full_name here — this is an existing account this
+      // "registration" attempt has no business renaming.
+      await supabase.auth.signOut();
+      setBusy(false);
+      setErr(
+        actualRole
+          ? `This number already has an account (registered as ${ROLE_LABELS[actualRole]}). Role selection only applies the first time a number signs up — ask an admin to change an existing account's role, or register with a different number.`
+          : "Could not confirm your account's role. Please try again."
+      );
+      return;
+    }
+
     if (user) {
       await supabase.from("profiles").update({ full_name: fullName.trim() }).eq("id", user.id);
     }
     setBusy(false);
-    // The account already landed with the picked role (handle_new_user, 0013)
-    // — go straight into the portal, same landing rule /verify uses.
     router.push(role === "admin" ? "/dashboard" : "/my-visits");
   };
 

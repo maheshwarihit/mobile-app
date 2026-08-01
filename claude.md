@@ -951,3 +951,38 @@ admin.
   not run against the live Supabase project from this environment — until it does, a new signup's
   `requested_role` is silently ignored and every new account still lands as `patient`, same as before.
 
+## Bugfix — Register silently trusted the picked role instead of confirming it (user, 2026-07-31)
+User tried registering `+919000000002` as Staff and landed on `/verify`'s "registered as Patient, not
+Staff" mismatch screen — confusing, since that error message belongs to the *Login* flow, not Register.
+Root cause: `web/src/app/register/page.tsx`'s `verify()` never actually checked what role the account
+landed with — it just trusted the client-side `role` state the user had picked and redirected blindly
+into `/dashboard` or `/my-visits`, where `RequireStaff` would then bounce a mismatched account back to
+`/login` with no explanation of why. Two independent things can cause a mismatch, and this fix surfaces
+either one directly on the Register page instead of failing silently three steps later:
+1. **`0013_self_select_role.sql` genuinely hasn't run yet** against this Supabase project — the *only*
+   outstanding migration action, unchanged from the previous round. `handle_new_user()` is still the
+   pre-0013 version there, ignores `requested_role` entirely, and every new signup still lands `patient`.
+2. **The phone number already had an account.** `handle_new_user()` only ever fires once, on the very
+   first `auth.users` insert for that number — this is inherent to the design (see 0013's own comment:
+   "only a fresh signup can set a role this way"). `+919000000002` is one of `config.toml`'s test-OTP
+   numbers and had very likely already signed up during earlier testing in this project, so re-registering
+   it can never change its role no matter what's picked or whether 0013 has run.
+- [x] **`verify()` now re-fetches `profiles.role` after `verifyOtp` and compares it to the picked role**
+  (same check `/verify`'s Login flow already does) before redirecting anywhere. A match proceeds exactly
+  as before. A mismatch signs the session back out and shows a clear, actionable message on the Register
+  page itself: *"This number already has an account (registered as X). Role selection only applies the
+  first time a number signs up — ask an admin to change an existing account's role, or register with a
+  different number."* — instead of quietly landing on `/verify`'s unrelated error copy.
+- [x] **Stopped overwriting `full_name` on a mismatch.** The pre-fix code ran its `full_name` backfill
+  unconditionally; moved it to only run once a role match confirms this really is a fresh registration —
+  a failed attempt on someone else's existing number must not silently rename their account.
+- **For the user, right now:** to test the feature itself, either (a) confirm `install_all.sql` /
+  `0013_self_select_role.sql` has actually been run in the Supabase SQL Editor, **and** (b) use a phone
+  number that has genuinely never signed up before (not `9000000002`/`9000000003`/etc. if they were used
+  in earlier testing rounds) — check with
+  `select id, phone, role, created_at from profiles where phone = '+91XXXXXXXXXX';` in the SQL Editor
+  first. To fix an already-existing test account directly: `update profiles set role = 'staff' where
+  phone = '+919000000002';` (swap the role/number as needed) — a manual promotion, same mechanism the
+  admin role dropdown itself performs.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes).
+
