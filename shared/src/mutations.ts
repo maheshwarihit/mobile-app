@@ -361,27 +361,6 @@ export function useCreateBookingRequest() {
   });
 }
 
-/** Admin logs a call-in as a request against a specific patient's account (0017). */
-export function useAdminCreateBookingRequest() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: async ({ accountId, note }: { accountId: string; note?: string }) => {
-      // tg_booking_request_stamp() preserves this account_id specifically
-      // because the caller is admin — a plain customer's own insert never
-      // sends one and always gets stamped to auth.uid() regardless.
-      const { error } = await getSupabase()
-        .from("booking_requests")
-        .insert({ account_id: accountId, note: note || null });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      invalidate([qk.bookingRequests]);
-      toast.success("Request logged");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-}
-
 /** Admin marks a booking request as contacted (removes it from the open inbox). */
 export function useMarkRequestContacted() {
   const invalidate = useInvalidate();

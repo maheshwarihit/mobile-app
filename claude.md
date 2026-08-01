@@ -1331,3 +1331,23 @@ this path).
   until it does, the new "+" on the dashboard will fail with a permission error trying to book on another
   account's behalf.
 
+## Change round — removed the Requests "+", superseded by the real booking flow (user, 2026-07-31)
+User confirmed the `permission denied for table bookings` error on the new dashboard "+" was exactly the
+still-outstanding `0018` migration (expected, not a new bug), then asked to remove the Requests page's own
+"+" (0017's lighter "log a call-in as a lead" feature) — now redundant now that admin can book a *real*
+appointment directly from the dashboard instead of just logging a note to call back.
+
+- [x] **`web/src/app/requests/page.tsx`**: removed the "+" `IconButton`, the `adding` state, and the
+      `NewRequestModal` render — back to a plain view/mark-contacted inbox, unchanged from before 0017's
+      round.
+- [x] **Deleted `web/src/components/NewRequestModal.tsx`** and **removed `useAdminCreateBookingRequest()`**
+      (`shared/src/mutations.ts`) — both were only ever called from the button just removed, confirmed via
+      a repo-wide search before deleting.
+- **Left as-is, not reverted:** migration `0017`'s DB-level change (`tg_booking_request_stamp()` preserving
+  an admin-supplied `account_id`; `booking_request_insert` RLS widened to match) — harmless and dormant
+  with no client calling it anymore, and unwinding an already-shipped migration seemed like more churn than
+  value for a change that isn't causing any problem. Flagging here in case it's ever worth cleaning up
+  properly in a future pass.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes); `mobile` `tsc --noEmit` clean
+  (shared/mutations.ts touched, mobile unaffected).
+
