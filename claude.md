@@ -1186,3 +1186,34 @@ slightly to match this round's web-side improvement.
   `/reports` and `/my-visits` pages, and if you're testing a deployed URL rather than a local `npm run dev`,
   make sure that deployment has picked up the latest `main` (commit `c4b8bf7` or later).
 
+## Change round — Report link on Live Sheet; found & fixed the real "report not showing" bug (user, 2026-07-31)
+Two follow-ups. First, a request clarified through back-and-forth: rather than only a separate `/reports`
+page, each patient's row in the Live Sheet should carry its own report link directly. Second, the user
+reported reports still not appearing in the patient's mobile Health record even after confirming (via a
+clarifying question) that clicking **Release** on `/reports` correctly flips the status pill — meaning the
+gap was specifically on the read side, not the release action itself.
+
+- [x] **`web/src/app/live-sheet/page.tsx`**: new "Report" column (both Overall and Updated views), built
+      from `useAllReports()` grouped by `booking_id` (first match wins, since the hook is already sorted
+      newest-first) and a batch `createSignedUrls()` call, rendered as a real `<a href target="_blank">`
+      per row — never a click-handler `window.open()` after an await, the same popup-blocker class of bug
+      fixed last round. Deliberately kept **out** of the exported columns/CSV (`OVERALL_COLUMNS`/
+      `UPDATED_COLUMNS`/`visible` untouched) — a signed URL expires, so it isn't meaningful data to persist
+      in a downloaded sheet, just a live on-screen convenience.
+- [x] **Root cause of "released but the patient still doesn't see it": no refetch-on-focus on the mobile
+      Health record.** Confirmed via a targeted diagnostic exchange (ruled out: same-file-uploaded-twice
+      data artifact; ruled out: the Release action itself). React Query caches are per-device — when an
+      admin clicks Release in their own browser, `useReviewReport`'s `invalidateQueries` only clears *that*
+      browser's cache. A patient's already-open mobile app is a completely separate process with its own
+      cache and has no way to know anything changed server-side; nothing was ever asking it to check again.
+      This is the exact same class of bug already fixed once for `DashboardScreen`'s bookings
+      ("belt-and-braces on stale data", 2026-07-30) — `ProfileScreen.tsx` just never got the same
+      treatment. Fixed: `ProfileScreen` now calls `useFocusEffect` to refetch reports, bookings, and vitals
+      every time the Profile tab regains focus, so returning to it always reflects the current server
+      state regardless of what changed elsewhere or when.
+- **Also clarified for the user, not a bug:** a report only ever shows under the *subject* (self or a
+  specific dependent) whose booking it belongs to — checking "Myself" won't show a dependent's released
+  report; the correct name must be picked from "View record for" first.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean.
+

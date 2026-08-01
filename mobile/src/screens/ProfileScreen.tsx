@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { toast } from "sonner-native";
 import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download } from "lucide-react-native";
 import {
@@ -59,13 +60,27 @@ export function ProfileScreen() {
     () => (subject === "self" ? { profileId: user?.id } : { familyMemberId: subject }),
     [subject, user?.id]
   );
-  const { data: records, isLoading: vitalsLoading } = useClinicalRecords(user ? subjectQuery : null);
+  const { data: records, isLoading: vitalsLoading, refetch: refetchVitals } = useClinicalRecords(user ? subjectQuery : null);
 
   // Reports released to the customer are shown alongside vitals in the Health
   // record, scoped to whichever subject (self/dependent) is selected above —
   // reports don't carry a direct subject column, so match through their booking.
-  const { data: reports, isLoading: reportsLoading } = useMyReports(true);
-  const { data: myBookings } = useMyBookings();
+  const { data: reports, isLoading: reportsLoading, refetch: refetchReports } = useMyReports(true);
+  const { data: myBookings, refetch: refetchBookings } = useMyBookings();
+
+  // A report release (or a new vitals entry) happens on the web portal, a
+  // different device entirely — that device's own query-cache invalidation
+  // has no way to reach this one. Without refetching on focus, a released
+  // report could sit invisible here indefinitely even though the server-side
+  // state is already correct, exactly the same class of bug already fixed
+  // once for the Dashboard tab's bookings.
+  useFocusEffect(
+    useCallback(() => {
+      void refetchReports();
+      void refetchBookings();
+      void refetchVitals();
+    }, [refetchReports, refetchBookings, refetchVitals])
+  );
   const bookingsForSubject = useMemo(
     () => (myBookings ?? []).filter((b) => (subject === "self" ? !b.family_member_id : b.family_member_id === subject)),
     [myBookings, subject]

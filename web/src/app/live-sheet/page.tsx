@@ -1,11 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, FileSpreadsheet, Search, CalendarDays } from "lucide-react";
+import { Download, FileSpreadsheet, Search, CalendarDays, Eye } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { FormInput, OutlineButton, LoadingState, EmptyState, PageHeader } from "@/components/ui";
-import { useAllBookings, useAllClinicalRecords, type LiveSheetRow } from "@vagewell/shared";
+import { supabase } from "@/lib/supabase";
+import {
+  useAllBookings,
+  useAllClinicalRecords,
+  useAllReports,
+  MEDICAL_REPORT_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
+  type LiveSheetRow,
+} from "@vagewell/shared";
 import { liveSheetRows, exportRowsToCSV } from "@/lib/export";
 
 const OVERALL_COLUMNS = [
@@ -66,6 +75,7 @@ function LiveSheetContent() {
   const [sheet, setSheet] = useState<"overall" | "updated">("overall");
   const { data: bookings, isLoading: bookingsLoading } = useAllBookings(true);
   const { data: clinical, isLoading: clinicalLoading } = useAllClinicalRecords(true);
+  const { data: reports } = useAllReports(true);
 
   const isLoading = bookingsLoading || clinicalLoading;
   const rangedBookings = useMemo(
@@ -96,6 +106,32 @@ function LiveSheetContent() {
     () => (sheet === "overall" ? visibleFull : visibleFull.map(toUpdatedRow)),
     [sheet, visibleFull]
   );
+
+  // Most recent report per booking (useAllReports is already created_at
+  // desc, so the first match per booking_id wins) — a visual-only "Report"
+  // column, deliberately kept out of `columns`/`visible` so it never lands
+  // in the CSV export (a signed URL expires; it isn't useful data to keep).
+  const latestReportByBooking = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of reports ?? []) if (!map.has(r.booking_id)) map.set(r.booking_id, r.storage_path);
+    return map;
+  }, [reports]);
+  const reportPaths = useMemo(() => [...new Set(latestReportByBooking.values())], [latestReportByBooking]);
+  const { data: reportUrls = {} } = useQuery({
+    queryKey: ["live-sheet-report-urls", reportPaths],
+    enabled: reportPaths.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data } = await supabase.storage.from(MEDICAL_REPORT_BUCKET).createSignedUrls(reportPaths, SIGNED_URL_TTL_SECONDS);
+      const map: Record<string, string> = {};
+      for (const item of data ?? []) if (item.path && item.signedUrl) map[item.path] = item.signedUrl;
+      return map;
+    },
+  });
+  const reportUrlForRow = (fullRow: LiveSheetRow) => {
+    const bookingId = String(fullRow["Booking ID"] ?? "");
+    const path = latestReportByBooking.get(bookingId);
+    return path ? reportUrls[path] : undefined;
+  };
 
   const doCsv = async () => {
     setExporting(true);
@@ -172,18 +208,32 @@ function LiveSheetContent() {
                     {c}
                   </th>
                 ))}
+                <th className="whitespace-nowrap border-b border-gray-200 px-2 py-2 font-bold">Report</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((row, i) => (
-                <tr key={i} className={i % 2 ? "bg-gray-50" : "bg-white"}>
-                  {columns.map((c) => (
-                    <td key={c} className="max-w-[220px] truncate whitespace-nowrap border-b border-gray-100 px-2 py-2">
-                      {String((row as Record<string, unknown>)[c] ?? "")}
+              {visible.map((row, i) => {
+                const url = reportUrlForRow(visibleFull[i]);
+                return (
+                  <tr key={i} className={i % 2 ? "bg-gray-50" : "bg-white"}>
+                    {columns.map((c) => (
+                      <td key={c} className="max-w-[220px] truncate whitespace-nowrap border-b border-gray-100 px-2 py-2">
+                        {String((row as Record<string, unknown>)[c] ?? "")}
+                      </td>
+                    ))}
+                    <td className="whitespace-nowrap border-b border-gray-100 px-2 py-2">
+                      {url ? (
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 font-medium text-brand-600">
+                          <Eye size={12} />
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
-                  ))}
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
