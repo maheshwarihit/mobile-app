@@ -120,6 +120,7 @@ export interface ReportUpload {
   // scopes plain staff/leaf_node to only their own assigned rows.
   patient_name: string | null;
   service_name: string | null;
+  file_name: string | null;
   created_at: string;
   updated_at: string;
 }

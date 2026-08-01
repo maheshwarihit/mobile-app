@@ -46,6 +46,7 @@ export function ReportUploadModal({ booking, onClose }: { booking: BookingWithNa
         bookingId: booking.id,
         reportType,
         note,
+        fileName: file.name,
         source: { contentType: file.type, sizeBytes: file.size, toArrayBuffer: () => file.arrayBuffer() },
       },
       {

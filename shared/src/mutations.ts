@@ -279,11 +279,13 @@ export function useUploadReport() {
       reportType,
       note,
       source,
+      fileName,
     }: {
       bookingId: string;
       reportType: ReportType;
       note: string;
       source: ProofSource;
+      fileName: string;
     }) => {
       if (!ALLOWED_REPORT_MIME.includes(source.contentType as (typeof ALLOWED_REPORT_MIME)[number]))
         throw new Error("Please upload a PNG, JPG, WEBP, or PDF file.");
@@ -309,7 +311,7 @@ export function useUploadReport() {
       if (upErr) throw upErr;
       const { error } = await sb
         .from("report_uploads")
-        .insert({ booking_id: bookingId, report_type: reportType, storage_path: path, note: note || null });
+        .insert({ booking_id: bookingId, report_type: reportType, storage_path: path, note: note || null, file_name: fileName || null });
       if (error) throw error;
     },
     onSuccess: (_data, vars) => {

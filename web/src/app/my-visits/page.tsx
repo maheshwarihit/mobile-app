@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Activity, PlayCircle, UploadCloud, CheckCircle2, Eye } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { Card, Pill, LoadingState, EmptyState, ErrorBanner, ConfirmModal, PageHeader } from "@/components/ui";
@@ -71,19 +72,23 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
   const { data: reports } = useReportsForBooking(booking.id);
   const latestReport = reports?.[0] ?? null;
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [viewing, setViewing] = useState(false);
   const canStart = booking.booking_status === "assigned";
   const inFlight = booking.booking_status === "in_progress" || booking.booking_status === "report_uploaded";
 
-  const viewReport = async () => {
-    if (!latestReport) return;
-    setViewing(true);
-    const { data } = await supabase.storage
-      .from(MEDICAL_REPORT_BUCKET)
-      .createSignedUrl(latestReport.storage_path, SIGNED_URL_TTL_SECONDS);
-    setViewing(false);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-  };
+  // Fetched up front and rendered as a real <a href>, not a click handler
+  // that calls window.open() after an await — browsers' popup blockers
+  // silently swallow that (it's no longer a direct user gesture by the time
+  // the signed URL comes back), which looked like "nothing happens on click".
+  const { data: reportUrl } = useQuery({
+    queryKey: ["report-signed-url", latestReport?.storage_path ?? "none"],
+    enabled: !!latestReport,
+    queryFn: async () => {
+      const { data } = await supabase.storage
+        .from(MEDICAL_REPORT_BUCKET)
+        .createSignedUrl(latestReport!.storage_path, SIGNED_URL_TTL_SECONDS);
+      return data?.signedUrl ?? null;
+    },
+  });
 
   return (
     <Card className="p-4">
@@ -97,7 +102,9 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
             {formatDate(booking.start_date)} · {money(booking.total_amount)}
           </p>
           {latestReport ? (
-            <p className="mt-0.5 text-xs text-gray-400">Report uploaded: {formatLocalDateTime(latestReport.created_at)}</p>
+            <p className="mt-0.5 text-xs text-gray-400">
+              Report uploaded: {latestReport.file_name ?? "file"} · {formatLocalDateTime(latestReport.created_at)}
+            </p>
           ) : null}
         </div>
         <Pill bgClass={status.bg} textClass={status.text}>
@@ -124,11 +131,16 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
             Upload Report
           </button>
         ) : null}
-        {latestReport ? (
-          <button onClick={viewReport} disabled={viewing} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
+        {reportUrl ? (
+          <a
+            href={reportUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70"
+          >
             <Eye size={14} />
             View Report
-          </button>
+          </a>
         ) : null}
         {inFlight ? (
           <button

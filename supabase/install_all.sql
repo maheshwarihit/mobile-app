@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0014. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0015. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -171,12 +171,15 @@ create table if not exists public.report_uploads (
   reviewed_at  timestamptz,
   patient_name text,
   service_name text,
+  file_name    text,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
 -- Repair path: snapshot columns on a table that predates 0014.
 alter table public.report_uploads add column if not exists patient_name text;
 alter table public.report_uploads add column if not exists service_name text;
+-- Repair path: original filename on a table that predates 0015.
+alter table public.report_uploads add column if not exists file_name text;
 
 create index if not exists idx_profiles_role            on public.profiles(role);
 create index if not exists idx_profiles_primary_account on public.profiles(primary_account_id);

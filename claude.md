@@ -1134,3 +1134,36 @@ onto the report row itself at upload time, the same pattern already used everywh
   refreshed `install_all.sql`) has not run against the live Supabase project from this environment — until
   it does, `patient_name`/`service_name` will read `null` on both new and existing report rows.
 
+## Change round — Reports as a real table, filename capture, popup-blocker fix (user, 2026-07-31)
+Follow-up: the card layout wasn't the tabular columns asked for (date / patient name / report name), and
+"clicking did nothing" on the previous round's My Visits **View Report** button — root-caused as a classic
+popup-blocker trap: that button's `onClick` called `window.open()` **after an `await`** (fetching the
+signed URL first), and by the time the promise resolved, the browser no longer considers it a direct user
+gesture — most browsers silently swallow the call, no error, no console warning, just nothing happening.
+
+- [x] **New migration `0015_report_file_name.sql`** (mirrored into `install_all.sql`, header bumped to
+      "0001–0015"): `report_uploads.file_name` — the original uploaded filename was never captured before
+      (`storage_path` is a generated `<booking_id>/<uploaded_by>/<timestamp>.<ext>`, not the source name),
+      so there was nothing readable to show as "which file is this" beyond the report type category.
+      `ReportUploadModal.tsx` now passes `file.name` through `useUploadReport`'s new `fileName` param into
+      the insert.
+- [x] **`web/src/app/reports/page.tsx` rewritten as an actual `<table>`**: Uploaded (date) / Patient
+      (name + service) / Report (file name + type + note) / Status / Actions columns, sorted newest first,
+      same search box and View/Release actions as before.
+- [x] **Popup-blocker fix, both pages**: replaced every "click handler awaits a signed URL, then
+      `window.open()`" pattern with prefetching signed URLs up front (`useQuery`, keyed off the visible
+      report(s)) and rendering a real `<a href target="_blank">` once the URL resolves — a genuine link
+      click is never blocked, regardless of the async fetch that produced its `href`. Fixed in both
+      `web/src/app/reports/page.tsx` (already used this pattern for its list, unaffected) and
+      `web/src/app/my-visits/page.tsx`'s `VisitCard` (the actual bug — its View Report button used the
+      broken pattern), which also now shows the report's filename alongside its upload date.
+- **Confirmed, not changed:** who can upload/release was already correctly locked down — `report_uploads`
+  has no `update` grant at all (only the admin-only `review_report()` RPC can touch `reviewed`/`reviewed_by`/
+  `reviewed_at`, via `security definer`), and `report_insert` RLS already requires `is_staff()`. A patient
+  has no reachable path to upload or edit a report today; nothing needed fixing there.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean.
+- **Needs the user's machine:** `0015_report_file_name.sql` (or the refreshed `install_all.sql`), on top of
+  the still-outstanding `0014` from the previous round — until both run, the Report column falls back to
+  just the report-type label (no filename) and patient/service names stay blank.
+
