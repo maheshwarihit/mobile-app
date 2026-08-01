@@ -1041,3 +1041,22 @@ reason to ask again.
       regardless of which of the (now three) distinct failure modes actually occurred.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes).
 
+## Bugfix — Staff / Leaf Nodes admin pages had no way to promote anyone (user, 2026-07-31)
+User asked how to promote `9000000002`/`9000000003` from the admin UI instead of hand-running SQL each
+time, and reported no add/promote option existed on the `/staff` or `/leaf-nodes` pages. Confirmed by
+reading `web/src/components/OpsMemberList.tsx` (shared by both pages): its list is filtered to
+`p.role === role` **unconditionally** — i.e. it only ever shows people who *already* hold that role — and
+its empty state read "Promote a registered account below to see it here," which was simply untrue: there
+was no such control anywhere on the page. The only real promote control in the whole app lives on
+`/patients/[accountId]`'s Role dropdown, reachable only by finding the account under **Patients** first
+(which itself only lists `role === 'patient'` accounts) — nothing on `/staff`/`/leaf-nodes` said so.
+
+- [x] **`OpsMemberList.tsx`**: typing into the search box now widens the pool from "current holders of
+      this role" to **every account**, so an existing patient (or any other role) can be found by name or
+      phone directly on the Staff/Leaf Nodes page and promoted with the same inline role dropdown that was
+      already there for existing members — no query, and the list still narrows to just that role, same as
+      before. Placeholder text and both empty-state variants (no query vs. no match) rewritten to describe
+      what's actually possible, instead of pointing at a nonexistent control.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB change — this only
+  changes what the existing `useAllProfiles`/`useSetUserRole` data is filtered to show.
+
