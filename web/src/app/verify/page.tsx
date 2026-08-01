@@ -36,19 +36,22 @@ function VerifyForm() {
       return;
     }
     setBusy(true);
-    const { error } = await supabase.auth.verifyOtp({ phone: e164, token: otp, type: "sms" });
+    // Use the user verifyOtp() already returns directly rather than a
+    // separate getUser() call — that extra round-trip is racy (can return
+    // empty if it fires before the new session is fully settled client-side),
+    // which would make the profile lookup below match nothing and misreport
+    // as an unrelated role mismatch.
+    const { data: verifyData, error } = await supabase.auth.verifyOtp({ phone: e164, token: otp, type: "sms" });
     if (error) {
       setBusy(false);
       setErr(error.message);
       return;
     }
+    const user = verifyData.user;
 
     // RequireStaff (mounted on every protected route) is the real access-control
     // gate; this is just an early, friendlier check against the role the caller
     // picked on /login, so a mismatch doesn't silently land them somewhere odd.
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle();
     const actualRole = (profile?.role as Role | undefined) ?? null;
     setBusy(false);

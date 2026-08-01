@@ -1017,3 +1017,27 @@ from outside the browser's own DevTools.
   transient network issue, or something else) next time it happens.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes).
 
+## Bugfix — the actual cause: a race between verifyOtp() and a follow-up getUser() call (user, 2026-07-31)
+The error-surfacing fix above did its job — it turned the silent hang into a readable message: Register,
+re-tested against `+919000000002`, now showed **"Could not confirm your account's role. Please try
+again."** instead of hanging. That pointed straight at the real bug: `actualRole` was coming back `null`,
+meaning the `profiles` select matched **zero rows** — for an account that unquestionably exists.
+
+Root cause: `register/page.tsx`'s `verify()` (and `verify/page.tsx`'s identical pattern) called
+`supabase.auth.verifyOtp(...)`, threw away its response, then made a **separate** `supabase.auth.getUser()`
+call right after to get the just-verified user. That second call is racy — if it executes before the new
+session has fully settled on the client, it can return no user, so the follow-up
+`.eq("id", user?.id ?? "")` profile lookup runs with an empty string and matches nothing. `verifyOtp()`
+already returns the authenticated user directly in its own response (`data.user`) — there was never a
+reason to ask again.
+
+- [x] **`web/src/app/register/page.tsx`** and **`web/src/app/verify/page.tsx`**: both now read
+      `verifyData.user` from `verifyOtp()`'s own return value instead of a follow-up `getUser()` call —
+      removes the race entirely, one fewer network round-trip too.
+- [x] **Register's error messages sharpened further**: the profile-select's `error` is now checked
+      explicitly (`Could not confirm your account: <db error>`) rather than only handling "zero rows";
+      a genuinely missing user object after a successful verify gets its own explicit message too,
+      instead of silently coercing to `""` and producing the same generic "could not confirm" text
+      regardless of which of the (now three) distinct failure modes actually occurred.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes).
+

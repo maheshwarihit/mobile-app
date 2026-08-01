@@ -76,20 +76,33 @@ export default function RegisterPage() {
       return;
     }
     setBusy(true);
-    const { error } = await supabase.auth.verifyOtp({ phone: e164, token: otp, type: "sms" });
+    // Use the user verifyOtp() already hands back directly — a separate
+    // getUser() call right after was a race: if it fired before the new
+    // session had fully settled client-side, it could come back empty,
+    // making the profile lookup below match nothing and misreport as
+    // "could not confirm your role" even on a perfectly successful signup.
+    const { data: verifyData, error } = await supabase.auth.verifyOtp({ phone: e164, token: otp, type: "sms" });
     if (error) {
       setBusy(false);
       setErr(error.message);
       return;
     }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const { data: profileRow } = await supabase
+    const user = verifyData.user;
+    if (!user) {
+      setBusy(false);
+      setErr("Verification succeeded but no account was returned. Please try again.");
+      return;
+    }
+    const { data: profileRow, error: profileErr } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", user?.id ?? "")
+      .eq("id", user.id)
       .maybeSingle();
+    if (profileErr) {
+      setBusy(false);
+      setErr(`Could not confirm your account: ${profileErr.message}`);
+      return;
+    }
     const actualRole = (profileRow?.role as Role | undefined) ?? null;
 
     // Only ever true for a genuinely brand-new number: if this phone already
@@ -104,14 +117,12 @@ export default function RegisterPage() {
       setErr(
         actualRole
           ? `This number already has an account (registered as ${ROLE_LABELS[actualRole]}). Role selection only applies the first time a number signs up — ask an admin to change an existing account's role, or register with a different number.`
-          : "Could not confirm your account's role. Please try again."
+          : "No profile record was found for this account. Please try again or contact an admin."
       );
       return;
     }
 
-    if (user) {
-      await supabase.from("profiles").update({ full_name: fullName.trim() }).eq("id", user.id);
-    }
+    await supabase.from("profiles").update({ full_name: fullName.trim() }).eq("id", user.id);
     setBusy(false);
     router.push(role === "admin" ? "/dashboard" : "/my-visits");
   };
