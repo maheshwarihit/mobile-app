@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0017. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0018. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -285,18 +285,27 @@ from auth.users u left join public.profiles p on p.id = u.id
 where p.id is null;
 
 -- ── BOOKING SNAPSHOT ON INSERT ──────────────────────────────────────────────
+-- 0018: preserve a caller-supplied account_id only when the caller is admin
+-- (booking a call-in appointment on a patient's behalf) — every other
+-- insert (a patient's own booking) still stamps to auth.uid() as before.
+-- The two validation checks below now read `new.account_id` (already
+-- resolved by this point) instead of a literal `auth.uid()`, which is a
+-- no-op for a patient's own booking but correctly targets the *patient*
+-- being booked for on the admin path.
 create or replace function public.tg_booking_snapshot() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_price numeric(10,2); v_name text; v_active boolean; v_pricing_model text;
 begin
-  new.account_id := auth.uid();
+  if not (public.is_admin() and new.account_id is not null) then
+    new.account_id := auth.uid();
+  end if;
   if not exists (select 1 from public.profiles
-                 where id = auth.uid() and full_name is not null and length(trim(full_name)) > 0) then
+                 where id = new.account_id and full_name is not null and length(trim(full_name)) > 0) then
     raise exception 'profile incomplete: add your name before booking' using errcode = '42501';
   end if;
   if new.family_member_id is not null then
     if not exists (select 1 from public.family_members
-                   where id = new.family_member_id and account_id = auth.uid()) then
+                   where id = new.family_member_id and account_id = new.account_id) then
       raise exception 'family_member does not belong to caller' using errcode = '42501';
     end if;
   end if;
@@ -520,7 +529,11 @@ grant select on public.profiles to authenticated;
 grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note) on public.profiles to authenticated;
 revoke insert, update, delete on public.bookings from anon, authenticated;
 grant select on public.bookings to authenticated;
-grant insert (service_id, family_member_id, num_days, start_date, time_slot, symptom_brief, payment_method, payment_proof_path, service_mode) on public.bookings to authenticated;
+-- account_id (0018): widened so an admin's insert can name the target
+-- patient at all — harmless for a plain patient's own insert, since
+-- tg_booking_snapshot() still forces it back to auth.uid() for anyone
+-- who isn't admin, regardless of what they submit.
+grant insert (account_id, service_id, family_member_id, num_days, start_date, time_slot, symptom_brief, payment_method, payment_proof_path, service_mode) on public.bookings to authenticated;
 grant update (booking_status, symptom_brief, payment_proof_path, service_mode, assigned_to) on public.bookings to authenticated;
 grant select, insert, update, delete on public.family_members   to authenticated;
 grant select, insert, update, delete on public.services         to authenticated;
@@ -572,7 +585,8 @@ drop policy if exists bk_select on public.bookings;
 create policy bk_select on public.bookings for select to authenticated
   using (public.in_household(account_id) or public.is_staff());
 drop policy if exists bk_insert on public.bookings;
-create policy bk_insert on public.bookings for insert to authenticated with check (account_id = auth.uid());
+create policy bk_insert on public.bookings for insert to authenticated
+  with check (account_id = auth.uid() or public.is_admin());
 drop policy if exists bk_update on public.bookings;
 create policy bk_update on public.bookings for update to authenticated
   using (public.in_household(account_id) or public.is_admin() or (public.is_staff() and assigned_to = auth.uid()))

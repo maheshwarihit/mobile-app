@@ -3,14 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { FileSearch, UserPlus2, CalendarDays, UploadCloud, Eye } from "lucide-react";
+import { FileSearch, UserPlus2, CalendarDays, UploadCloud, Eye, Plus } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { useAuth } from "@/providers/AuthProvider";
-import { Card, Pill, FormInput, LoadingState, EmptyState, ErrorBanner, PageHeader } from "@/components/ui";
+import { Card, Pill, FormInput, IconButton, LoadingState, EmptyState, ErrorBanner, PageHeader } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { PaymentReviewModal } from "@/components/PaymentReviewModal";
 import { ApproveAssignModal } from "@/components/ApproveAssignModal";
 import { ReportUploadModal } from "@/components/ReportUploadModal";
+import { NewAppointmentModal } from "@/components/NewAppointmentModal";
 import {
   useAllBookings,
   useReportsForBooking,
@@ -45,6 +46,7 @@ function DashboardContent() {
   const [selected, setSelected] = useState<BookingWithNames | null>(null);
   const [approving, setApproving] = useState<BookingWithNames | null>(null);
   const [reporting, setReporting] = useState<BookingWithNames | null>(null);
+  const [booking, setBooking] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,7 +67,7 @@ function DashboardContent() {
 
   return (
     <div>
-      <PageHeader title="All appointments" />
+      <PageHeader title="All appointments" right={<IconButton icon={Plus} onClick={() => setBooking(true)} />} />
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
         <div className="flex-1">
@@ -106,6 +108,7 @@ function DashboardContent() {
       <PaymentReviewModal key={selected?.id ?? "none"} booking={selected} onClose={() => setSelected(null)} />
       <ApproveAssignModal key={approving?.id ?? "none-approve"} booking={approving} onClose={() => setApproving(null)} />
       <ReportUploadModal key={reporting?.id ?? "none-report"} booking={reporting} onClose={() => setReporting(null)} />
+      <NewAppointmentModal open={booking} onClose={() => setBooking(false)} />
     </div>
   );
 }

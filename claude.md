@@ -1298,3 +1298,36 @@ instead of hunting across bookings/Live Sheet/global Reports for that one person
   `install_all.sql`) has not run against the live Supabase project from this environment — until it does,
   the "+" will fail with a permission error when it tries to insert on another account's behalf.
 
+## Change round — admin can book a real appointment on a caller's behalf (user, 2026-07-31)
+Follow-up to the previous round's "+": the Requests inbox only logs a lightweight call-back lead (no
+service/date/payment) — the user actually wants admin able to take a phone call and book a **real**
+appointment for the caller right there. Two explicit decisions locked in via direct questions: existing
+accounts only (no walk-up account creation with no OTP step — that would be a real change to this
+project's "every account is phone-verified" rule); Pay at Visit only (no online-payment/proof-upload UI on
+this path).
+
+- [x] **New migration `0018_admin_create_booking.sql`** (mirrored into `install_all.sql`, header bumped to
+      "0001–0018"), the exact same shape as 0017's fix applied to `bookings` instead of `booking_requests`:
+      `tg_booking_snapshot()` now preserves a caller-supplied `account_id` only when the caller is admin
+      (a patient's own booking is completely unaffected — still always stamps to `auth.uid()`); `bk_insert`
+      RLS widened to `account_id = auth.uid() or is_admin()`. Two validation checks inside the same trigger
+      (`profile incomplete`, `family_member belongs to caller`) now read the *resolved* `new.account_id`
+      instead of a literal `auth.uid()` — a no-op for a patient's own booking (same value either way) but
+      correctly validates the *target patient* on the admin path. Also widened the `bookings` column-insert
+      grant to include `account_id` (it was never grantable before — only the trigger ever set it), gated
+      the same way: harmless for a plain patient's insert since the trigger forces it back to `auth.uid()`
+      regardless of what they submit.
+- [x] **New `web/src/components/NewAppointmentModal.tsx`**: search & pick an existing patient (same
+      pattern as `NewRequestModal`), pick the subject (self or one of their dependents via
+      `useFamilyMembersByAccount`), then the full booking form — service, visit type, start date,
+      days/months, time slot, optional note — reusing `appointmentSchema` for validation and the same
+      same-day-past-time-slot guard the mobile Appointment screen already has. Submits a direct
+      `bookings` insert with `account_id` set to the chosen patient and `payment_method: "direct"` (Pay at
+      Visit, no proof-upload step). Wired to a new **+** `IconButton` in `web/src/app/dashboard/page.tsx`'s
+      `PageHeader`.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No shared/mobile changes this
+  round. **Needs the user's machine, same as every prior migration:** `0018_admin_create_booking.sql` (or
+  the refreshed `install_all.sql`) has not run against the live Supabase project from this environment —
+  until it does, the new "+" on the dashboard will fail with a permission error trying to book on another
+  account's behalf.
+
