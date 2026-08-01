@@ -1217,3 +1217,30 @@ gap was specifically on the read side, not the release action itself.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes); `mobile` `tsc --noEmit` clean +
   `expo export --platform web` bundle clean.
 
+## Change round — staff/leaf_node search sees every patient; Report column shows every upload (user, 2026-07-31)
+User asked for a consolidated view when searching a patient on the Live Sheet, clarified via two direct
+questions into two explicit decisions: (1) staff/leaf_node should be able to search and see **any**
+patient's history on the Live Sheet, not just visits assigned to them; (2) the Report column should list
+**every** report ever uploaded for a booking, not just the newest one.
+
+- [x] **New migration `0016_staff_see_all_bookings.sql`** (mirrored into `install_all.sql`, header bumped
+      to "0001–0016"): widened `bk_select` RLS from `in_household(account_id) or is_admin() or
+      (is_staff() and assigned_to = auth.uid())` to `in_household(account_id) or is_staff()` — bringing
+      bookings in line with the precedent every other clinically-relevant policy already set
+      (`clin_select`/`report_select`/`fam_select`/`svc_select` all already grant any `is_staff()` caller
+      full visibility; bookings was the one outlier still scoped to assignment). **Deliberately did not
+      touch `bk_update`** — seeing a booking and being allowed to act on it (start/complete/upload) stay
+      different questions; only the assigned member or admin can still do the latter. `useMyAssignedBookings`
+      (web My Visits) is unaffected either way — it already filters explicitly to `assigned_to = auth.uid()`
+      on the client on top of RLS, so widening the SELECT policy doesn't change what that page shows.
+- [x] **`web/src/app/live-sheet/page.tsx`**: the Report column now groups `useAllReports()` by
+      `booking_id` into a full list (was: first-match-only via a `Map<string, string>`) and renders every
+      report for that visit as its own small `View` link (label = filename, falling back to the report-type
+      label), stacked in the cell — a booking with a prescription *and* a separate image now shows both,
+      where before only the most recently uploaded one was reachable from this page at all.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No shared/mobile changes this
+  round. **Needs the user's machine, same as every prior migration:** `0016_staff_see_all_bookings.sql`
+  (or the refreshed `install_all.sql`) has not run against the live Supabase project from this
+  environment — until it does, a staff/leaf_node account's Live Sheet search still only surfaces their
+  own assigned bookings.
+

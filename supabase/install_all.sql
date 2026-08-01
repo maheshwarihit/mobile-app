@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0015. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0016. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -563,9 +563,14 @@ create policy svc_select on public.services for select to authenticated using (a
 drop policy if exists svc_write_admin on public.services;
 create policy svc_write_admin on public.services for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+-- 0016: any staff/leaf_node/admin sees every booking (search needs full
+-- visibility, matching the precedent already set by clin_select/report_select/
+-- fam_select/svc_select). bk_update stays narrower on purpose — seeing a
+-- booking and being allowed to act on it are different questions; only the
+-- assigned member (or admin) can still start/complete/upload for one.
 drop policy if exists bk_select on public.bookings;
 create policy bk_select on public.bookings for select to authenticated
-  using (public.in_household(account_id) or public.is_admin() or (public.is_staff() and assigned_to = auth.uid()));
+  using (public.in_household(account_id) or public.is_staff());
 drop policy if exists bk_insert on public.bookings;
 create policy bk_insert on public.bookings for insert to authenticated with check (account_id = auth.uid());
 drop policy if exists bk_update on public.bookings;

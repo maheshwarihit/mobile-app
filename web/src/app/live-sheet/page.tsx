@@ -13,7 +13,9 @@ import {
   useAllReports,
   MEDICAL_REPORT_BUCKET,
   SIGNED_URL_TTL_SECONDS,
+  REPORT_TYPE_LABELS,
   type LiveSheetRow,
+  type ReportUpload,
 } from "@vagewell/shared";
 import { liveSheetRows, exportRowsToCSV } from "@/lib/export";
 
@@ -107,16 +109,22 @@ function LiveSheetContent() {
     [sheet, visibleFull]
   );
 
-  // Most recent report per booking (useAllReports is already created_at
-  // desc, so the first match per booking_id wins) — a visual-only "Report"
-  // column, deliberately kept out of `columns`/`visible` so it never lands
-  // in the CSV export (a signed URL expires; it isn't useful data to keep).
-  const latestReportByBooking = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const r of reports ?? []) if (!map.has(r.booking_id)) map.set(r.booking_id, r.storage_path);
+  // Every report for each booking (a visit can have more than one — e.g. a
+  // prescription and a separate image), not just the newest — a visual-only
+  // "Report" column, deliberately kept out of `columns`/`visible` so it
+  // never lands in the CSV export (a signed URL expires; it isn't useful
+  // data to keep). useAllReports is already created_at desc, so each
+  // booking's list is newest-first too.
+  const reportsByBooking = useMemo(() => {
+    const map = new Map<string, ReportUpload[]>();
+    for (const r of reports ?? []) {
+      const list = map.get(r.booking_id) ?? [];
+      list.push(r);
+      map.set(r.booking_id, list);
+    }
     return map;
   }, [reports]);
-  const reportPaths = useMemo(() => [...new Set(latestReportByBooking.values())], [latestReportByBooking]);
+  const reportPaths = useMemo(() => (reports ?? []).map((r) => r.storage_path), [reports]);
   const { data: reportUrls = {} } = useQuery({
     queryKey: ["live-sheet-report-urls", reportPaths],
     enabled: reportPaths.length > 0,
@@ -127,10 +135,9 @@ function LiveSheetContent() {
       return map;
     },
   });
-  const reportUrlForRow = (fullRow: LiveSheetRow) => {
+  const reportsForRow = (fullRow: LiveSheetRow) => {
     const bookingId = String(fullRow["Booking ID"] ?? "");
-    const path = latestReportByBooking.get(bookingId);
-    return path ? reportUrls[path] : undefined;
+    return reportsByBooking.get(bookingId) ?? [];
   };
 
   const doCsv = async () => {
@@ -213,7 +220,7 @@ function LiveSheetContent() {
             </thead>
             <tbody>
               {visible.map((row, i) => {
-                const url = reportUrlForRow(visibleFull[i]);
+                const rowReports = reportsForRow(visibleFull[i]);
                 return (
                   <tr key={i} className={i % 2 ? "bg-gray-50" : "bg-white"}>
                     {columns.map((c) => (
@@ -221,14 +228,29 @@ function LiveSheetContent() {
                         {String((row as Record<string, unknown>)[c] ?? "")}
                       </td>
                     ))}
-                    <td className="whitespace-nowrap border-b border-gray-100 px-2 py-2">
-                      {url ? (
-                        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 font-medium text-brand-600">
-                          <Eye size={12} />
-                          View
-                        </a>
-                      ) : (
+                    <td className="border-b border-gray-100 px-2 py-2">
+                      {rowReports.length === 0 ? (
                         <span className="text-gray-300">—</span>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {rowReports.map((r) => {
+                            const url = reportUrls[r.storage_path];
+                            const label = r.file_name ?? REPORT_TYPE_LABELS[r.report_type];
+                            return url ? (
+                              <a
+                                key={r.id}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 whitespace-nowrap font-medium text-brand-600"
+                                title={label}
+                              >
+                                <Eye size={12} className="shrink-0" />
+                                <span className="max-w-[140px] truncate">{label}</span>
+                              </a>
+                            ) : null;
+                          })}
+                        </div>
                       )}
                     </td>
                   </tr>
