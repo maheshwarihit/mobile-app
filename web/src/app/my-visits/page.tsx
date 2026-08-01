@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, PlayCircle, UploadCloud, CheckCircle2 } from "lucide-react";
+import { Activity, PlayCircle, UploadCloud, CheckCircle2, Eye } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { Card, Pill, LoadingState, EmptyState, ErrorBanner, ConfirmModal, PageHeader } from "@/components/ui";
 import { VitalsModal, type VitalsSubject } from "@/components/VitalsModal";
 import { ReportUploadModal } from "@/components/ReportUploadModal";
 import { useAuth } from "@/providers/AuthProvider";
+import { supabase } from "@/lib/supabase";
 import {
   useMyAssignedBookings,
   useStartVisit,
@@ -16,6 +17,8 @@ import {
   formatDate,
   formatLocalDateTime,
   bookingStatusMeta,
+  MEDICAL_REPORT_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
   type BookingWithNames,
 } from "@vagewell/shared";
 
@@ -68,8 +71,19 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
   const { data: reports } = useReportsForBooking(booking.id);
   const latestReport = reports?.[0] ?? null;
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const canStart = booking.booking_status === "assigned";
   const inFlight = booking.booking_status === "in_progress" || booking.booking_status === "report_uploaded";
+
+  const viewReport = async () => {
+    if (!latestReport) return;
+    setViewing(true);
+    const { data } = await supabase.storage
+      .from(MEDICAL_REPORT_BUCKET)
+      .createSignedUrl(latestReport.storage_path, SIGNED_URL_TTL_SECONDS);
+    setViewing(false);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <Card className="p-4">
@@ -108,6 +122,12 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
           <button onClick={onReport} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
             <UploadCloud size={14} />
             Upload Report
+          </button>
+        ) : null}
+        {latestReport ? (
+          <button onClick={viewReport} disabled={viewing} className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70">
+            <Eye size={14} />
+            View Report
           </button>
         ) : null}
         {inFlight ? (

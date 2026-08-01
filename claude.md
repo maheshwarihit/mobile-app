@@ -1080,3 +1080,14 @@ repeatedly takes care of it.
 - **Action for the user:** re-run `install_all.sql` in the Supabase SQL Editor; both accounts should read
   the correct role afterward regardless of whatever broken state they were left in.
 
+## Change round — "View Report" action on My Visits (user, 2026-07-31)
+Staff/leaf_node's `/my-visits` card showed "Report uploaded: <date>" once a report existed for that
+booking, but gave no way to actually open it — the only place that could was the admin's `/reports` page.
+
+- [x] **`web/src/app/my-visits/page.tsx`**: `VisitCard` gained a **View Report** action (shown whenever
+      `latestReport` exists, alongside Vitals/Upload Report/Complete) that creates a signed URL for the
+      report's `storage_path` (`MEDICAL_REPORT_BUCKET`, `SIGNED_URL_TTL_SECONDS` — the exact same call the
+      admin `/reports` page already uses) and opens it in a new tab. Fetched on click, not eagerly per
+      card, to avoid a storage API call for every visible visit regardless of whether anyone looks.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes).
+
