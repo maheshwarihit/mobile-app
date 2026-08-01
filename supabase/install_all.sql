@@ -689,3 +689,21 @@ on conflict (name) do update
 -- ── (optional) promote your founding admin — edit the phone, then uncomment ──
 -- update public.profiles set role = 'admin', updated_at = now()
 --  where id in (select id from auth.users where replace(phone,'+','') = '919000000001');
+
+-- ── dev/test account role fixes (9000000002 = staff, 9000000003 = leaf_node) ──
+-- `insert ... on conflict` rather than a plain `update` so this repairs the
+-- account even if its profiles row is missing entirely (e.g. it was deleted
+-- directly without also deleting the auth.users row) — a bare update would
+-- silently match zero rows in that case. `replace(phone,'+','')` matches
+-- regardless of whether the stored phone carries a leading `+` (Supabase Auth
+-- itself stores it without one). Safe to delete this block once these two
+-- numbers are no longer needed for testing.
+insert into public.profiles (id, role, phone, full_name)
+select u.id, 'staff', u.phone, coalesce(u.raw_user_meta_data->>'full_name', 'Staff')
+from auth.users u where replace(u.phone, '+', '') = '919000000002'
+on conflict (id) do update set role = excluded.role, updated_at = now();
+
+insert into public.profiles (id, role, phone, full_name)
+select u.id, 'leaf_node', u.phone, coalesce(u.raw_user_meta_data->>'full_name', 'Leaf Node')
+from auth.users u where replace(u.phone, '+', '') = '919000000003'
+on conflict (id) do update set role = excluded.role, updated_at = now();

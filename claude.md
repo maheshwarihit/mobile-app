@@ -1060,3 +1060,23 @@ was no such control anywhere on the page. The only real promote control in the w
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB change — this only
   changes what the existing `useAllProfiles`/`useSetUserRole` data is filtered to show.
 
+## Data fix — baked the two test-account role promotions into `install_all.sql` (user, 2026-07-31)
+`+919000000002` then started showing "No profile record was found for this account" — a step further
+broken than the earlier "registered as Patient" mismatch, meaning its `profiles` row was gone entirely
+(most likely deleted directly at some point without also deleting the `auth.users` row, or an earlier
+manual `update ... where phone = '+91...'` silently matched nothing — `auth.users.phone` is stored
+**without** the leading `+`, so a filter that includes it never matches). User asked for the fix to live
+in `install_all.sql` itself rather than a one-off snippet, so re-running the script they already run
+repeatedly takes care of it.
+
+- [x] **`supabase/install_all.sql`**, right after the existing commented-out founding-admin promotion
+      block: an active (not commented) `insert ... on conflict do update` for both test numbers —
+      `9000000002 → staff`, `9000000003 → leaf_node`. `insert ... on conflict` rather than a plain
+      `update` specifically so it repairs the account even when its `profiles` row is missing outright,
+      not just when it exists with the wrong role; `replace(phone, '+', '')` matches regardless of the
+      `+` prefix. Idempotent — safe on every re-run, matching this file's existing convention (see the
+      founding-admin block right above it, same pattern). Meant to be deleted once these two numbers are
+      no longer needed for testing.
+- **Action for the user:** re-run `install_all.sql` in the Supabase SQL Editor; both accounts should read
+  the correct role afterward regardless of whatever broken state they were left in.
+
