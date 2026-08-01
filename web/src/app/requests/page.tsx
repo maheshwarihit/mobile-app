@@ -1,26 +1,32 @@
 "use client";
 
-import { PhoneIncoming, Check, Phone } from "lucide-react";
+import { useState } from "react";
+import { PhoneIncoming, Check, Phone, Plus } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
-import { Card, Pill, LoadingState, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
+import { Card, Pill, IconButton, LoadingState, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
+import { NewRequestModal } from "@/components/NewRequestModal";
 import { useBookingRequests, useMarkRequestContacted, localPhone, formatLocalDateTime, type BookingRequestWithAccount } from "@vagewell/shared";
 
 // SCREEN_ID: BOOKING_REQUESTS — the "Request for Booking" quick-contact inbox.
 // Admin-only: a lightweight lead capture, distinct from a real booking (no
 // service/date/payment) — mark it contacted once someone from the team has
-// called the customer back.
+// called the customer back. The "+" logs an incoming phone call as a request
+// directly against a chosen patient's account (0017) — previously the only
+// way into this table was the customer tapping the button in their own app.
 function RequestsContent() {
   const { data: requests, isLoading } = useBookingRequests(true);
   const markContacted = useMarkRequestContacted();
+  const [adding, setAdding] = useState(false);
 
   const open = (requests ?? []).filter((r) => !r.contacted);
   const contacted = (requests ?? []).filter((r) => r.contacted);
 
   return (
     <div>
-      <PageHeader title="Booking requests" />
+      <PageHeader title="Booking requests" right={<IconButton icon={Plus} onClick={() => setAdding(true)} />} />
       <p className="mb-4 text-xs text-gray-500">
         Customers who tapped &ldquo;Request for Booking&rdquo; in the app — call them back, then mark contacted.
+        Use + to log a call-in request yourself.
       </p>
 
       {isLoading ? <LoadingState message="Loading…" /> : null}
@@ -41,6 +47,8 @@ function RequestsContent() {
           ) : null}
         </div>
       )}
+
+      <NewRequestModal open={adding} onClose={() => setAdding(false)} />
     </div>
   );
 }

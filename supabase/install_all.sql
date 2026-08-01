@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0016. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0017. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -664,10 +664,16 @@ create table if not exists public.booking_requests (
 );
 create index if not exists idx_booking_requests_account on public.booking_requests(account_id);
 
+-- 0017: preserve a caller-supplied account_id only when the caller is admin
+-- (so an admin can log a call-in request on a specific patient's behalf);
+-- every other insert (a patient's own self-service request, or an admin
+-- insert with no account_id given) still stamps to auth.uid() as before.
 create or replace function public.tg_booking_request_stamp() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$
 begin
-  new.account_id := auth.uid();
+  if not (public.is_admin() and new.account_id is not null) then
+    new.account_id := auth.uid();
+  end if;
   return new;
 end; $$;
 drop trigger if exists tg_booking_requests_before_insert on public.booking_requests;
@@ -692,7 +698,7 @@ grant select, insert on public.booking_requests to authenticated;
 
 drop policy if exists booking_request_insert on public.booking_requests;
 create policy booking_request_insert on public.booking_requests for insert to authenticated
-  with check (account_id = auth.uid());
+  with check (account_id = auth.uid() or public.is_admin());
 drop policy if exists booking_request_select on public.booking_requests;
 create policy booking_request_select on public.booking_requests for select to authenticated
   using (account_id = auth.uid() or public.is_admin());

@@ -1268,3 +1268,33 @@ for a booking — the admin dashboard's own booking cards still only showed the 
       silently swallow).
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB/shared/mobile changes.
 
+## Change round — admin can log a call-in request; consolidated per-patient Reports view (user, 2026-07-31)
+Two asks: (1) a "+" on the admin Requests inbox to manually log an incoming phone call as a request
+against a specific patient, since the only way into `booking_requests` before was the customer tapping the
+button themselves; (2) a single consolidated view of every report ever uploaded for a patient (with dates),
+instead of hunting across bookings/Live Sheet/global Reports for that one person's history.
+
+- [x] **New migration `0017_admin_log_booking_request.sql`** (mirrored into `install_all.sql`, header
+      bumped to "0001–0017"): `tg_booking_request_stamp()` now preserves a caller-supplied `account_id`
+      specifically when the caller is admin (every other case — a customer's own self-service insert, or
+      an admin insert with no `account_id` given — still stamps to `auth.uid()` exactly as before, so
+      ordinary behavior is unchanged); `booking_request_insert` RLS widened to `account_id = auth.uid() or
+      is_admin()` to let that admin-attributed insert through.
+- [x] **New `useAdminCreateBookingRequest()`** (`shared/src/mutations.ts`) — a plain insert with an
+      explicit `accountId`, distinct from the existing customer-facing `useCreateBookingRequest()` (which
+      never sends one).
+- [x] **New `web/src/components/NewRequestModal.tsx`** — search any patient by name/phone
+      (`useAllProfiles`, filtered to `role === 'patient'`), pick one, add an optional note, log it. Wired
+      to a **+** `IconButton` in `web/src/app/requests/page.tsx`'s `PageHeader`.
+- [x] **`web/src/app/patients/[accountId]/page.tsx`** gained a new "Reports" section listing every report
+      ever uploaded across this account's own bookings *and* its dependents' (a booking's `account_id` is
+      always the primary account holder regardless of which subject it's for, so filtering bookings by
+      `account_id` already covers the whole household) — each row shows the subject name, filename/type,
+      upload date, Released/Awaiting-review status, and a View link (prefetched signed URL rendered as a
+      real `<a>`, the same popup-blocker-safe pattern used everywhere else in this series).
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean (shared/mutations.ts touched, mobile unaffected). **Needs the
+  user's machine, same as every prior migration:** `0017_admin_log_booking_request.sql` (or the refreshed
+  `install_all.sql`) has not run against the live Supabase project from this environment — until it does,
+  the "+" will fail with a permission error when it tries to insert on another account's behalf.
+
