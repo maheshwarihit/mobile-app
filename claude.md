@@ -1091,3 +1091,46 @@ booking, but gave no way to actually open it — the only place that could was t
       card, to avoid a storage API call for every visible visit regardless of whether anyone looks.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes).
 
+## Change round — full report history for every ops role, with patient name & date (user, 2026-07-31)
+User's follow-up: the admin `/reports` page only ever showed reports still awaiting review (once
+released, they vanished — no audit trail), it was admin-only in the nav (staff/leaf_node had no access at
+all), and there was no reliable "who is this for" — clarified via a follow-up question that **all three
+ops roles** need to see the full report history (with patient name and upload date), while the mobile
+app's patient-facing view stays exactly as-is (reviewed reports only, unchanged).
+
+The real blocker to doing this simply: `report_select` RLS already grants any `is_staff()` caller
+(staff/leaf_node/admin) every report regardless of whose booking it's on, but `bk_select` scopes plain
+staff/leaf_node to only their **own assigned** bookings. So a client-side join against `bookings` to
+resolve "which patient/service is this report for" would silently come up empty for any report outside
+that staff member's own assigned scope — visible, but unlabeled. Fixed at the source: snapshot the name
+onto the report row itself at upload time, the same pattern already used everywhere else in this schema
+(`bookings.service_name`/`price_per_day`, etc.).
+
+- [x] **New migration `0014_report_uploads_snapshot.sql`** (mirrored into `install_all.sql`, header
+      bumped to "0001–0014"): `report_uploads` gains `patient_name`/`service_name` columns, populated by
+      `tg_report_uploaded_stamp()` (the existing `BEFORE INSERT` trigger, now also looking up the parent
+      booking's service and subject — family member or account — at write time) plus a repair-path
+      backfill for rows that predate this column.
+- [x] **`shared/src/types.ts`**: `ReportUpload` gains the two new fields. **`shared/src/hooks.ts`**: new
+      `useAllReports(enabled)` — every report, reviewed or not, no bookings join needed at all now.
+      **`shared/src/mutations.ts`**: `useUploadReport`/`useReviewReport` invalidate the new `qk.reportsAll`
+      key too, alongside what they already invalidated.
+- [x] **`web/src/app/reports/page.tsx`** rewritten: title "Reports" (was "Reports awaiting review"), lists
+      *everything* via `useAllReports`, each card shows `service_name · patient_name` directly (no join,
+      no lookup-miss risk), a search box (name or service), and a Released/Awaiting-review pill. **View**
+      (signed URL, opens in a new tab) is available to everyone; **Release** only renders for
+      `role === 'admin'` on an unreleased row — matches what `review_report()` already enforces
+      server-side, just not exposed as an action to roles that would only get a 403 from it.
+- [x] **`web/src/components/AdminShell.tsx`**: added "Reports" to `OPS_NAV`, so staff/leaf_node can reach
+      the page at all — it was in `ADMIN_NAV` only before, with no way in for the other two roles even
+      though RLS always permitted it.
+- **Not touched, by explicit instruction:** the mobile app's report visibility (`useMyReports`, the
+  patient Health record) — patients still only ever see `reviewed = true` rows for their own household,
+  unchanged; this round is entirely about the staff-side view.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean (2823 modules — confirms the shared `ReportUpload` type
+  change didn't break the mobile side, which also consumes it).
+- **Needs the user's machine, same as every prior migration:** `0014_report_uploads_snapshot.sql` (or the
+  refreshed `install_all.sql`) has not run against the live Supabase project from this environment — until
+  it does, `patient_name`/`service_name` will read `null` on both new and existing report rows.
+

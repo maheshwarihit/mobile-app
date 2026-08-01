@@ -114,6 +114,12 @@ export interface ReportUpload {
   reviewed: boolean;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  // Snapshotted at upload time (migration 0014) — not resolved via a join,
+  // since report_select RLS grants every report to any staff/leaf_node/admin
+  // caller regardless of who it's assigned to, while bookings RLS itself
+  // scopes plain staff/leaf_node to only their own assigned rows.
+  patient_name: string | null;
+  service_name: string | null;
   created_at: string;
   updated_at: string;
 }

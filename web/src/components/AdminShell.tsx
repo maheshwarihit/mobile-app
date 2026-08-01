@@ -19,9 +19,12 @@ const ADMIN_NAV = [
 ];
 
 // Staff/leaf_node get a reduced nav — their own assigned work, not the full
-// operational surface.
+// operational surface. Reports is included (not release/admin actions, but
+// the full view/history) since report_select RLS already grants any
+// is_staff() caller every report regardless of assignment.
 const OPS_NAV = [
   { href: "/my-visits", label: "My Visits", icon: ClipboardList },
+  { href: "/reports", label: "Reports", icon: FileCheck2 },
   { href: "/live-sheet", label: "Live sheet", icon: FileSpreadsheet },
 ];
 

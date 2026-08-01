@@ -1,28 +1,41 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileCheck2, FileImage, Check } from "lucide-react";
+import { FileCheck2, FileImage, Check, Eye } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
-import { Card, Pill, LoadingState, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
+import { Card, Pill, FormInput, LoadingState, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
+import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import {
-  useUnreviewedReports,
+  useAllReports,
   useReviewReport,
-  useAllBookings,
   REPORT_TYPE_LABELS,
   MEDICAL_REPORT_BUCKET,
   SIGNED_URL_TTL_SECONDS,
   formatLocalDateTime,
-  type ReportUpload,
 } from "@vagewell/shared";
 
+// Full report history, visible to every ops role (staff/leaf_node/admin) —
+// not just admin, and not just reports still awaiting review. patient_name/
+// service_name come pre-snapshotted on each row (migration 0014), so this
+// never needs to join against bookings (which would silently fail to
+// resolve for a plain staff/leaf_node caller viewing a report outside their
+// own assigned scope, since bookings RLS is scoped narrower than reports RLS).
 function ReportsContent() {
-  const { data: reports, isLoading } = useUnreviewedReports(true);
-  const { data: bookings } = useAllBookings(true);
+  const { role } = useAuth();
+  const { data: reports, isLoading } = useAllReports(true);
   const review = useReviewReport();
+  const [query, setQuery] = useState("");
 
-  const paths = useMemo(() => (reports ?? []).map((r) => r.storage_path), [reports]);
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (reports ?? []).filter(
+      (r) => !q || (r.patient_name ?? "").toLowerCase().includes(q) || (r.service_name ?? "").toLowerCase().includes(q)
+    );
+  }, [reports, query]);
+
+  const paths = useMemo(() => rows.map((r) => r.storage_path), [rows]);
   const { data: urls = {} } = useQuery({
     queryKey: ["report-signed-urls", paths],
     queryFn: async (): Promise<Record<string, string>> => {
@@ -34,24 +47,23 @@ function ReportsContent() {
     },
   });
 
-  const bookingLabel = (r: ReportUpload) => {
-    const b = (bookings ?? []).find((x) => x.id === r.booking_id);
-    return b ? `${b.service_name} · ${b.subject_name ?? "—"}` : r.booking_id;
-  };
-
   return (
     <div>
-      <PageHeader title="Reports awaiting review" />
+      <PageHeader title="Reports" />
       <p className="mb-4 text-xs text-gray-500">
-        Uploaded by staff and leaf node members. Release a report to make it visible to the customer.
+        Every report ever uploaded by staff and leaf node members, newest first. Admin releases a report to
+        make it visible to the customer.
       </p>
+      <div className="mb-4">
+        <FormInput label="Search by patient or service" value={query} onChangeText={setQuery} placeholder="Name or service…" />
+      </div>
 
       {isLoading ? <LoadingState message="Loading…" /> : null}
-      {!isLoading && (reports ?? []).length === 0 ? (
-        <EmptyState icon={FileCheck2} title="Nothing to review" description="New uploads appear here." />
+      {!isLoading && rows.length === 0 ? (
+        <EmptyState icon={FileCheck2} title="No reports" description="Uploads appear here as soon as staff submit one." />
       ) : (
         <div className="flex flex-col gap-3">
-          {(reports ?? []).map((r) => (
+          {rows.map((r) => (
             <Card key={r.id} className="p-4">
               <div className="flex gap-3">
                 {urls[r.storage_path] ? (
@@ -63,19 +75,40 @@ function ReportsContent() {
                   </div>
                 )}
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">{bookingLabel(r)}</p>
-                  <div className="mt-1">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {r.service_name ?? "—"} · <span className="text-brand-600">{r.patient_name ?? "—"}</span>
+                  </p>
+                  <div className="mt-1 flex gap-1.5">
                     <Pill bgClass="bg-gray-100" textClass="text-gray-600">
                       {REPORT_TYPE_LABELS[r.report_type]}
+                    </Pill>
+                    <Pill
+                      bgClass={r.reviewed ? "bg-emerald-100" : "bg-amber-100"}
+                      textClass={r.reviewed ? "text-emerald-700" : "text-amber-700"}
+                    >
+                      {r.reviewed ? "Released" : "Awaiting review"}
                     </Pill>
                   </div>
                   {r.note ? <p className="mt-1 text-xs text-gray-500">{r.note}</p> : null}
                   <p className="mt-1 text-xs text-gray-400">Uploaded: {formatLocalDateTime(r.created_at)}</p>
                 </div>
-                <div className="flex items-start">
-                  <PrimaryButton icon={Check} loading={review.isPending} onClick={() => review.mutate(r.id)}>
-                    Release
-                  </PrimaryButton>
+                <div className="flex flex-col items-end gap-2">
+                  {urls[r.storage_path] ? (
+                    <a
+                      href={urls[r.storage_path]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70"
+                    >
+                      <Eye size={14} />
+                      View
+                    </a>
+                  ) : null}
+                  {role === "admin" && !r.reviewed ? (
+                    <PrimaryButton icon={Check} loading={review.isPending} onClick={() => review.mutate(r.id)}>
+                      Release
+                    </PrimaryButton>
+                  ) : null}
                 </div>
               </div>
             </Card>

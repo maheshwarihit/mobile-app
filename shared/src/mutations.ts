@@ -313,7 +313,7 @@ export function useUploadReport() {
       if (error) throw error;
     },
     onSuccess: (_data, vars) => {
-      invalidate([qk.reports(vars.bookingId), qk.bookings("assigned"), qk.bookings("all")]);
+      invalidate([qk.reports(vars.bookingId), qk.reportsAll, qk.bookings("assigned"), qk.bookings("all")]);
       toast.success("Report uploaded — awaiting admin release to the customer");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -329,7 +329,7 @@ export function useReviewReport() {
       if (error) throw error;
     },
     onSuccess: () => {
-      invalidate([qk.reportsUnreviewed, ["reports", "__mine__"] as const]);
+      invalidate([qk.reportsUnreviewed, qk.reportsAll, ["reports", "__mine__"] as const]);
       toast.success("Report released to the customer");
     },
     onError: (e: Error) => toast.error(e.message),

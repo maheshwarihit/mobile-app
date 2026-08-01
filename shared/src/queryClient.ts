@@ -26,5 +26,6 @@ export const qk = {
   usersByRole: (role: string) => ["users", role] as const,
   reports: (booking: string) => ["reports", booking] as const,
   reportsUnreviewed: ["reports", "__unreviewed__"] as const,
+  reportsAll: ["reports", "__all__"] as const,
   bookingRequests: ["booking_requests"] as const,
 };

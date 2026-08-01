@@ -288,6 +288,28 @@ export function useUnreviewedReports(enabled: boolean) {
   });
 }
 
+// ── Every report, reviewed or not (staff/leaf_node/admin Reports page) ──
+// RLS (report_select) already grants any is_staff() caller every row
+// regardless of whose booking it's on — patient_name/service_name are
+// snapshotted onto the row itself (0014), so no separate bookings join
+// is needed (and would fail to resolve for staff/leaf_node anyway, since
+// bookings RLS scopes them to only their own assigned rows).
+export function useAllReports(enabled: boolean) {
+  return useQuery({
+    queryKey: qk.reportsAll,
+    enabled,
+    queryFn: async (): Promise<ReportUpload[]> => {
+      const sb = getSupabase();
+      const { data, error } = await sb
+        .from("report_uploads")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ReportUpload[];
+    },
+  });
+}
+
 // ── Booking requests — "Request for Booking" inbox (admin panel only) ────────
 export function useBookingRequests(enabled: boolean) {
   return useQuery({

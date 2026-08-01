@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0013. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0014. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -169,9 +169,14 @@ create table if not exists public.report_uploads (
   reviewed     boolean not null default false,
   reviewed_by  uuid references public.profiles(id),
   reviewed_at  timestamptz,
+  patient_name text,
+  service_name text,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+-- Repair path: snapshot columns on a table that predates 0014.
+alter table public.report_uploads add column if not exists patient_name text;
+alter table public.report_uploads add column if not exists service_name text;
 
 create index if not exists idx_profiles_role            on public.profiles(role);
 create index if not exists idx_profiles_primary_account on public.profiles(primary_account_id);
@@ -412,9 +417,28 @@ create trigger tg_clinical_before_insert before insert on public.clinical_record
   for each row execute function public.tg_clinical_before_write();
 
 -- ── REPORT UPLOADS: stamp uploader, auto-advance the booking ────────────────
+-- patient_name/service_name (0014): snapshotted here, not resolved later via
+-- a join, because report_select RLS grants any is_staff() caller every
+-- report regardless of who it's assigned to, but bk_select scopes plain
+-- staff/leaf_node to their own assigned bookings — a join against bookings
+-- would silently fail to resolve the name for a report outside that scope.
 create or replace function public.tg_report_uploaded_stamp() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$
-begin new.uploaded_by := auth.uid(); return new; end; $$;
+declare v_service_name text; v_account_id uuid; v_family_member_id uuid; v_patient_name text;
+begin
+  new.uploaded_by := auth.uid();
+  select b.service_name, b.account_id, b.family_member_id
+    into v_service_name, v_account_id, v_family_member_id
+  from public.bookings b where b.id = new.booking_id;
+  new.service_name := v_service_name;
+  if v_family_member_id is not null then
+    select full_name into v_patient_name from public.family_members where id = v_family_member_id;
+  else
+    select full_name into v_patient_name from public.profiles where id = v_account_id;
+  end if;
+  new.patient_name := coalesce(v_patient_name, 'Patient');
+  return new;
+end; $$;
 drop trigger if exists tg_report_uploads_before_insert on public.report_uploads;
 create trigger tg_report_uploads_before_insert before insert on public.report_uploads
   for each row execute function public.tg_report_uploaded_stamp();
@@ -685,6 +709,16 @@ on conflict (name) do update
       updated_at    = now();
 -- Upsert (not `do nothing`): this script repairs a piecemeal setup, where the
 -- catalog may still hold stale prices/pricing models.
+
+-- ── backfill report_uploads.patient_name/service_name (0014 repair path) ───
+update public.report_uploads r
+set service_name = b.service_name,
+    patient_name = coalesce(fm.full_name, p.full_name, 'Patient')
+from public.bookings b
+left join public.family_members fm on fm.id = b.family_member_id
+left join public.profiles p on p.id = b.account_id
+where r.booking_id = b.id
+  and (r.service_name is null or r.patient_name is null);
 
 -- ── (optional) promote your founding admin — edit the phone, then uncomment ──
 -- update public.profiles set role = 'admin', updated_at = now()
