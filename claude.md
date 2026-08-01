@@ -1257,3 +1257,14 @@ Two small asks on the admin "All appointments" dashboard.
       discoverable without reading the code.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB/shared/mobile changes.
 
+## Change round — View Report on the admin dashboard cards (user, 2026-07-31)
+Every other surface (`/my-visits`, `/reports`, Live Sheet) already had a View link once a report existed
+for a booking — the admin dashboard's own booking cards still only showed the plain "Report uploaded:
+<date>" text with no way to open it.
+
+- [x] **`web/src/app/dashboard/page.tsx`**'s `BookingCard` gained a **View Report** action next to Upload
+      Report, using the same prefetched-signed-URL-rendered-as-a-real-`<a>` pattern as every other fix in
+      this series (never a click handler that awaits before calling `window.open()`, which popup blockers
+      silently swallow).
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB/shared/mobile changes.
+

@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileSearch, UserPlus2, CalendarDays, UploadCloud } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { FileSearch, UserPlus2, CalendarDays, UploadCloud, Eye } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { useAuth } from "@/providers/AuthProvider";
 import { Card, Pill, FormInput, LoadingState, EmptyState, ErrorBanner, PageHeader } from "@/components/ui";
+import { supabase } from "@/lib/supabase";
 import { PaymentReviewModal } from "@/components/PaymentReviewModal";
 import { ApproveAssignModal } from "@/components/ApproveAssignModal";
 import { ReportUploadModal } from "@/components/ReportUploadModal";
@@ -17,6 +19,8 @@ import {
   formatLocalDateTime,
   paymentStatusMeta,
   bookingStatusMeta,
+  MEDICAL_REPORT_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
   type BookingWithNames,
 } from "@vagewell/shared";
 
@@ -124,6 +128,20 @@ function BookingCard({
   const isCancelled = booking.booking_status === "cancelled";
   const isRequested = booking.booking_status === "requested";
 
+  // Prefetched and rendered as a real <a href>, not a click handler that
+  // calls window.open() after an await — browsers' popup blockers silently
+  // swallow that once it's no longer a direct user gesture.
+  const { data: reportUrl } = useQuery({
+    queryKey: ["report-signed-url", latestReport?.storage_path ?? "none"],
+    enabled: !!latestReport,
+    queryFn: async () => {
+      const { data } = await supabase.storage
+        .from(MEDICAL_REPORT_BUCKET)
+        .createSignedUrl(latestReport!.storage_path, SIGNED_URL_TTL_SECONDS);
+      return data?.signedUrl ?? null;
+    },
+  });
+
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
@@ -172,6 +190,17 @@ function BookingCard({
               <UploadCloud size={14} />
               Upload Report
             </button>
+          ) : null}
+          {reportUrl ? (
+            <a
+              href={reportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-sm font-medium text-gray-600 active:opacity-70"
+            >
+              <Eye size={14} />
+              View Report
+            </a>
           ) : null}
         </div>
       ) : null}
