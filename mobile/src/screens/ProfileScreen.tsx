@@ -204,8 +204,10 @@ export function ProfileScreen() {
                         <FileText size={15} color="#7c3aed" />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-xs font-medium text-gray-900">{REPORT_TYPE_LABELS[r.report_type]}</Text>
-                        <Text className="text-[11px] text-gray-500">Uploaded: {formatLocalDateTime(r.created_at)}</Text>
+                        <Text className="text-xs font-medium text-gray-900">{r.file_name ?? REPORT_TYPE_LABELS[r.report_type]}</Text>
+                        <Text className="text-[11px] text-gray-500">
+                          {REPORT_TYPE_LABELS[r.report_type]} · Uploaded: {formatLocalDateTime(r.created_at)}
+                        </Text>
                       </View>
                       <Download size={14} color="#9ca3af" />
                     </View>

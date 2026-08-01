@@ -1167,3 +1167,22 @@ gesture — most browsers silently swallow the call, no error, no console warnin
   the still-outstanding `0014` from the previous round — until both run, the Report column falls back to
   just the report-type label (no filename) and patient/service names stay blank.
 
+## Follow-up — confirmed the table rewrite is live; mobile Health record shows filenames too (user, 2026-07-31)
+User repeated the same "no changes happen" report verbatim. Re-checked: the `/reports` table rewrite and
+the My Visits popup-blocker fix from the previous round (`c4b8bf7`) are confirmed committed and pushed —
+`git log`/`git diff` show no regression and a clean working tree. Most likely explanation on the user's
+side is a stale dev server / browser cache, or (if testing a deployed URL rather than `npm run dev`) that
+URL hasn't been redeployed with the latest commit — neither of those is something fixable from this
+environment. The user also asked, separately, for reports to show in the mobile app's Profile Health
+record — that already existed (added in the 2026-07-29 "reports in health record" round); enhanced it
+slightly to match this round's web-side improvement.
+
+- [x] **`mobile/src/screens/ProfileScreen.tsx`**: the Health record's Reports list now shows
+      `file_name` (falling back to the report-type label for older rows without one, same as the web
+      table) as the primary line, with type + upload date underneath — was previously just the type label
+      with no way to tell two same-type reports apart.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+- **For the user:** to confirm the web-side fix is actually live, hard-refresh (Ctrl+Shift+R) the
+  `/reports` and `/my-visits` pages, and if you're testing a deployed URL rather than a local `npm run dev`,
+  make sure that deployment has picked up the latest `main` (commit `c4b8bf7` or later).
+
