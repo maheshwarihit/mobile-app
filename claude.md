@@ -986,3 +986,34 @@ either one directly on the Register page instead of failing silently three steps
   admin role dropdown itself performs.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes).
 
+## Bugfix — portal hung on an infinite "Loading…" after OTP with no error shown (user, 2026-07-31)
+After promoting `+919000000002`/`+919000000003` via the SQL above and logging in through `/login`, the
+portal got stuck on a blank "Loading…" screen indefinitely — no error, no redirect, nothing. `web/.env.local`
+confirmed the app targets the real hosted project (`ccvpwfzqgrrhxrmzlkca.supabase.co`), so this wasn't a
+local-vs-hosted mismatch.
+
+Root cause, found by reading `AuthProvider.loadProfile()`: `supabase.from("profiles").select("*")...
+.maybeSingle()` **does not throw on a database-level error** — the Supabase JS client resolves it as
+`{ data: null, error }` instead. The old code only destructured `data`, never checked `error`, so any
+failed profile fetch (permission hiccup, transient network blip, anything) looked byte-for-byte identical
+to one still in flight: `profile` just stayed `null` forever. `RequireStaff`'s render guard
+(`loading || !user || !profileResolved || !isOpsRole(role)`) can't tell "still loading" apart from
+"failed and never will," so it rendered the same spinner in both cases, forever, with the actual failure
+reason discarded and never shown anywhere — the exact symptom reported, and impossible to diagnose further
+from outside the browser's own DevTools.
+
+- [x] **`AuthProvider.tsx`**: `loadProfile()` now checks the returned `error` (and treats a genuinely
+      empty result — `data` null with no error — as its own error too, since `handle_new_user()` should
+      always have created a row) and stores it in new state `profileError`, exposed on the auth context.
+      Wrapped in try/catch as well, so a thrown network exception is captured the same way instead of
+      propagating.
+- [x] **`RequireStaff.tsx`** now renders an explicit error card — the message plus **Try again**
+      (`refreshProfile()`) and **Sign out** buttons — the moment `profileError` is set and nothing is still
+      in flight, instead of falling through to the generic spinner. Whatever is actually wrong is now
+      visible on screen instead of requiring a DevTools Network-tab investigation.
+- **Not diagnosed further here** (no way to inspect the user's live browser/network from this
+  environment) — this fix turns the next occurrence into a readable error message instead of a silent
+  hang, which is what's needed to actually identify the underlying cause (paused project, RLS drift,
+  transient network issue, or something else) next time it happens.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes).
+

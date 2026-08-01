@@ -19,6 +19,7 @@ interface AuthState {
   role: Role | null;
   loading: boolean;
   profileLoading: boolean;
+  profileError: string | null;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -30,12 +31,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
+  // `.maybeSingle()` never throws on a DB-level error (permission denied, a
+  // dropped column, ...) — it resolves with `{ data: null, error }`. Without
+  // checking `error` here, a failed fetch looked identical to a slow one:
+  // `profile` just stayed null forever and every consumer's "loading || no
+  // profile yet" guard rendered the same eternal spinner, with nothing
+  // anywhere surfacing what actually went wrong.
   const loadProfile = useCallback(async (uid: string) => {
     setProfileLoading(true);
+    setProfileError(null);
     try {
-      const { data } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
-      setProfile((data as Profile) ?? null);
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+      if (error) {
+        setProfile(null);
+        setProfileError(error.message);
+      } else {
+        setProfile((data as Profile) ?? null);
+        if (!data) setProfileError("No profile record exists for this account.");
+      }
+    } catch (e) {
+      setProfile(null);
+      setProfileError(e instanceof Error ? e.message : "Could not load your account.");
     } finally {
       setProfileLoading(false);
     }
@@ -76,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setProfile(null);
     setUser(null);
+    setProfileError(null);
   }, []);
 
   const value = useMemo<AuthState>(
@@ -85,10 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: profile?.role ?? null,
       loading,
       profileLoading,
+      profileError,
       refreshProfile,
       signOut,
     }),
-    [user, profile, loading, profileLoading, refreshProfile, signOut]
+    [user, profile, loading, profileLoading, profileError, refreshProfile, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
