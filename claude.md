@@ -1475,3 +1475,15 @@ PDF.
   specifically about the per-person/household views.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes); `mobile` `tsc --noEmit` clean +
   `expo export --platform web` bundle clean. No DB migration.
+
+## Bugfix — Live Sheet search matched Account Holder too, same class as the Dashboard bug (user, 2026-07-31)
+Same underlying issue as the earlier Dashboard search fix, spotted on a different page: Live Sheet's
+search matches a row's *entire* value set as text (`Object.values(row).join(" ")`), which includes
+"Account Holder" as just another column — so searching a patient's name could pull in an unrelated
+household whose account holder happened to share that name substring.
+
+- [x] **`web/src/app/live-sheet/page.tsx`**'s `visibleFull` filter now excludes the "Account Holder" key
+      specifically (`Object.entries(row).filter(([key]) => key !== "Account Holder")`) before building the
+      searchable text — "Appointment For" (the actual patient), service, phone, Booking ID, Symptom Brief,
+      etc. all still match, same as before.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes). No DB/shared/mobile changes.

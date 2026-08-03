@@ -94,9 +94,16 @@ function LiveSheetContent() {
   const visibleFull = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
+    // "Account Holder" excluded deliberately — same fix as the dashboard
+    // search: matching it too meant searching a patient's name could also
+    // pull in an unrelated household whose *account holder* happened to
+    // share that name substring (e.g. "Maheshwari" matching an unrelated
+    // "Maheshwari S" account holder's rows). "Appointment For" (the actual
+    // patient), service, phone, Booking ID, etc. still match.
     return rows.filter((row) =>
-      Object.values(row)
-        .map((v) => String(v ?? ""))
+      Object.entries(row)
+        .filter(([key]) => key !== "Account Holder")
+        .map(([, v]) => String(v ?? ""))
         .join(" ")
         .toLowerCase()
         .includes(q)
