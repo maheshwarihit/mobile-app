@@ -1487,3 +1487,26 @@ household whose account holder happened to share that name substring.
       searchable text — "Appointment For" (the actual patient), service, phone, Booking ID, Symptom Brief,
       etc. all still match, same as before.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes). No DB/shared/mobile changes.
+
+## Change round — a staff/admin/leaf_node number can now also use the mobile app (user, 2026-07-31)
+User was confused that a phone number already registered as staff on the web portal showed up as an
+"existing user" when tried on the mobile app's patient login, and asked why — that part was expected
+(one shared Supabase Auth backend, one account per phone number across both apps), but the mobile app's
+own behavior *after* verifying was the real friction: it showed a "Staff & admin portal moved" notice and
+signed the account back out, refusing to let it act as a patient at all. Asked directly whether that
+should be relaxed; user chose: let the same number also act as a patient, rather than only improving the
+messaging around the block.
+
+- [x] **`mobile/src/navigation/RootNavigator.tsx`**: removed the `StaffPortalNotice` branch and its
+      `role === "staff" || role === "admin"` gate entirely (note: this check never even covered
+      `leaf_node` — a pre-existing inconsistency that's now moot). Any authenticated account — patient,
+      staff, admin, or leaf_node — now always gets the normal patient tabs (`AppNavigator`). A staff
+      member's own phone number can book/manage care for themselves or dependents in the mobile app,
+      in addition to their staff work on the web portal.
+- **Confirmed this was a pure UI wall, not a security change**: booking/family/health-record RLS was
+  never role-gated to begin with — `bk_insert`/`bk_select`/`fam_*` all scope by `account_id = auth.uid()`
+  or household membership, not by role. A staff account could already technically create its own booking
+  via a raw API call; this just lets the mobile app's own UI do what the database already permitted.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean. No DB/shared/web
+  changes — the web portal's own patient-block (`RequireStaff`) is untouched, since this request was
+  specifically about the mobile side.
