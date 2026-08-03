@@ -1369,3 +1369,17 @@ reason.
       used everywhere else in this series.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB/shared/mobile changes.
 
+## Change round — removed the Role picker from a patient's Family members page (user, 2026-07-31)
+User asked to drop the "Role" dropdown that showed under an account holder on `/patients/[accountId]`
+("Family members") — now redundant, since the Staff and Leaf Nodes pages' search-and-promote feature
+(added a few rounds back) already covers finding *any* account (patient or otherwise) and setting its
+role from there.
+
+- [x] **`web/src/app/patients/[accountId]/page.tsx`**: removed the admin-only Role `SelectField` and its
+      supporting `isAdmin`/`useSetUserRole`/`ROLE_OPTIONS` wiring — the account-holder card is now just
+      the "Edit record" link, unchanged otherwise (Dependents and Reports sections untouched).
+- **Not touched:** `useSetUserRole()` itself and the `/staff`/`/leaf-nodes` pages' own role dropdowns —
+  role promotion still works exactly the same from those pages, this only removed the redundant second
+  entry point.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB/shared/mobile changes.
+

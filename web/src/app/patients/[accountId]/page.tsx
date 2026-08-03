@@ -6,13 +6,11 @@ import { use } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { UserCircle, Users, ChevronRight, FileCheck2, Eye } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
-import { SectionCard, SelectField, LoadingState, EmptyState, PageHeader, Pill } from "@/components/ui";
-import { useAuth } from "@/providers/AuthProvider";
+import { SectionCard, LoadingState, EmptyState, PageHeader, Pill } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
   useAllProfiles,
   useFamilyMembersByAccount,
-  useSetUserRole,
   useAllBookings,
   useAllReports,
   localPhone,
@@ -20,19 +18,16 @@ import {
   REPORT_TYPE_LABELS,
   MEDICAL_REPORT_BUCKET,
   SIGNED_URL_TTL_SECONDS,
-  ROLES,
-  type Role,
 } from "@vagewell/shared";
 
-const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r[0].toUpperCase() + r.slice(1) }));
-
+// Role promotion (Staff/Leaf Node/Admin) lives on the /staff and /leaf-nodes
+// pages now, which can search and promote *any* account — a patient's own
+// detail page doesn't need a role picker; every account here starts and
+// stays a patient unless promoted from one of those admin-facing lists.
 function PatientProfileContent({ accountId }: { accountId: string }) {
   const router = useRouter();
-  const { role: myRole } = useAuth();
-  const isAdmin = myRole === "admin";
   const { data: profiles } = useAllProfiles(true);
   const { data: dependents, isLoading } = useFamilyMembersByAccount(accountId);
-  const setRole = useSetUserRole();
 
   const profile = (profiles ?? []).find((p) => p.id === accountId);
   const patientName = profile?.full_name ?? "Patient";
@@ -78,17 +73,6 @@ function PatientProfileContent({ accountId }: { accountId: string }) {
           </div>
           <ChevronRight size={18} className="text-gray-400" />
         </button>
-
-        {isAdmin ? (
-          <div className="mt-4">
-            <SelectField
-              label="Role"
-              value={profile?.role ?? "patient"}
-              options={ROLE_OPTIONS}
-              onValueChange={(r) => setRole.mutate({ userId: accountId, role: r as Role })}
-            />
-          </div>
-        ) : null}
       </SectionCard>
 
       <SectionCard icon={Users} title="Dependents" subtitle="Tap to edit a member's record">
