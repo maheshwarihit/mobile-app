@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 import { Card, FormInput, SelectField, LoadingState, EmptyState, PageHeader } from "@/components/ui";
 import { useAllProfiles, useSetUserRole, localPhone, formatDate, ROLES, type Role } from "@vagewell/shared";
@@ -16,6 +17,7 @@ const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r === "leaf_node" ? "L
  * already had the role, with no way to add anyone new from it at all.
  */
 export function OpsMemberList({ role, title, emptyLabel }: { role: Role; title: string; emptyLabel: string }) {
+  const router = useRouter();
   const { data: profiles, isLoading } = useAllProfiles(true);
   const setRole = useSetUserRole();
   const [query, setQuery] = useState("");
@@ -55,12 +57,12 @@ export function OpsMemberList({ role, title, emptyLabel }: { role: Role; title: 
           {rows.map((p) => (
             <Card key={p.id} className="p-4">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-base font-semibold text-gray-900">{p.full_name ?? "—"}</p>
+                <button onClick={() => router.push(`/team/${p.id}`)} className="text-left active:opacity-70">
+                  <p className="text-base font-semibold text-brand-700 underline-offset-2 hover:underline">{p.full_name ?? "—"}</p>
                   <p className="text-xs text-gray-500">
                     {localPhone(p.phone) || "—"} · Joined {formatDate(p.created_at)}
                   </p>
-                </div>
+                </button>
                 <div className="w-40">
                   <SelectField
                     value={p.role}

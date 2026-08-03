@@ -1383,3 +1383,19 @@ role from there.
   entry point.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB/shared/mobile changes.
 
+## Change round — click a staff/leaf_node name for their patients & visit history (user, 2026-07-31)
+User asked whether clicking a team member's name on `/staff`/`/leaf-nodes` shows who they've served — it
+didn't; the rows were plain, non-clickable cards.
+
+- [x] **New `web/src/app/team/[memberId]/page.tsx`**: member's name/role/phone/joined date, plus every
+      booking ever assigned to them (`assigned_to = memberId`, filtered client-side from `useAllBookings`)
+      sorted newest first — patient, service, date, amount, and status pill. Works for any viewer
+      (staff/leaf_node/admin), not just admin, since `bk_select` RLS already grants any `is_staff()`
+      caller every booking (0016).
+- [x] **`web/src/components/OpsMemberList.tsx`** (shared by `/staff` and `/leaf-nodes`): the name/phone
+      block is now a button linking to `/team/${p.id}`, styled as a link (brand-colored, underline on
+      hover) to make it discoverable; the role `SelectField` stays a separate sibling control so clicking
+      it doesn't trigger navigation.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes, new `/team/[memberId]`). No
+  DB/shared/mobile changes.
+
