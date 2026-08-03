@@ -13,6 +13,15 @@ export function formatLocalDateTime(utc: string | null | undefined): string {
   });
 }
 
+/** Time-of-day only, e.g. "01:09 PM" — used alongside a shared date heading
+ *  (groupByLocalDate) where the date itself is no longer repeated per item. */
+export function formatLocalTime(utc: string | null | undefined): string {
+  if (!utc) return "—";
+  const d = new Date(utc);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
   // date-only strings ("YYYY-MM-DD") — render without TZ shifting.
@@ -56,4 +65,29 @@ export function addDays(dateStr: string, days: number): string {
   const dt = new Date(y, m - 1, d);
   dt.setDate(dt.getDate() + Math.max(0, days - 1));
   return dt.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+}
+
+/**
+ * Group items (e.g. report uploads) by their local calendar date, preserving
+ * whatever order the input array is already in — pass it pre-sorted
+ * (newest first) and the groups come out newest-date-first too, with each
+ * group's items in their original relative order. Two reports uploaded the
+ * same day (different times) land in one group instead of two separate
+ * date-stamped entries.
+ */
+export function groupByLocalDate<T extends { created_at: string }>(items: T[]): { dateLabel: string; items: T[] }[] {
+  const groups: { key: string; dateLabel: string; items: T[] }[] = [];
+  const indexByKey = new Map<string, number>();
+  for (const item of items) {
+    const d = new Date(item.created_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    let idx = indexByKey.get(key);
+    if (idx === undefined) {
+      idx = groups.length;
+      indexByKey.set(key, idx);
+      groups.push({ key, dateLabel: d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }), items: [] });
+    }
+    groups[idx].items.push(item);
+  }
+  return groups.map(({ dateLabel, items }) => ({ dateLabel, items }));
 }

@@ -1453,4 +1453,25 @@ in browser) and **Download** (save to device) action, not just a single ambiguou
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes); `mobile` `tsc --noEmit` clean +
   `expo export --platform web` bundle clean.
 
+## Change round — reports sharing a date now group under one heading (user, 2026-07-31)
+User flagged the Edit record page listing two reports (Prescription, Image) that both happened to be
+uploaded on Aug 01, 2026 as two fully separate date-stamped entries — clarified via a direct question that
+the fix should be a visual grouping (one date shown once, files listed underneath), not an actual merged
+PDF.
 
+- [x] **New `groupByLocalDate()`** (`shared/src/dates.ts`) — groups any array of `{ created_at }` items by
+      local calendar date, preserving whichever order the input is already sorted in (pass it newest-first
+      and the groups come out newest-date-first, each group's items in their original relative order).
+      New **`formatLocalTime()`** alongside it — time-of-day only (e.g. "01:09 PM"), for use under a date
+      heading where the date itself is no longer repeated per row.
+- [x] **All three per-person/household report lists now group by date**: `web/src/app/patients/[accountId]/page.tsx`,
+      `web/src/components/MemberEditForm.tsx`, and `mobile/src/screens/ProfileScreen.tsx`'s Health record —
+      each renders one date heading per calendar day, with every report uploaded that day listed underneath
+      (still each with its own Open/Download and, on the Patients page, its own subject name, since that
+      page spans a whole household). Two reports uploaded the same day now read as one grouped entry with
+      two files, instead of two duplicate date-stamped blocks.
+- **Not changed:** the global `/reports` table, Live Sheet, Dashboard cards, and My Visits — grouping by
+  date makes less sense there (dates repeat across *different* patients constantly), and this request was
+  specifically about the per-person/household views.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean. No DB migration.

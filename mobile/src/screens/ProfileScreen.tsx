@@ -28,6 +28,8 @@ import {
   useMyBookings,
   formatDate,
   formatLocalDateTime,
+  formatLocalTime,
+  groupByLocalDate,
   localPhone,
   GENDER_LABELS,
   REPORT_TYPE_LABELS,
@@ -242,23 +244,30 @@ export function ProfileScreen() {
             ) : reportsForSubject.length === 0 ? (
               <Text className="text-xs text-gray-400">No reports released yet for this person.</Text>
             ) : (
-              <View className="gap-2">
-                {reportsForSubject.map((r) => (
-                  <View key={r.id} className="flex-row items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
-                    <Pressable onPress={() => openReport(r)} className="flex-1 flex-row items-center gap-2.5">
-                      <View className="h-8 w-8 items-center justify-center rounded-lg bg-purple-50">
-                        <FileText size={15} color="#7c3aed" />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-xs font-medium text-gray-900">{r.file_name ?? REPORT_TYPE_LABELS[r.report_type]}</Text>
-                        <Text className="text-[11px] text-gray-500">
-                          {REPORT_TYPE_LABELS[r.report_type]} · Uploaded: {formatLocalDateTime(r.created_at)}
-                        </Text>
-                      </View>
-                    </Pressable>
-                    <Pressable onPress={() => downloadReport(r)} hitSlop={8} className="p-1 active:opacity-60">
-                      <Download size={16} color="#7c3aed" />
-                    </Pressable>
+              <View className="gap-4">
+                {groupByLocalDate(reportsForSubject).map((group) => (
+                  <View key={group.dateLabel}>
+                    <Text className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{group.dateLabel}</Text>
+                    <View className="gap-2">
+                      {group.items.map((r) => (
+                        <View key={r.id} className="flex-row items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                          <Pressable onPress={() => openReport(r)} className="flex-1 flex-row items-center gap-2.5">
+                            <View className="h-8 w-8 items-center justify-center rounded-lg bg-purple-50">
+                              <FileText size={15} color="#7c3aed" />
+                            </View>
+                            <View className="flex-1">
+                              <Text className="text-xs font-medium text-gray-900">{r.file_name ?? REPORT_TYPE_LABELS[r.report_type]}</Text>
+                              <Text className="text-[11px] text-gray-500">
+                                {REPORT_TYPE_LABELS[r.report_type]} · {formatLocalTime(r.created_at)}
+                              </Text>
+                            </View>
+                          </Pressable>
+                          <Pressable onPress={() => downloadReport(r)} hitSlop={8} className="p-1 active:opacity-60">
+                            <Download size={16} color="#7c3aed" />
+                          </Pressable>
+                        </View>
+                      ))}
+                    </View>
                   </View>
                 ))}
               </View>

@@ -15,7 +15,8 @@ import {
   useAllBookings,
   useAllReports,
   localPhone,
-  formatLocalDateTime,
+  formatLocalTime,
+  groupByLocalDate,
   REPORT_TYPE_LABELS,
   MEDICAL_REPORT_BUCKET,
   SIGNED_URL_TTL_SECONDS,
@@ -230,36 +231,43 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
         {subjectReports.length === 0 ? (
           <EmptyState icon={FileCheck2} title="No reports" description="Uploads for this person appear here." />
         ) : (
-          <div className="flex flex-col gap-2">
-            {subjectReports.map((r) => {
-              const url = reportUrls[r.storage_path];
-              const dlUrl = downloadUrls[r.storage_path];
-              return (
-                <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{r.file_name ?? REPORT_TYPE_LABELS[r.report_type]}</p>
-                    <p className="text-xs text-gray-400">{formatLocalDateTime(r.created_at)}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Pill bgClass={r.reviewed ? "bg-emerald-100" : "bg-amber-100"} textClass={r.reviewed ? "text-emerald-700" : "text-amber-700"}>
-                      {r.reviewed ? "Released" : "Awaiting review"}
-                    </Pill>
-                    {url ? (
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm font-medium text-brand-600">
-                        <Eye size={14} />
-                        Open
-                      </a>
-                    ) : null}
-                    {dlUrl ? (
-                      <a href={dlUrl} download={r.file_name ?? undefined} className="flex items-center gap-1 text-sm font-medium text-gray-600">
-                        <Download size={14} />
-                        Download
-                      </a>
-                    ) : null}
-                  </div>
+          <div className="flex flex-col gap-4">
+            {groupByLocalDate(subjectReports).map((group) => (
+              <div key={group.dateLabel}>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">{group.dateLabel}</p>
+                <div className="flex flex-col gap-2">
+                  {group.items.map((r) => {
+                    const url = reportUrls[r.storage_path];
+                    const dlUrl = downloadUrls[r.storage_path];
+                    return (
+                      <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{r.file_name ?? REPORT_TYPE_LABELS[r.report_type]}</p>
+                          <p className="text-xs text-gray-400">{formatLocalTime(r.created_at)}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Pill bgClass={r.reviewed ? "bg-emerald-100" : "bg-amber-100"} textClass={r.reviewed ? "text-emerald-700" : "text-amber-700"}>
+                            {r.reviewed ? "Released" : "Awaiting review"}
+                          </Pill>
+                          {url ? (
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm font-medium text-brand-600">
+                              <Eye size={14} />
+                              Open
+                            </a>
+                          ) : null}
+                          {dlUrl ? (
+                            <a href={dlUrl} download={r.file_name ?? undefined} className="flex items-center gap-1 text-sm font-medium text-gray-600">
+                              <Download size={14} />
+                              Download
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </SectionCard>
