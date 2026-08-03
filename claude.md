@@ -1351,3 +1351,21 @@ appointment directly from the dashboard instead of just logging a note to call b
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes); `mobile` `tsc --noEmit` clean
   (shared/mutations.ts touched, mobile unaffected).
 
+## Change round — Reports on the per-person Edit record page too (user, 2026-07-31)
+The "Reports" section from two rounds ago only lives on `/patients/[accountId]` (the "Family members"
+page) — the user was actually looking at "Edit record" (`/patients/[accountId]/self`, reached by tapping
+into a specific person), a different route entirely, and reports weren't there. Also confirmed a separate
+"permission denied for table bookings" screenshot is exactly the still-outstanding `0018` migration
+(expected, not a new bug) — the user hadn't yet actually run the SQL in the Editor; walked through the
+exact click-by-click steps again since prior written instructions weren't being followed for whatever
+reason.
+
+- [x] **`web/src/components/MemberEditForm.tsx`** (shared by both the self-edit and dependent-edit pages,
+      so this covers both at once) gained a new "Reports" `SectionCard` between Medical record and Save —
+      scoped to exactly *this* person, not the whole household (that's the parent Patients page's job): for
+      "self" it's bookings with no `family_member_id` on this account; for a dependent it's bookings
+      matching that dependent's `family_member_id`. Each row shows filename/type, upload date,
+      Released/Awaiting-review status, and a View link — same prefetched-signed-URL-as-real-`<a>` pattern
+      used everywhere else in this series.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes). No DB/shared/mobile changes.
+

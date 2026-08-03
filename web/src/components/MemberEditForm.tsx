@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Lock, UserCircle, Activity } from "lucide-react";
+import { Lock, UserCircle, Activity, FileCheck2, Eye } from "lucide-react";
 import {
   useAllProfiles,
   useFamilyMembersByAccount,
@@ -12,11 +12,18 @@ import {
   useUpdateProfile,
   useSaveDependent,
   useAddClinical,
+  useAllBookings,
+  useAllReports,
   localPhone,
+  formatLocalDateTime,
+  REPORT_TYPE_LABELS,
+  MEDICAL_REPORT_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
   BLOOD_GROUPS,
   qk,
 } from "@vagewell/shared";
-import { SectionCard, FormInput, SelectField, TextareaInput, PrimaryButton, PageHeader } from "@/components/ui";
+import { supabase } from "@/lib/supabase";
+import { SectionCard, FormInput, SelectField, TextareaInput, PrimaryButton, PageHeader, Pill, EmptyState } from "@/components/ui";
 
 const BLOOD_GROUP_OPTIONS = [{ value: "", label: "Not recorded" }, ...BLOOD_GROUPS.map((b) => ({ value: b, label: b }))];
 
@@ -46,6 +53,40 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
 
   const profile = subject.kind === "self" ? (profiles ?? []).find((p) => p.id === subject.profileId) : undefined;
   const dependent = subject.kind === "dependent" ? (dependents ?? []).find((d) => d.id === subject.familyMemberId) : undefined;
+
+  // Every report ever uploaded for exactly this person (not the whole
+  // household — that's the parent Patients page's job) — a booking belongs
+  // to this subject when it's the account's own (no family_member_id) for
+  // "self", or matches this specific dependent's id otherwise.
+  const { data: allBookings } = useAllBookings(true);
+  const { data: allReports } = useAllReports(true);
+  const subjectBookingIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const b of allBookings ?? []) {
+      if (subject.kind === "self" ? b.account_id === subject.profileId && !b.family_member_id : b.family_member_id === subject.familyMemberId) {
+        ids.add(b.id);
+      }
+    }
+    return ids;
+  }, [allBookings, subject]);
+  const subjectReports = useMemo(
+    () =>
+      (allReports ?? [])
+        .filter((r) => subjectBookingIds.has(r.booking_id))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [allReports, subjectBookingIds]
+  );
+  const reportPaths = useMemo(() => subjectReports.map((r) => r.storage_path), [subjectReports]);
+  const { data: reportUrls = {} } = useQuery({
+    queryKey: ["member-report-urls", subject.kind === "self" ? subject.profileId : subject.familyMemberId, reportPaths],
+    enabled: reportPaths.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data } = await supabase.storage.from(MEDICAL_REPORT_BUCKET).createSignedUrls(reportPaths, SIGNED_URL_TTL_SECONDS);
+      const map: Record<string, string> = {};
+      for (const item of data ?? []) if (item.path && item.signedUrl) map[item.path] = item.signedUrl;
+      return map;
+    },
+  });
 
   const update = useUpdateProfile();
   const saveDep = useSaveDependent();
@@ -167,6 +208,37 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
           <Lock size={12} className="text-gray-400" />
           <p className="text-[11px] text-gray-400">Patients see this as read-only. Each save adds a new dated entry.</p>
         </div>
+      </SectionCard>
+
+      <SectionCard icon={FileCheck2} title="Reports" subtitle={`Every report ever uploaded for ${name}, newest first`}>
+        {subjectReports.length === 0 ? (
+          <EmptyState icon={FileCheck2} title="No reports" description="Uploads for this person appear here." />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {subjectReports.map((r) => {
+              const url = reportUrls[r.storage_path];
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{r.file_name ?? REPORT_TYPE_LABELS[r.report_type]}</p>
+                    <p className="text-xs text-gray-400">{formatLocalDateTime(r.created_at)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Pill bgClass={r.reviewed ? "bg-emerald-100" : "bg-amber-100"} textClass={r.reviewed ? "text-emerald-700" : "text-amber-700"}>
+                      {r.reviewed ? "Released" : "Awaiting review"}
+                    </Pill>
+                    {url ? (
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm font-medium text-brand-600">
+                        <Eye size={14} />
+                        View
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </SectionCard>
 
       <PrimaryButton fullWidth loading={busy} onClick={save}>
