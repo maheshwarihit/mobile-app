@@ -1510,3 +1510,23 @@ messaging around the block.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean. No DB/shared/web
   changes — the web portal's own patient-block (`RequireStaff`) is untouched, since this request was
   specifically about the mobile side.
+
+## Change round — reverted: web-registered roles blocked from mobile again (user, 2026-07-31)
+User reversed the previous round's decision within the same day, asking instead for clean separation
+between "web app login users" and "mobile app login users." Explained the hard constraint first: Supabase
+Auth ties one phone number to exactly one account, globally, in one project — the same number genuinely
+cannot be two separate accounts without either (a) blocking one side entirely, or (b) splitting into two
+independent Supabase projects (a major rebuild that would also break staff being able to see/manage
+patient bookings, unless a real sync layer were built). Asked directly which of those realistic options
+was wanted; user's answer ("separate storage for web login users and mobile login users" within one
+Supabase) maps onto option (a) — so this reverts to blocking, not a backend split.
+
+- [x] **`mobile/src/navigation/RootNavigator.tsx`**: restored `StaffPortalNotice`, undoing the previous
+      round's removal — but fixed properly this time. The original (pre-today) version only checked
+      `role === "staff" || role === "admin"`, silently missing `leaf_node` (a leaf_node account could
+      already use the mobile patient app before today, an existing inconsistency nobody had flagged).
+      The restored check is `role === "staff" || role === "admin" || role === "leaf_node"` — any
+      web-registered ops role is now consistently refused on mobile and shown the "use the web portal"
+      notice + sign-out, matching what "separate" actually means given the shared-auth constraint.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean. No DB/shared/web
+  changes.
