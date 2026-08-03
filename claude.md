@@ -1399,3 +1399,20 @@ didn't; the rows were plain, non-clickable cards.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes, new `/team/[memberId]`). No
   DB/shared/mobile changes.
 
+## Change round — separate Patients from Staff portal in the Staff/Leaf Nodes search (user, 2026-07-31)
+User flagged searching "maheshwar" on `/staff` mixed a real staff account with a patient account
+("Maheshwari S") in the same undifferentiated list. Before changing it, checked what removing patients
+from this search entirely would break: it's currently the *only* remaining way to promote a patient,
+since the Patients page's own Role dropdown was removed last round on the assumption this search covered
+it — asked directly which way to resolve that, and the user chose to keep patients searchable but visually
+separate them, not remove them.
+
+- [x] **`web/src/components/OpsMemberList.tsx`**: search results (when a query is active) now split into
+      two labeled groups — **"Staff portal"** (ops roles) and **"Patients (not yet on the staff
+      portal)"** — instead of one mixed list. With no query, behavior is unchanged (only current holders
+      of the page's role, single list, no grouping needed).
+- [x] **Row navigation now role-aware**: clicking a patient's name goes to `/patients/${id}` (their real
+      profile page) instead of `/team/${id}` (which expects assigned bookings — meaningless for a
+      patient, who has none).
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes). No DB/shared/mobile changes.
+

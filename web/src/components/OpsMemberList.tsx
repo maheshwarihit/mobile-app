@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 import { Card, FormInput, SelectField, LoadingState, EmptyState, PageHeader } from "@/components/ui";
-import { useAllProfiles, useSetUserRole, localPhone, formatDate, ROLES, type Role } from "@vagewell/shared";
+import { useAllProfiles, useSetUserRole, localPhone, formatDate, ROLES, type Role, type Profile } from "@vagewell/shared";
 
 const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r === "leaf_node" ? "Leaf Node" : r[0].toUpperCase() + r.slice(1) }));
 
@@ -13,11 +13,12 @@ const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r === "leaf_node" ? "L
  * inline role dropdown. With no search query it only shows current holders
  * of `role` (so this doesn't just become "everyone"); typing a name or phone
  * widens the search to every account so an existing patient can be found and
- * promoted right here — this page previously only ever showed people who
- * already had the role, with no way to add anyone new from it at all.
+ * promoted right here. When searching, results are split into "Staff
+ * portal" (ops roles) and "Patients" sections — a patient still shows up
+ * (that's how one gets promoted), but grouped separately so it doesn't read
+ * as if they already have portal access.
  */
 export function OpsMemberList({ role, title, emptyLabel }: { role: Role; title: string; emptyLabel: string }) {
-  const router = useRouter();
   const { data: profiles, isLoading } = useAllProfiles(true);
   const setRole = useSetUserRole();
   const [query, setQuery] = useState("");
@@ -29,6 +30,9 @@ export function OpsMemberList({ role, title, emptyLabel }: { role: Role; title: 
       .filter((p) => !q || (p.full_name ?? "").toLowerCase().includes(q) || (p.phone ?? "").includes(q))
       .sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
   }, [profiles, role, q]);
+
+  const opsRows = q ? rows.filter((p) => p.role !== "patient") : rows;
+  const patientRows = q ? rows.filter((p) => p.role === "patient") : [];
 
   return (
     <div>
@@ -53,28 +57,45 @@ export function OpsMemberList({ role, title, emptyLabel }: { role: Role; title: 
           }
         />
       ) : (
-        <div className="flex flex-col gap-3">
-          {rows.map((p) => (
-            <Card key={p.id} className="p-4">
-              <div className="flex items-center justify-between gap-3">
-                <button onClick={() => router.push(`/team/${p.id}`)} className="text-left active:opacity-70">
-                  <p className="text-base font-semibold text-brand-700 underline-offset-2 hover:underline">{p.full_name ?? "—"}</p>
-                  <p className="text-xs text-gray-500">
-                    {localPhone(p.phone) || "—"} · Joined {formatDate(p.created_at)}
-                  </p>
-                </button>
-                <div className="w-40">
-                  <SelectField
-                    value={p.role}
-                    onValueChange={(r) => setRole.mutate({ userId: p.id, role: r as Role })}
-                    options={ROLE_OPTIONS}
-                  />
-                </div>
-              </div>
-            </Card>
-          ))}
+        <div className="flex flex-col gap-5">
+          {opsRows.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {q ? <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Staff portal</p> : null}
+              {opsRows.map((p) => (
+                <MemberRow key={p.id} profile={p} onSetRole={(r) => setRole.mutate({ userId: p.id, role: r })} />
+              ))}
+            </div>
+          ) : null}
+          {patientRows.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Patients (not yet on the staff portal)</p>
+              {patientRows.map((p) => (
+                <MemberRow key={p.id} profile={p} onSetRole={(r) => setRole.mutate({ userId: p.id, role: r })} />
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
     </div>
+  );
+}
+
+function MemberRow({ profile: p, onSetRole }: { profile: Profile; onSetRole: (role: Role) => void }) {
+  const router = useRouter();
+  const detailHref = p.role === "patient" ? `/patients/${p.id}` : `/team/${p.id}`;
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between gap-3">
+        <button onClick={() => router.push(detailHref)} className="text-left active:opacity-70">
+          <p className="text-base font-semibold text-brand-700 underline-offset-2 hover:underline">{p.full_name ?? "—"}</p>
+          <p className="text-xs text-gray-500">
+            {localPhone(p.phone) || "—"} · Joined {formatDate(p.created_at)}
+          </p>
+        </button>
+        <div className="w-40">
+          <SelectField value={p.role} onValueChange={(r) => onSetRole(r as Role)} options={ROLE_OPTIONS} />
+        </div>
+      </div>
+    </Card>
   );
 }
