@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Text, ScrollView, Pressable, Linking } from "react-native";
+import { View, Text, ScrollView, Pressable, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import { useFocusEffect } from "@react-navigation/native";
 import { toast } from "sonner-native";
 import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download } from "lucide-react-native";
@@ -116,6 +118,35 @@ export function ProfileScreen() {
     Linking.openURL(data.signedUrl);
   };
 
+  // `download: true` makes Supabase respond with Content-Disposition:
+  // attachment on that signed URL specifically — distinct from openReport's
+  // plain URL, which just navigates/previews instead of saving.
+  const downloadReport = async (r: ReportUpload) => {
+    const { data, error: signErr } = await supabase.storage
+      .from(MEDICAL_REPORT_BUCKET)
+      .createSignedUrl(r.storage_path, SIGNED_URL_TTL_SECONDS, { download: true });
+    if (signErr || !data?.signedUrl) {
+      toast.error("Could not download this report. Please try again.");
+      return;
+    }
+    if (Platform.OS === "web") {
+      // The browser handles the attachment header itself once navigated to.
+      Linking.openURL(data.signedUrl);
+      return;
+    }
+    try {
+      const fileName = r.file_name ?? `report-${r.id}.${r.storage_path.split(".").pop() ?? "pdf"}`;
+      const { uri } = await FileSystem.downloadAsync(data.signedUrl, `${FileSystem.cacheDirectory}${fileName}`);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri);
+      } else {
+        toast.error("Sharing isn't available on this device.");
+      }
+    } catch {
+      toast.error("Could not download this report. Please try again.");
+    }
+  };
+
   if (loading) return <LoadingState message="Loading profile…" />;
 
   return (
@@ -213,8 +244,8 @@ export function ProfileScreen() {
             ) : (
               <View className="gap-2">
                 {reportsForSubject.map((r) => (
-                  <Pressable key={r.id} onPress={() => openReport(r)}>
-                    <View className="flex-row items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                  <View key={r.id} className="flex-row items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                    <Pressable onPress={() => openReport(r)} className="flex-1 flex-row items-center gap-2.5">
                       <View className="h-8 w-8 items-center justify-center rounded-lg bg-purple-50">
                         <FileText size={15} color="#7c3aed" />
                       </View>
@@ -224,9 +255,11 @@ export function ProfileScreen() {
                           {REPORT_TYPE_LABELS[r.report_type]} · Uploaded: {formatLocalDateTime(r.created_at)}
                         </Text>
                       </View>
-                      <Download size={14} color="#9ca3af" />
-                    </View>
-                  </Pressable>
+                    </Pressable>
+                    <Pressable onPress={() => downloadReport(r)} hitSlop={8} className="p-1 active:opacity-60">
+                      <Download size={16} color="#7c3aed" />
+                    </Pressable>
+                  </View>
                 ))}
               </View>
             )}

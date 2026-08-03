@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Lock, UserCircle, Activity, FileCheck2, Eye } from "lucide-react";
+import { Lock, UserCircle, Activity, FileCheck2, Eye, Download } from "lucide-react";
 import {
   useAllProfiles,
   useFamilyMembersByAccount,
@@ -77,11 +77,27 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
     [allReports, subjectBookingIds]
   );
   const reportPaths = useMemo(() => subjectReports.map((r) => r.storage_path), [subjectReports]);
+  const reportUrlKey = subject.kind === "self" ? subject.profileId : subject.familyMemberId;
   const { data: reportUrls = {} } = useQuery({
-    queryKey: ["member-report-urls", subject.kind === "self" ? subject.profileId : subject.familyMemberId, reportPaths],
+    queryKey: ["member-report-urls", reportUrlKey, reportPaths],
     enabled: reportPaths.length > 0,
     queryFn: async (): Promise<Record<string, string>> => {
       const { data } = await supabase.storage.from(MEDICAL_REPORT_BUCKET).createSignedUrls(reportPaths, SIGNED_URL_TTL_SECONDS);
+      const map: Record<string, string> = {};
+      for (const item of data ?? []) if (item.path && item.signedUrl) map[item.path] = item.signedUrl;
+      return map;
+    },
+  });
+  // Separate signed URLs with `download: true` — Supabase returns these with
+  // Content-Disposition: attachment, so the browser saves the file instead
+  // of just navigating to it (which the plain "Open" URL above still does).
+  const { data: downloadUrls = {} } = useQuery({
+    queryKey: ["member-report-download-urls", reportUrlKey, reportPaths],
+    enabled: reportPaths.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data } = await supabase.storage
+        .from(MEDICAL_REPORT_BUCKET)
+        .createSignedUrls(reportPaths, SIGNED_URL_TTL_SECONDS, { download: true });
       const map: Record<string, string> = {};
       for (const item of data ?? []) if (item.path && item.signedUrl) map[item.path] = item.signedUrl;
       return map;
@@ -217,20 +233,27 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
           <div className="flex flex-col gap-2">
             {subjectReports.map((r) => {
               const url = reportUrls[r.storage_path];
+              const dlUrl = downloadUrls[r.storage_path];
               return (
                 <div key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{r.file_name ?? REPORT_TYPE_LABELS[r.report_type]}</p>
                     <p className="text-xs text-gray-400">{formatLocalDateTime(r.created_at)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <Pill bgClass={r.reviewed ? "bg-emerald-100" : "bg-amber-100"} textClass={r.reviewed ? "text-emerald-700" : "text-amber-700"}>
                       {r.reviewed ? "Released" : "Awaiting review"}
                     </Pill>
                     {url ? (
                       <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm font-medium text-brand-600">
                         <Eye size={14} />
-                        View
+                        Open
+                      </a>
+                    ) : null}
+                    {dlUrl ? (
+                      <a href={dlUrl} download={r.file_name ?? undefined} className="flex items-center gap-1 text-sm font-medium text-gray-600">
+                        <Download size={14} />
+                        Download
                       </a>
                     ) : null}
                   </div>

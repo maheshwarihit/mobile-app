@@ -1431,4 +1431,26 @@ had no way to know it was even checking.
       removes matches through an *unrelated* account holder whose name overlapped a searched patient's.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes). No DB/shared/mobile changes.
 
+## Change round — explicit Open + Download on every report, in Patients/Health records (user, 2026-07-31)
+Clarified through two rounds of questions: keep every existing report link as-is (don't remove any),
+but on the Patients-facing surfaces specifically, each report should offer both an explicit **Open** (view
+in browser) and **Download** (save to device) action, not just a single ambiguous link.
+
+- [x] **`web/src/app/patients/[accountId]/page.tsx`** and **`web/src/components/MemberEditForm.tsx`**
+      (the per-person Edit record page): each report row now fetches a *second* batch of signed URLs with
+      `{ download: true }` — Supabase returns these with `Content-Disposition: attachment`, so navigating
+      to it saves the file instead of just displaying it, unlike the existing plain signed URL. Rendered
+      as a separate **Download** link (with the `download` attribute set to the report's real filename)
+      alongside the renamed **Open** link (previously just "View").
+- [x] **`mobile/src/screens/ProfileScreen.tsx`**'s Health record reports list: previously the *entire* row
+      was one `Pressable` that only ever opened the file (the download icon shown was purely decorative).
+      Split into two real, independent actions — tapping the file name/icon opens it (unchanged
+      `openReport`), a separate small icon button triggers a new `downloadReport()`: on web, navigates to
+      a `download: true`-flavored signed URL (browser handles the save); on native, downloads the file into
+      the app's cache via `expo-file-system` then hands it to `expo-sharing`'s share sheet, since there's
+      no direct cross-platform "save to device" API without extra permissions — both packages were already
+      project dependencies, no new install needed.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean.
+
 
