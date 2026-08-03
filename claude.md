@@ -1416,3 +1416,19 @@ separate them, not remove them.
       patient, who has none).
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes). No DB/shared/mobile changes.
 
+## Bugfix — dashboard search matched an unlabeled field, pulling in unrelated bookings (user, 2026-07-31)
+Searching "Maheshwari" (a patient) on the admin dashboard also returned bookings belonging to a
+*different* account holder whose name happened to share that substring ("Maheshwari" the account holder
+vs. "Maheshwari S" the patient, from two entirely different households). Root cause: the search box's own
+label reads "Search by patient, service, staff, or leaf node" — but the filter code also silently matched
+`account?.full_name`, a field never mentioned in the label at all, so it was pulling in results the user
+had no way to know it was even checking.
+
+- [x] **`web/src/app/dashboard/page.tsx`**'s `filtered` no longer matches the account holder's name —
+      only `subject_name` (patient), `assigned_to_name` (staff/leaf_node), and `service_name`, exactly
+      matching what the search label already promised. A booking where the patient books for themselves
+      is unaffected (`subject_name` already equals the account holder's name in that case); this only
+      removes matches through an *unrelated* account holder whose name overlapped a searched patient's.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes). No DB/shared/mobile changes.
+
+

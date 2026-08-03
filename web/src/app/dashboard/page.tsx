@@ -54,9 +54,14 @@ function DashboardContent() {
       if (dayFrom && b.start_date < dayFrom) return false;
       if (dayTo && b.start_date > dayTo) return false;
       if (!q) return true;
+      // Matches only what the label promises (patient, service, staff, or
+      // leaf node) — matching the account holder's name too used to pull in
+      // unrelated bookings whenever a *different* account holder's name
+      // happened to share a substring with the patient actually being
+      // searched for (e.g. searching "Maheshwari" also matched bookings
+      // under an unrelated account holder "Maheshwari S").
       return (
         (b.subject_name ?? "").toLowerCase().includes(q) ||
-        (b.account?.full_name ?? "").toLowerCase().includes(q) ||
         (b.assigned_to_name ?? "").toLowerCase().includes(q) ||
         b.service_name.toLowerCase().includes(q)
       );
