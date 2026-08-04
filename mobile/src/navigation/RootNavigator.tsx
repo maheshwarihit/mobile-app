@@ -1,5 +1,3 @@
-import { View, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "@/providers/AuthProvider";
 import type { AuthStackParamList } from "@/navigation/types";
@@ -7,8 +5,8 @@ import { SplashScreen } from "@/screens/SplashScreen";
 import { LandingScreen } from "@/screens/LandingScreen";
 import { LoginScreen } from "@/screens/LoginScreen";
 import { RegisterScreen } from "@/screens/RegisterScreen";
+import { CompleteProfileScreen } from "@/screens/CompleteProfileScreen";
 import { AppNavigator } from "@/navigation/AppNavigator";
-import { OutlineButton } from "@/components/ui";
 
 const Auth = createNativeStackNavigator<AuthStackParamList>();
 
@@ -23,40 +21,28 @@ function AuthNavigator() {
 }
 
 /**
- * This app is patient-only — staff/admin/leaf_node operate from the separate
- * web portal (web/). A phone number registered as one of those roles can
- * still complete the same Supabase OTP login here (one shared auth system —
- * a phone number can only ever be one account, a hard Supabase Auth
- * constraint, not something app code can change), so this is a clear dead
- * end rather than silently exposing the patient tabs to an ops account.
- * Reinstated 2026-07-31 after a brief reversal — user confirmed the original
- * separation (web-registered roles never usable in the mobile app) is what's
- * actually wanted, not a dual-role account. Now covers `leaf_node` too,
- * closing a gap the original version had (it only checked staff/admin).
- */
-function StaffPortalNotice() {
-  const { signOut } = useAuth();
-  return (
-    <SafeAreaView className="flex-1 items-center justify-center bg-authbg px-8">
-      <Text className="mb-2 text-lg font-bold text-gray-900">Staff & admin portal moved</Text>
-      <Text className="mb-6 text-center text-sm text-gray-600">
-        Staff, admin, and leaf node accounts sign in from the VAgeWell Care web portal, not this app.
-      </Text>
-      <View className="w-full max-w-xs">
-        <OutlineButton fullWidth onPress={signOut}>
-          Sign out
-        </OutlineButton>
-      </View>
-    </SafeAreaView>
-  );
-}
-
-/**
- * One session tree. After verifyOtp the session flips, the profile (with
- * role) loads, and the shell swaps automatically:
- *   signed out            → AuthNavigator
- *   role patient          → AppNavigator (tabs)
- *   role staff|admin|leaf_node → StaffPortalNotice (this app is patient-only)
+ * One session tree. After verifyOtp the session flips, the profile loads,
+ * and the shell swaps automatically:
+ *   signed out                                → AuthNavigator
+ *   ops role, never completed patient details  → CompleteProfileScreen
+ *   any other case                             → AppNavigator (tabs)
+ *
+ * Any account — patient, staff, admin, or leaf_node — can use this app to
+ * book/manage care for themselves or dependents, in addition to whatever
+ * they do on the web portal (user decision, 2026-07-31 — a role no longer
+ * blocks the mobile app outright). Booking/family/health-record RLS was
+ * never role-gated to begin with (it scopes by `account_id = auth.uid()`/
+ * household, not by role), so this only lets the mobile UI do what the
+ * database already permitted.
+ *
+ * A staff/admin/leaf_node profile is created via the web portal's Register
+ * page, which only ever collects Full Name + Mobile Number — age/gender/
+ * address stay null forever unless something asks for them. The one-time
+ * `CompleteProfileScreen` gate catches exactly that case (all three still
+ * null) and blocks the normal tabs until they're filled in; an ordinary
+ * patient signup already has these from the mobile Register screen, so the
+ * gate never triggers for them.
+ *
  * The splash gate avoids a flicker to the patient shell before the role
  * resolves — but only until the CURRENT user's profile first resolves. A
  * background refresh (saving the profile, an hourly TOKEN_REFRESHED event)
@@ -72,5 +58,8 @@ export function RootNavigator() {
   if (loading || (user && profileLoading && !profileResolved)) return <SplashScreen />;
   if (!user) return <AuthNavigator />;
   const isOpsRole = role === "staff" || role === "admin" || role === "leaf_node";
-  return isOpsRole ? <StaffPortalNotice /> : <AppNavigator />;
+  const needsProfileCompletion =
+    isOpsRole && !!profile && profile.age == null && profile.gender == null && profile.address == null;
+  if (needsProfileCompletion) return <CompleteProfileScreen />;
+  return <AppNavigator />;
 }

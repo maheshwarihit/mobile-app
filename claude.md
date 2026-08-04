@@ -1530,3 +1530,24 @@ Supabase) maps onto option (a) — so this reverts to blocking, not a backend sp
       notice + sign-out, matching what "separate" actually means given the shared-auth constraint.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean. No DB/shared/web
   changes.
+
+## Change round — final landing: ops roles allowed in, gated by a one-time profile-completion screen (user, 2026-07-31)
+Third pass at this same question in one day. User clarified what "separate" actually meant in practice:
+a staff-registered number opening the mobile app for the first time should be prompted to complete patient
+details (age/gender/address) — the same fields the web Register page never collects — rather than either
+being silently let straight into the tabs or blocked outright. Confirmed directly via a follow-up question
+before building it a fourth way.
+
+- [x] **New `mobile/src/screens/CompleteProfileScreen.tsx`** — Age, Gender, Address (the exact fields a
+      web-registered profile is missing; `how_heard` has a DB default so it's not usable as a "never
+      completed" signal, deliberately excluded), saved via the existing shared `useUpdateProfile()`
+      mutation. Mirrors `RegisterScreen`'s bio-fields styling but with no phone/OTP step — the account is
+      already authenticated by the time this shows.
+- [x] **`mobile/src/navigation/RootNavigator.tsx`**: removed `StaffPortalNotice` again, replaced with a
+      targeted gate — `isOpsRole && profile.age == null && profile.gender == null && profile.address == null`
+      renders `CompleteProfileScreen` instead of the normal tabs. Once saved, all three fields are no
+      longer null and the same check naturally falls through to `AppNavigator` on the next render — no
+      separate "completed" flag needed. An ordinary patient account (which fills these in during mobile
+      Register) never triggers this gate at all.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean. No DB/shared/web
+  changes — `useUpdateProfile()` already existed and needed no changes.
