@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0018. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0019. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -526,7 +526,10 @@ grant execute on function public.set_user_role(uuid, text)  to authenticated;
 -- ── COLUMN GRANTS ───────────────────────────────────────────────────────────
 revoke insert, update, delete on public.profiles from anon, authenticated;
 grant select on public.profiles to authenticated;
-grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note) on public.profiles to authenticated;
+-- address (0019): was added to the table by 0011 but never actually granted
+-- for update — any update naming it was rejected outright with "permission
+-- denied for table profiles", regardless of role or RLS.
+grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address) on public.profiles to authenticated;
 revoke insert, update, delete on public.bookings from anon, authenticated;
 grant select on public.bookings to authenticated;
 -- account_id (0018): widened so an admin's insert can name the target

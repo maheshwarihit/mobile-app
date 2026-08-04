@@ -1551,3 +1551,22 @@ before building it a fourth way.
       Register) never triggers this gate at all.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean. No DB/shared/web
   changes — `useUpdateProfile()` already existed and needed no changes.
+
+## Bugfix — `profiles.address` was never actually grantable (user, 2026-07-31)
+Trying the new `CompleteProfileScreen` for real hit `permission denied for table profiles` on save.
+Root cause: migration `0011` (the `vc.pdf` round) added the `address` column and wired it into
+`useUpdateProfile()`'s payload, but never widened the column-level `UPDATE` grant on `profiles` to
+include it — Postgres rejects an entire `UPDATE` statement outright if it names any ungranted column,
+regardless of role or RLS. This has almost certainly been silently broken since `0011` shipped: the web
+admin's `MemberEditForm` self-address field uses the exact same mutation and would have hit the identical
+error, but nothing had reliably exercised a real address update against the live database until this
+screen made it unavoidable.
+
+- [x] **New migration `0019_profile_address_grant.sql`** (mirrored into `install_all.sql`, header bumped
+      to "0001–0019"): widened the grant to
+      `grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address) on public.profiles to authenticated;`.
+- Verified: no code change needed — `useUpdateProfile()` was already correct; this was purely a missing
+  database grant. **Needs the user's machine, same as every prior migration:** `0019_profile_address_grant.sql`
+  (or the refreshed `install_all.sql`) has not run against the live Supabase project from this
+  environment — until it does, saving an address anywhere in the app (this new screen, or the existing
+  web admin self-edit form) will keep failing with the same permission error.
