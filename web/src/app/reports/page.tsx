@@ -56,10 +56,10 @@ function ReportsContent() {
       <PageHeader title="Reports" />
       <p className="mb-4 text-xs text-gray-500">
         Every report ever uploaded by staff and leaf node members, newest first. Only admin, staff, and
-        leaf node accounts can upload or release a report — patients can only view one once it&apos;s released.
+        leaf node accounts can upload or release a report — clients can only view one once it&apos;s released.
       </p>
       <div className="mb-4 max-w-sm">
-        <FormInput label="Search by patient or service" value={query} onChangeText={setQuery} placeholder="Name or service…" />
+        <FormInput label="Search by client or service" value={query} onChangeText={setQuery} placeholder="Name or service…" />
       </div>
 
       {isLoading ? <LoadingState message="Loading…" /> : null}
@@ -71,7 +71,7 @@ function ReportsContent() {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <th className="px-4 py-3">Uploaded</th>
-                <th className="px-4 py-3">Patient</th>
+                <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Report</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>

@@ -59,7 +59,7 @@ function PaymentQrContent() {
     <div>
       <PageHeader title="Payment QR" />
       <p className="mb-4 text-sm text-gray-600">
-        Upload the UPI QR code patients scan to pay. It is shown on the payment screen for online payments.
+        Upload the UPI QR code clients scan to pay. It is shown on the payment screen for online payments.
       </p>
 
       <div className="mb-4 flex flex-col items-center rounded-xl border border-gray-100 bg-white p-4">

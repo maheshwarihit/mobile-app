@@ -68,7 +68,7 @@ export function liveSheetRows(bookings: BookingWithNames[], clinical: ClinicalRe
       "Account Phone": b.account?.phone ?? "",
       "Appointment For": b.subject_name ?? "",
       Relation: relationship === "self" ? "Self" : relationship[0].toUpperCase() + relationship.slice(1),
-      "Patient Number": b.subject_phone ?? "",
+      "Client Number": b.subject_phone ?? "",
       Age: b.subject_age ?? "",
       "Blood Pressure": v.systolic != null && v.diastolic != null ? `${v.systolic}/${v.diastolic}` : "",
       "Sugar Level": v.blood_glucose ?? "",

@@ -56,13 +56,13 @@ function PatientsContent() {
 
   return (
     <div>
-      <PageHeader title="Patients" />
+      <PageHeader title="Clients" />
       <div className="mb-4">
-        <FormInput label="Search patient" value={query} onChangeText={setQuery} placeholder="Name or phone…" />
+        <FormInput label="Search client" value={query} onChangeText={setQuery} placeholder="Name or phone…" />
       </div>
-      {isLoading ? <LoadingState message="Loading patients…" /> : null}
+      {isLoading ? <LoadingState message="Loading clients…" /> : null}
       {!isLoading && rows.length === 0 ? (
-        <EmptyState icon={Users} title="No patients" description="Registered patients and family members appear here." />
+        <EmptyState icon={Users} title="No clients" description="Registered clients and family members appear here." />
       ) : (
         <div className="flex flex-col gap-3">
           {rows.map((r) => (

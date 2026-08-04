@@ -200,7 +200,7 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
             onChangeText={set("phone")}
             editable={!phoneReadOnly}
           />
-          <FormInput label="Age" value={form.age} onChangeText={set("age")} type="number" />
+          <FormInput label="Age (optional)" value={form.age} onChangeText={set("age")} type="number" />
           {subject.kind === "self" ? (
             <TextareaInput label="Address" value={form.address} onChangeText={set("address")} rows={2} maxLength={500} />
           ) : null}
@@ -223,7 +223,7 @@ export function MemberEditForm({ subject, name, backHref }: { subject: Subject; 
         </div>
         <div className="mt-3 flex items-center gap-1.5">
           <Lock size={12} className="text-gray-400" />
-          <p className="text-[11px] text-gray-400">Patients see this as read-only. Each save adds a new dated entry.</p>
+          <p className="text-[11px] text-gray-400">Clients see this as read-only. Each save adds a new dated entry.</p>
         </div>
       </SectionCard>
 

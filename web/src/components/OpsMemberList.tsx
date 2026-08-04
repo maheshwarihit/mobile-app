@@ -68,7 +68,7 @@ export function OpsMemberList({ role, title, emptyLabel }: { role: Role; title: 
           ) : null}
           {patientRows.length > 0 ? (
             <div className="flex flex-col gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Patients (not yet on the staff portal)</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Clients (not yet on the staff portal)</p>
               {patientRows.map((p) => (
                 <MemberRow key={p.id} profile={p} onSetRole={(r) => setRole.mutate({ userId: p.id, role: r })} />
               ))}

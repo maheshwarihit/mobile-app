@@ -20,7 +20,7 @@ export const SCREEN_IDS = {
 // ── Enums (arrays back the CHECK constraints & UI dropdowns) ──────
 export const ROLES = ["patient", "staff", "admin", "leaf_node"] as const;
 export const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
-  patient: "Patient",
+  patient: "Client",
   staff: "Staff",
   admin: "Admin",
   leaf_node: "Leaf Node",

@@ -24,7 +24,7 @@ const OVERALL_COLUMNS = [
   "Account Phone",
   "Appointment For",
   "Relation",
-  "Patient Number",
+  "Client Number",
   "Age",
   "Blood Pressure",
   "Sugar Level",
@@ -48,7 +48,7 @@ const OVERALL_COLUMNS = [
 const UPDATED_COLUMNS = [
   "Account Holder",
   "Appointment For",
-  "Patient Number",
+  "Client Number",
   "Service",
   "Days/Months",
   "Appointment Date",
@@ -60,7 +60,7 @@ function toUpdatedRow(row: LiveSheetRow): Record<(typeof UPDATED_COLUMNS)[number
   return {
     "Account Holder": row["Account Holder"],
     "Appointment For": row["Appointment For"],
-    "Patient Number": row["Patient Number"],
+    "Client Number": row["Client Number"],
     Service: row.Service,
     "Days/Months": row.Days,
     "Appointment Date": row["Date/Time"],
@@ -162,8 +162,8 @@ function LiveSheetContent() {
       <PageHeader title="Live sheet" />
       <p className="mb-3 text-xs text-gray-500">
         {sheet === "overall"
-          ? "Every appointment with the patient's details and latest vitals. Search matches any column, and the CSV downloads exactly what's listed. Scroll sideways to see every column."
-          : "Condensed daily view — account holder, patient, service, schedule, and status."}
+          ? "Every appointment with the client's details and latest vitals. Search matches any column, and the CSV downloads exactly what's listed. Scroll sideways to see every column."
+          : "Condensed daily view — account holder, client, service, schedule, and status."}
       </p>
 
       <div className="mb-3 flex gap-1.5">

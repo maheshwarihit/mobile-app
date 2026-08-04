@@ -50,7 +50,7 @@ function TeamMemberContent({ memberId }: { memberId: string }) {
         </SectionCard>
       ) : null}
 
-      <SectionCard icon={Users} title="Patients & visit history" subtitle="Every visit ever assigned to this member, newest first">
+      <SectionCard icon={Users} title="Clients & visit history" subtitle="Every visit ever assigned to this member, newest first">
         {!isLoading && assigned.length === 0 ? (
           <EmptyState icon={ClipboardList} title="No visits yet" description="Assigned appointments appear here." />
         ) : (
@@ -63,7 +63,7 @@ function TeamMemberContent({ memberId }: { memberId: string }) {
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-gray-900">{b.service_name}</p>
                       <p className="text-xs text-gray-500">
-                        Patient <span className="font-medium text-brand-600">{b.subject_name ?? "—"}</span>
+                        Client <span className="font-medium text-brand-600">{b.subject_name ?? "—"}</span>
                       </p>
                       <p className="mt-0.5 text-xs text-gray-400">
                         {formatDate(b.start_date)} · {money(b.total_amount)} · Booked {formatLocalDateTime(b.created_at)}

@@ -9,7 +9,7 @@ import { useBookingRequests } from "@vagewell/shared";
 const ADMIN_NAV = [
   { href: "/dashboard", label: "Appointments", icon: LayoutDashboard },
   { href: "/requests", label: "Requests", icon: PhoneIncoming },
-  { href: "/patients", label: "Patients", icon: Users },
+  { href: "/patients", label: "Clients", icon: Users },
   { href: "/staff", label: "Staff", icon: ClipboardList },
   { href: "/leaf-nodes", label: "Leaf Nodes", icon: Sprout },
   { href: "/reports", label: "Reports", icon: FileCheck2 },

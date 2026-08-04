@@ -170,7 +170,7 @@ export function RegisterScreen({ navigation }: AuthScreenProps<"Register">) {
                   required
                 />
                 <FormInput
-                  label="Age"
+                  label="Age (optional)"
                   value={form.age}
                   onChangeText={set("age")}
                   placeholder="Age"

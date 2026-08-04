@@ -7,7 +7,7 @@ import { useAllProfiles } from "@vagewell/shared";
 
 function SelfEditContent({ accountId }: { accountId: string }) {
   const { data: profiles } = useAllProfiles(true);
-  const name = (profiles ?? []).find((p) => p.id === accountId)?.full_name ?? "Patient";
+  const name = (profiles ?? []).find((p) => p.id === accountId)?.full_name ?? "Client";
   return <MemberEditForm subject={{ kind: "self", profileId: accountId }} name={name} backHref={`/patients/${accountId}`} />;
 }
 

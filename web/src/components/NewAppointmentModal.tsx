@@ -145,9 +145,9 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
 
       {!patient ? (
         <div className="flex flex-col gap-3">
-          <FormInput label="Find patient" value={query} onChangeText={setQuery} placeholder="Name or phone…" icon={Search} />
+          <FormInput label="Find client" value={query} onChangeText={setQuery} placeholder="Name or phone…" icon={Search} />
           {query.trim() && matches.length === 0 ? (
-            <EmptyState title="No match" description="No patient found with that name or phone. They need an account first." />
+            <EmptyState title="No match" description="No client found with that name or phone. They need an account first." />
           ) : (
             <div className="flex max-h-64 flex-col gap-1.5 overflow-y-auto">
               {matches.map((p) => (
@@ -166,7 +166,7 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
       ) : (
         <div className="flex flex-col gap-3">
           <TextButton icon={ChevronLeft} onClick={() => setPatient(null)}>
-            Change patient
+            Change client
           </TextButton>
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
             <p className="text-sm font-medium text-gray-900">{patient.full_name ?? "—"}</p>
@@ -196,7 +196,7 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
 
           <TextareaInput label="Note (optional)" value={form.symptom_brief} onChangeText={set("symptom_brief")} placeholder="Symptoms or context from the call…" rows={2} maxLength={2000} />
 
-          <p className="text-xs text-gray-400">Payment: Pay at Visit — the patient settles with staff in person.</p>
+          <p className="text-xs text-gray-400">Payment: Pay at Visit — the client settles with staff in person.</p>
 
           <PrimaryButton fullWidth loading={busy} onClick={submit}>
             Book appointment

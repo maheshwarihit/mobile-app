@@ -143,7 +143,7 @@ export function useRejectPayment() {
     },
     onSuccess: () => {
       invalidate([qk.bookings("all"), qk.bookings("mine")]);
-      toast.success("Payment rejected — patient can re-upload proof");
+      toast.success("Payment rejected — client can re-upload proof");
     },
     onError: (e: Error) => toast.error(e.message),
   });

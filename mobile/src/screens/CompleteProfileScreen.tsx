@@ -19,7 +19,7 @@ const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }
  * Register screen, so this never shows for them).
  */
 export function CompleteProfileScreen() {
-  const { profile, signOut } = useAuth();
+  const { profile, refreshProfile, signOut } = useAuth();
   const update = useUpdateProfile();
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("male");
@@ -47,7 +47,12 @@ export function CompleteProfileScreen() {
         gender,
         address: address.trim(),
       },
-      { onSuccess: () => toast.success("All set — welcome to VAgeWell!") }
+      {
+        onSuccess: async () => {
+          toast.success("All set — welcome to VAgeWell!");
+          await refreshProfile();
+        },
+      }
     );
   };
 
@@ -61,14 +66,14 @@ export function CompleteProfileScreen() {
             </View>
             <Text className="text-2xl font-bold text-gray-900">Complete your profile</Text>
             <Text className="mt-1 text-center text-sm text-gray-600">
-              Your staff account never collected these — fill them in once to use VAgeWell as a patient too.
+              Your staff account never collected these — fill them in once to use VAgeWell as a client too.
             </Text>
           </View>
 
           <View className="rounded-2xl border border-gray-100 bg-white p-6">
             <View className="gap-4">
               <FormInput
-                label="Age"
+                label="Age (optional)"
                 value={age}
                 onChangeText={setAge}
                 placeholder="Age"

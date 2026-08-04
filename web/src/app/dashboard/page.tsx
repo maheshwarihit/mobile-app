@@ -77,7 +77,7 @@ function DashboardContent() {
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
         <div className="flex-1">
           <FormInput
-            label="Search by patient, service, staff, or leaf node"
+            label="Search by client, service, staff, or leaf node"
             value={query}
             onChangeText={setQuery}
             placeholder="Name or service…"
@@ -156,7 +156,7 @@ function BookingCard({
         <div className="flex-1">
           <p className="text-base font-semibold text-gray-900">{booking.service_name}</p>
           <p className="text-xs text-gray-500">
-            {booking.account?.full_name ?? "—"} Patient{" "}
+            {booking.account?.full_name ?? "—"} Client{" "}
             <span className="font-medium text-brand-600">{booking.subject_name ?? "—"}</span>
           </p>
           <p className="mt-1 text-sm text-gray-600">

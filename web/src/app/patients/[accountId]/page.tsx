@@ -31,7 +31,7 @@ function PatientProfileContent({ accountId }: { accountId: string }) {
   const { data: dependents, isLoading } = useFamilyMembersByAccount(accountId);
 
   const profile = (profiles ?? []).find((p) => p.id === accountId);
-  const patientName = profile?.full_name ?? "Patient";
+  const patientName = profile?.full_name ?? "Client";
 
   // Every report ever uploaded across this account's own bookings AND its
   // dependents' bookings, in one place — a booking's account_id is always

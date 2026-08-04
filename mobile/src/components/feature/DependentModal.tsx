@@ -95,7 +95,7 @@ export function DependentModal({
                 <FormInput label="Full name" value={form.full_name} onChangeText={set("full_name")} error={errors.full_name} autoCapitalize="words" required />
                 <View className="flex-row gap-3">
                   <View className="flex-1">
-                    <FormInput label="Age" value={form.age} onChangeText={set("age")} keyboardType="number-pad" error={errors.age} />
+                    <FormInput label="Age (optional)" value={form.age} onChangeText={set("age")} keyboardType="number-pad" error={errors.age} />
                   </View>
                   <View className="flex-1">
                     <SelectSheet label="Relationship" value={form.relationship} onValueChange={set("relationship")} options={RELATIONSHIP_OPTIONS} />

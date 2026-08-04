@@ -44,7 +44,7 @@ function PaymentProofsContent() {
     <div>
       <PageHeader title="Payment proofs" />
       <p className="mb-4 text-xs text-gray-500">
-        Screenshots patients uploaded as proof of payment. Click a card to review, verify, or reject.
+        Screenshots clients uploaded as proof of payment. Click a card to review, verify, or reject.
       </p>
 
       {isLoading ? <LoadingState message="Loading payment proofs…" /> : null}

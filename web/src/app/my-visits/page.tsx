@@ -35,7 +35,7 @@ function MyVisitsContent() {
     setVitals(
       b.family_member_id
         ? { familyMemberId: b.family_member_id, name: b.subject_name ?? "Dependent" }
-        : { profileId: b.account_id, name: b.subject_name ?? b.account?.full_name ?? "Patient" }
+        : { profileId: b.account_id, name: b.subject_name ?? b.account?.full_name ?? "Client" }
     );
 
   return (
@@ -96,7 +96,7 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
         <div className="flex-1">
           <p className="text-base font-semibold text-gray-900">{booking.service_name}</p>
           <p className="text-xs text-gray-500">
-            Patient <span className="font-medium text-brand-600">{booking.subject_name ?? "—"}</span>
+            Client <span className="font-medium text-brand-600">{booking.subject_name ?? "—"}</span>
           </p>
           <p className="mt-1 text-sm text-gray-600">
             {formatDate(booking.start_date)} · {money(booking.total_amount)}
