@@ -1570,3 +1570,71 @@ screen made it unavoidable.
   (or the refreshed `install_all.sql`) has not run against the live Supabase project from this
   environment — until it does, saving an address anywhere in the app (this new screen, or the existing
   web admin self-edit form) will keep failing with the same permission error.
+
+## Change round — retire Clinic Visit, Home Care only (user, 2026-08-05)
+User asked to remove Clinic Visit entirely. Confirmed via two clarifying questions: (1) keep the
+`service_mode` column/badge/label plumbing rather than ripping the concept out altogether — just stop
+`'clinic'` from being a choice anywhere; (2) since every booking becomes Home Care, and the DB previously
+required Home Care's assignee to be `leaf_node`-role specifically, both `staff` and `leaf_node` are now
+eligible for Home Care assignment — otherwise every existing staff-role member would become permanently
+unassignable to anything the moment clinic bookings stop being created.
+
+- [x] **New migration `0020_home_care_only.sql`** (mirrored into `install_all.sql`, header bumped to
+      "0001–0020"). `tg_booking_snapshot()`'s insert-time check now requires `new.service_mode =
+      'home_care'` exactly (was `in ('clinic','home_care')`) — a new booking can no longer be created as
+      Clinic. `tg_booking_update_guard()`'s Home Care assignment branch now accepts `role in
+      ('staff','leaf_node')` (was `leaf_node` only). **Deliberately left unchanged:** the
+      `bookings_service_mode_check` column CHECK constraint (still allows `'clinic'`) and the Clinic
+      branch of the assignment guard (still `staff`-only) — customers have been able to pick Clinic since
+      `0012` shipped five days before this round, so live rows with `service_mode = 'clinic'` almost
+      certainly exist; tightening the column constraint would break every future UPDATE on those rows
+      (a CHECK re-validates the whole row on every write), not just new inserts.
+- [x] **`shared/src/schemas.ts`**: `appointmentSchema.service_mode` narrowed from
+      `z.enum(asTuple(SERVICE_MODES))` to `z.literal("home_care")`. `SERVICE_MODES`/`SERVICE_MODE_LABELS`/
+      `ServiceMode` themselves are untouched in `constants.ts` — they still carry both values, since
+      badges/labels need to keep displaying historical Clinic bookings correctly (same reasoning as the
+      DB constraint above).
+- [x] **Booking forms drop the "Visit type" picker entirely** (a single-option chooser has nothing to
+      choose) — `mobile/src/screens/AppointmentScreen.tsx`'s `ChoiceChips` and
+      `web/src/components/NewAppointmentModal.tsx`'s `SelectField` are both removed; each now submits
+      `service_mode: "home_care"` as a fixed value. `PaymentScreen`'s "Visit type" summary row is
+      unchanged — still informational, just always reads Home Care now.
+- [x] **`web/src/components/ApproveAssignModal.tsx`**: the `legacyMode` picker (previously offering
+      Clinic/Home Care for a pre-0012 booking with a null `service_mode`) is gone — a null booking now
+      defaults straight to Home Care, matching the DB default. The "Visit type" block always renders
+      read-only (`MODE_LABELS[mode]`, with a "(chosen by customer)" note when applicable) instead of
+      branching on whether a value exists. Candidate filtering: Clinic bookings still resolve to
+      `staff`-only (legacy behavior, untouched); Home Care now resolves to `staff` **or** `leaf_node`,
+      matching the DB guard change above. Labels/hints ("Assign staff or leaf node member", "No staff or
+      leaf node accounts yet…") updated to match.
+- [x] **`mobile/src/components/feature/PatientBookingCard.tsx`**: the stale "Clinic or home visit —
+      decided once approved" hint (shown while a booking has no `service_mode` yet) reworded to "Visit
+      type shown once approved" — the old copy referenced a choice that no longer exists.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean (2826 modules).
+- **Needs the user's machine, same as every prior migration:** `0020_home_care_only.sql` (or the
+  refreshed `install_all.sql`) has not run against the live Supabase project from this environment —
+  until it does, the server still accepts a new Clinic booking and still requires `leaf_node` specifically
+  for Home Care assignment, even though the UI no longer offers Clinic as a choice.
+
+## Change round — Visit type is no longer displayed anywhere (user, 2026-08-05)
+Same-day follow-up: "doesn't need the visit type." Confirmed via a clarifying question this means every
+user-facing display of it, not the underlying data — `service_mode` keeps being set to `'home_care'` on
+every new booking (unchanged from the previous round), it just isn't shown to anyone anymore.
+
+- [x] **`mobile/src/components/feature/PatientBookingCard.tsx`**: removed the indigo Visit-type badge
+      block entirely (including the "Visit type shown once approved" placeholder text from the previous
+      round) — dropped the now-unused `Building2`/`Home`/`SERVICE_MODE_LABELS` imports along with it.
+- [x] **`mobile/src/screens/DashboardScreen.tsx`**: deleted the local `ServiceModeBadge` component and
+      both call sites (`LastCompletedCheckup`, `MissedAppointment`); dropped the same now-unused imports.
+- [x] **`mobile/src/screens/PaymentScreen.tsx`**: removed the "Visit type" row from the booking summary
+      (`SERVICE_MODE_LABELS[draft.service_mode]`) — the summary now goes straight from "Care for" to
+      "Start date". The actual insert payload (`service_mode: draft.service_mode`, always `"home_care"`)
+      is untouched — this was display-only.
+- [x] **`web/src/components/ApproveAssignModal.tsx`**: removed the read-only "Visit type" line above the
+      assignment dropdown, along with the now-unused `MODE_LABELS` map and `ServiceMode` type import.
+      `mode`/`modeChosenByCustomer` stay internally — they still decide assignment eligibility (Clinic
+      legacy → staff-only, Home Care → staff or leaf_node) and whether `serviceMode` needs sending on
+      assign; only the on-screen label was removed.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes); `mobile` `tsc --noEmit` clean +
+  `expo export --platform web` bundle clean. No DB/shared changes this round — purely UI.

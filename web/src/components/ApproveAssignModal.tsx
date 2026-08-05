@@ -2,33 +2,29 @@
 
 import { useMemo, useState } from "react";
 import { useAssignBooking } from "@vagewell/shared";
-import type { BookingWithNames, ServiceMode } from "@vagewell/shared";
+import type { BookingWithNames } from "@vagewell/shared";
 import { useAllProfiles } from "@vagewell/shared";
 import { Modal, SelectField, PrimaryButton, OutlineButton } from "@/components/ui";
 
-const MODE_OPTIONS: { value: ServiceMode; label: string }[] = [
-  { value: "clinic", label: "Clinic Visit" },
-  { value: "home_care", label: "Home Care" },
-];
-const MODE_LABELS: Record<ServiceMode, string> = { clinic: "Clinic Visit", home_care: "Home Care" };
-
 /**
- * Admin assigns a staff/leaf_node member to a `requested` booking. The visit
- * type (Clinic/Home Care) is chosen by the customer at booking time now, so
- * this just reads it off the booking — the dropdown only appears as a
- * fallback for a booking created before that change, where it's still null.
+ * Admin assigns a staff/leaf_node member to a `requested` booking. Visit
+ * type isn't shown here (Home Care is the only one going forward) but still
+ * governs eligibility: a booking from before Clinic Visit was retired can
+ * still carry that legacy mode, which stays staff-only to assign.
  */
 export function ApproveAssignModal({ booking, onClose }: { booking: BookingWithNames | null; onClose: () => void }) {
-  const [legacyMode, setLegacyMode] = useState<ServiceMode>("clinic");
   const [assignee, setAssignee] = useState("");
   const { data: profiles } = useAllProfiles(!!booking);
   const assign = useAssignBooking();
 
-  const mode = booking?.service_mode ?? legacyMode;
+  const mode = booking?.service_mode ?? "home_care";
   const modeChosenByCustomer = !!booking?.service_mode;
 
   const candidates = useMemo(
-    () => (profiles ?? []).filter((p) => p.role === (mode === "clinic" ? "staff" : "leaf_node")),
+    () =>
+      (profiles ?? []).filter((p) =>
+        mode === "clinic" ? p.role === "staff" : p.role === "staff" || p.role === "leaf_node"
+      ),
     [profiles, mode]
   );
   const options = [{ value: "", label: "Choose a member…" }, ...candidates.map((p) => ({ value: p.id, label: p.full_name ?? p.id }))];
@@ -40,7 +36,7 @@ export function ApproveAssignModal({ booking, onClose }: { booking: BookingWithN
     // Only send serviceMode for a legacy booking that never had one — a
     // customer-chosen mode is already on the row and shouldn't be re-written.
     assign.mutate(
-      { id: booking.id, assignedTo: assignee, serviceMode: modeChosenByCustomer ? undefined : legacyMode },
+      { id: booking.id, assignedTo: assignee, serviceMode: modeChosenByCustomer ? undefined : "home_care" },
       { onSuccess: onClose }
     );
   };
@@ -53,32 +49,16 @@ export function ApproveAssignModal({ booking, onClose }: { booking: BookingWithN
       </p>
 
       <div className="flex flex-col gap-4">
-        {modeChosenByCustomer ? (
-          <div>
-            <span className="mb-1 block text-sm font-medium text-gray-700">Visit type</span>
-            <p className="text-sm text-gray-900">{MODE_LABELS[mode]} <span className="text-xs text-gray-400">(chosen by customer)</span></p>
-          </div>
-        ) : (
-          <SelectField
-            label="Service mode"
-            value={legacyMode}
-            onValueChange={(v) => {
-              setLegacyMode(v as ServiceMode);
-              setAssignee("");
-            }}
-            options={MODE_OPTIONS}
-          />
-        )}
         <SelectField
-          label={mode === "clinic" ? "Assign staff member" : "Assign leaf node member"}
+          label={mode === "clinic" ? "Assign staff member" : "Assign staff or leaf node member"}
           value={assignee}
           onValueChange={setAssignee}
           options={options}
         />
         {candidates.length === 0 ? (
           <p className="text-xs text-amber-700">
-            No {mode === "clinic" ? "staff" : "leaf node"} accounts yet — promote one from the{" "}
-            {mode === "clinic" ? "Staff" : "Leaf Nodes"} page first.
+            No {mode === "clinic" ? "staff" : "staff or leaf node"} accounts yet — promote one from the{" "}
+            {mode === "clinic" ? "Staff" : "Staff or Leaf Nodes"} page first.
           </p>
         ) : null}
       </div>

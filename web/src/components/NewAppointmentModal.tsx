@@ -25,14 +25,10 @@ import {
   money,
   qk,
   localPhone,
-  SERVICE_MODES,
-  SERVICE_MODE_LABELS,
   type Profile,
-  type ServiceMode,
 } from "@vagewell/shared";
 
 const SLOTS = timeSlots();
-const MODE_OPTIONS = SERVICE_MODES.map((m) => ({ value: m, label: SERVICE_MODE_LABELS[m] }));
 
 /** Admin books a real appointment on a caller's behalf (0018) — existing accounts only, Pay at Visit only. */
 export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -45,7 +41,6 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
   const [familyMemberId, setFamilyMemberId] = useState("");
   const [form, setForm] = useState({
     service_id: "",
-    service_mode: "clinic" as ServiceMode,
     start_date: todayISODate(),
     num_days: "1",
     time_slot: SLOTS[0].value,
@@ -77,7 +72,7 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
     setQuery("");
     setPatient(null);
     setFamilyMemberId("");
-    setForm({ service_id: "", service_mode: "clinic", start_date: todayISODate(), num_days: "1", time_slot: SLOTS[0].value, symptom_brief: "" });
+    setForm({ service_id: "", start_date: todayISODate(), num_days: "1", time_slot: SLOTS[0].value, symptom_brief: "" });
     setErrors({});
   };
 
@@ -89,7 +84,7 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
     const candidate = {
       service_id: serviceId,
       family_member_id: familyMemberId,
-      service_mode: form.service_mode,
+      service_mode: "home_care" as const,
       start_date: form.start_date,
       num_days: days,
       time_slot: form.time_slot,
@@ -115,7 +110,7 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
       account_id: patient.id,
       service_id: serviceId,
       family_member_id: familyMemberId || null,
-      service_mode: form.service_mode,
+      service_mode: "home_care",
       num_days: days,
       start_date: form.start_date,
       time_slot: form.time_slot,
@@ -178,7 +173,6 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
           <SelectField label="Care for" value={familyMemberId} onValueChange={setFamilyMemberId} options={subjectOptions} />
           <SelectField label="Service" value={form.service_id || services?.[0]?.id || ""} onValueChange={set("service_id")} options={serviceOptions} />
           {errors.service_id ? <span className="text-xs text-danger">{errors.service_id}</span> : null}
-          <SelectField label="Visit type" value={form.service_mode} onValueChange={(v) => setForm((f) => ({ ...f, service_mode: v as ServiceMode }))} options={MODE_OPTIONS} />
 
           <div className="flex gap-3">
             <div className="flex-1">

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0019. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0020. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -309,8 +309,8 @@ begin
       raise exception 'family_member does not belong to caller' using errcode = '42501';
     end if;
   end if;
-  if new.service_mode is null or new.service_mode not in ('clinic','home_care') then
-    raise exception 'choose a visit type (clinic or home care)' using errcode = '23514';
+  if new.service_mode is distinct from 'home_care' then
+    raise exception 'visit type must be home care' using errcode = '23514';
   end if;
   select price_per_day, name, active, pricing_model into v_price, v_name, v_active, v_pricing_model
   from public.services where id = new.service_id;
@@ -379,8 +379,8 @@ begin
         raise exception 'assigned_to must be a staff member for clinic visits' using errcode = '23514';
       end if;
       if new.service_mode = 'home_care'
-         and not exists (select 1 from public.profiles where id = new.assigned_to and role = 'leaf_node') then
-        raise exception 'assigned_to must be a leaf_node member for home care visits' using errcode = '23514';
+         and not exists (select 1 from public.profiles where id = new.assigned_to and role in ('staff','leaf_node')) then
+        raise exception 'assigned_to must be a staff or leaf_node member for home care visits' using errcode = '23514';
       end if;
     elsif not public.is_admin() then
       raise exception 'admin only' using errcode = '42501';
