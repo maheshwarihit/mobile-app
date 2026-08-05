@@ -113,20 +113,22 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
             ) : null
           }
           renderItem={({ item: s }) => (
-            <Card className="p-4">
-              <View className="flex-row items-start gap-3">
-                <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                  <Stethoscope size={18} color={BRAND} />
+            <Pressable onPress={() => navigation.navigate("Appointment", { serviceId: s.id })} className="active:opacity-70">
+              <Card className="p-4">
+                <View className="flex-row items-start gap-3">
+                  <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
+                    <Stethoscope size={18} color={BRAND} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
+                    {s.description ? <Text className="mt-0.5 text-sm text-gray-500">{s.description}</Text> : null}
+                    <Text className="mt-1 text-sm font-semibold text-purple-700">
+                      {s.pricing_model === "flat_advance" ? `Advance ${money(s.price_per_day)} (monthly package)` : `${money(s.price_per_day)}/day`}
+                    </Text>
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
-                  {s.description ? <Text className="mt-0.5 text-sm text-gray-500">{s.description}</Text> : null}
-                  <Text className="mt-1 text-sm font-semibold text-purple-700">
-                    {s.pricing_model === "flat_advance" ? `Advance ${money(s.price_per_day)} (monthly package)` : `${money(s.price_per_day)}/day`}
-                  </Text>
-                </View>
-              </View>
-            </Card>
+              </Card>
+            </Pressable>
           )}
         />
       </View>

@@ -1638,3 +1638,16 @@ every new booking (unchanged from the previous round), it just isn't shown to an
       assign; only the on-screen label was removed.
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (18 routes); `mobile` `tsc --noEmit` clean +
   `expo export --platform web` bundle clean. No DB/shared changes this round — purely UI.
+
+## Change round — tapping a service card opens booking directly (user, 2026-08-05)
+User pointed at the Services screen screenshot: tapping a card did nothing (`vc.pdf`'s round, 2026-07-30,
+made this a pure browse list with no selection step). Asked for the tap itself to open booking.
+
+- [x] **`mobile/src/screens/ServicesScreen.tsx`**: each card's `renderItem` wrapped in a `Pressable`
+      (`onPress={() => navigation.navigate("Appointment", { serviceId: s.id })}`) — tapping a service now
+      goes straight to the Appointment screen pre-filled with that service, same as passing `serviceId`
+      from anywhere else in the app. The footer **Book Appointment** button is unchanged (still navigates
+      with no `serviceId`, which `AppointmentScreen` already defaults to the first service) — this adds a
+      second, faster entry point rather than replacing it. No highlighted-selection state reintroduced —
+      just a direct tap-through, not the old select-then-confirm flow from before `vc.pdf`.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
