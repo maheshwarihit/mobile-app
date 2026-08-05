@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0020. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0021. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -10,7 +10,7 @@ create extension if not exists pgcrypto;
 -- ── TABLES ──────────────────────────────────────────────────────────────────
 create table if not exists public.profiles (
   id                 uuid primary key references auth.users(id) on delete cascade,
-  role               text not null default 'patient' check (role in ('patient','staff','admin','leaf_node')),
+  role               text not null default 'patient' check (role in ('patient','admin','leaf_node')),
   full_name          text,
   phone              text,
   age                int  check (age is null or (age >= 0 and age <= 150)),
@@ -25,8 +25,12 @@ create table if not exists public.profiles (
 );
 -- Repair path: widen role + add household column on a table that predates 0009.
 alter table public.profiles add column if not exists primary_account_id uuid references public.profiles(id);
+-- 0021: 'staff' role retired — reassign any existing staff accounts to leaf_node
+-- (staff and leaf_node have been functionally identical since Clinic Visit was
+-- retired in 0020) before the constraint below stops allowing 'staff' at all.
+update public.profiles set role = 'leaf_node', updated_at = now() where role = 'staff';
 alter table public.profiles drop constraint if exists profiles_role_check;
-alter table public.profiles add constraint profiles_role_check check (role in ('patient','staff','admin','leaf_node'));
+alter table public.profiles add constraint profiles_role_check check (role in ('patient','admin','leaf_node'));
 -- Repair path: address on a table that predates 0011.
 alter table public.profiles add column if not exists address text;
 
@@ -193,11 +197,13 @@ create index if not exists idx_clinical_family_member   on public.clinical_recor
 create index if not exists idx_report_uploads_booking   on public.report_uploads(booking_id);
 
 -- ── ROLE HELPERS ────────────────────────────────────────────────────────────
--- "Staff" now means any operational role (staff/leaf_node/admin) — the shared
--- elevated-access boundary. is_admin() stays the sole full-oversight gate.
+-- is_staff() is named for history — the 'staff' role itself is retired (0021),
+-- but the function is kept as the shared "any operational role" boundary
+-- (now admin/leaf_node) rather than renaming it through every RLS policy that
+-- calls it. is_admin() stays the sole full-oversight gate.
 create or replace function public.is_staff() returns boolean
   language sql stable security definer set search_path = public, pg_temp as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and role in ('staff','admin','leaf_node')); $$;
+  select exists (select 1 from public.profiles where id = auth.uid() and role in ('admin','leaf_node')); $$;
 create or replace function public.is_admin() returns boolean
   language sql stable security definer set search_path = public, pg_temp as $$
   select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'); $$;
@@ -237,11 +243,13 @@ create trigger tg_report_uploads_updated_at before update on public.report_uploa
 -- ── AUTO-PROVISION PROFILE ON SIGNUP (+ household auto-link) ────────────────
 -- `requested_role` (0013): read from client-supplied signup metadata so the
 -- web staff portal's Register page can let a brand-new number self-select
--- Staff/Admin/Leaf Node immediately, no admin approval step (explicit user
+-- Admin/Leaf Node immediately, no admin approval step (explicit user
 -- decision, accepting that any signup — not just the web UI — could set
 -- this field; the mobile Register screen never sends it, so patient signups
 -- are unaffected in practice). Only fires on account CREATION, so an
 -- existing account has no way to use this path to escalate itself later.
+-- 'staff' retired from the allow-list (0021) — a stale 'staff' value in old
+-- signup metadata now falls through to 'patient', same as any other invalid value.
 create or replace function public.handle_new_user() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_age int; v_family_row public.family_members; v_role text;
@@ -249,7 +257,7 @@ begin
   if coalesce(new.raw_user_meta_data->>'age','') ~ '^\d+$'
     then v_age := (new.raw_user_meta_data->>'age')::int; else v_age := null; end if;
   v_role := nullif(new.raw_user_meta_data->>'requested_role','');
-  if v_role is null or v_role not in ('staff','admin','leaf_node') then
+  if v_role is null or v_role not in ('admin','leaf_node') then
     v_role := 'patient';
   end if;
   insert into public.profiles (id, role, phone, full_name, age, gender, address, how_heard, wellness_note)
@@ -374,13 +382,10 @@ begin
       if new.service_mode is null then
         raise exception 'service_mode must be set before assignment' using errcode = '23514';
       end if;
-      if new.service_mode = 'clinic'
-         and not exists (select 1 from public.profiles where id = new.assigned_to and role = 'staff') then
-        raise exception 'assigned_to must be a staff member for clinic visits' using errcode = '23514';
-      end if;
-      if new.service_mode = 'home_care'
-         and not exists (select 1 from public.profiles where id = new.assigned_to and role in ('staff','leaf_node')) then
-        raise exception 'assigned_to must be a staff or leaf_node member for home care visits' using errcode = '23514';
+      -- 'staff' role retired (0021) — leaf_node is the only assignable role now,
+      -- for a legacy Clinic-mode booking as much as a Home Care one.
+      if not exists (select 1 from public.profiles where id = new.assigned_to and role = 'leaf_node') then
+        raise exception 'assigned_to must be a leaf_node member' using errcode = '23514';
       end if;
     elsif not public.is_admin() then
       raise exception 'admin only' using errcode = '42501';
@@ -510,7 +515,7 @@ create or replace function public.set_user_role(p_user uuid, p_role text) return
   language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   if not public.is_admin() then raise exception 'admin only' using errcode = '42501'; end if;
-  if p_role not in ('patient','staff','admin','leaf_node') then raise exception 'invalid role'; end if;
+  if p_role not in ('patient','admin','leaf_node') then raise exception 'invalid role'; end if;
   update public.profiles set role = p_role where id = p_user;
 end; $$;
 
@@ -755,7 +760,7 @@ where r.booking_id = b.id
 -- update public.profiles set role = 'admin', updated_at = now()
 --  where id in (select id from auth.users where replace(phone,'+','') = '919000000001');
 
--- ── dev/test account role fixes (9000000002 = staff, 9000000003 = leaf_node) ──
+-- ── dev/test account role fixes (9000000002 = admin, 9000000003 = leaf_node) ──
 -- `insert ... on conflict` rather than a plain `update` so this repairs the
 -- account even if its profiles row is missing entirely (e.g. it was deleted
 -- directly without also deleting the auth.users row) — a bare update would
@@ -763,8 +768,11 @@ where r.booking_id = b.id
 -- regardless of whether the stored phone carries a leading `+` (Supabase Auth
 -- itself stores it without one). Safe to delete this block once these two
 -- numbers are no longer needed for testing.
+-- 9000000002 repointed from staff to admin (0021) — 'staff' role retired, and
+-- this keeps a distinct test account per remaining ops role rather than
+-- duplicating 9000000003's leaf_node.
 insert into public.profiles (id, role, phone, full_name)
-select u.id, 'staff', u.phone, coalesce(u.raw_user_meta_data->>'full_name', 'Staff')
+select u.id, 'admin', u.phone, coalesce(u.raw_user_meta_data->>'full_name', 'Admin')
 from auth.users u where replace(u.phone, '+', '') = '919000000002'
 on conflict (id) do update set role = excluded.role, updated_at = now();
 

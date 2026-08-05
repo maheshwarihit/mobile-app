@@ -10,7 +10,6 @@ const ADMIN_NAV = [
   { href: "/dashboard", label: "Appointments", icon: LayoutDashboard },
   { href: "/requests", label: "Requests", icon: PhoneIncoming },
   { href: "/patients", label: "Clients", icon: Users },
-  { href: "/staff", label: "Staff", icon: ClipboardList },
   { href: "/leaf-nodes", label: "Leaf Nodes", icon: Sprout },
   { href: "/reports", label: "Reports", icon: FileCheck2 },
   { href: "/live-sheet", label: "Live sheet", icon: FileSpreadsheet },
@@ -18,7 +17,7 @@ const ADMIN_NAV = [
   { href: "/payment-qr", label: "Payment QR", icon: QrCode },
 ];
 
-// Staff/leaf_node get a reduced nav — their own assigned work, not the full
+// leaf_node gets a reduced nav — their own assigned work, not the full
 // operational surface. Reports is included (not release/admin actions, but
 // the full view/history) since report_select RLS already grants any
 // is_staff() caller every report regardless of assignment.
@@ -32,7 +31,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { signOut, profile, role } = useAuth();
   const navLinks = role === "admin" ? ADMIN_NAV : OPS_NAV;
-  const portalLabel = role === "admin" ? "Admin Portal" : role === "leaf_node" ? "Leaf Node Portal" : "Staff Portal";
+  const portalLabel = role === "admin" ? "Admin Portal" : "Leaf Node Portal";
   const { data: requests } = useBookingRequests(role === "admin");
   const openRequestCount = (requests ?? []).filter((r) => !r.contacted).length;
 

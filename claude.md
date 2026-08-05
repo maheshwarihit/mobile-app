@@ -1651,3 +1651,60 @@ made this a pure browse list with no selection step). Asked for the tap itself t
       second, faster entry point rather than replacing it. No highlighted-selection state reintroduced —
       just a direct tap-through, not the old select-then-confirm flow from before `vc.pdf`.
 - Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+
+## Change round — retire the 'staff' role entirely (user, 2026-08-05)
+User: "only admin and leaf node is enough doesn't need staff role." Confirmed via two clarifying
+questions this meant a full removal (DB constraint, `is_staff()`, RLS-backing role lists, the admin
+`/staff` page, assignment eligibility), not just hiding it from the login picker — and that any account
+currently holding `role = 'staff'` should be migrated to `leaf_node` rather than demoted, since the two
+have been functionally identical for assignment purposes since Clinic Visit was retired earlier today
+(0020 already made both eligible for Home Care).
+
+- [x] **New migration `0021_drop_staff_role.sql`** (mirrored into `install_all.sql`, header bumped to
+      "0001–0021"). Order matters: `update profiles set role = 'leaf_node' where role = 'staff'` runs
+      **before** the constraint is tightened, so no existing row can violate it mid-migration. Then:
+      `profiles_role_check` narrowed to `('patient','admin','leaf_node')`; `is_staff()` redefined to
+      `role in ('admin','leaf_node')` — **kept the function name** rather than renaming it through every
+      RLS policy that calls it (`bk_select`, `clin_select`, `report_select`, `fam_*`, `svc_select`,
+      storage policies, etc. all go through `is_staff()` indirectly, so none of them needed editing);
+      `handle_new_user()`'s self-select-role allow-list narrowed to `('admin','leaf_node')`;
+      `set_user_role()`'s same allow-list narrowed to match; `tg_booking_update_guard()`'s assignment
+      branch **collapsed the Clinic/Home-Care split entirely** — both now require `role = 'leaf_node'`
+      on `assigned_to` (previously Clinic required `staff`, Home Care allowed `staff` or `leaf_node`;
+      with `staff` gone there's only one assignable role left, so the mode-based branching served no
+      purpose). Dev/test account `9000000002` repointed from `staff` to `admin` (keeps one test account
+      per remaining ops role rather than duplicating `9000000003`'s `leaf_node`).
+- [x] **`shared/src/constants.ts`**: `ROLES` and `OPS_ROLES` both narrowed to drop `'staff'`;
+      `ROLE_LABELS.staff` entry removed. Everything deriving from these (`Role` type in `types.ts`,
+      `ROLE_OPTIONS` in `OpsMemberList.tsx`, the login/register role-picker buttons) shrank automatically.
+- [x] **`web/src/app/login/page.tsx`** and **`register/page.tsx`**: the only two hand-written literal
+      `"staff"` values left in the web app — each page's `useState<OpsRole>("staff")` default — changed
+      to `"leaf_node"`.
+- [x] **Deleted `web/src/app/staff/` entirely** (the whole route). `web/src/components/AdminShell.tsx`:
+      removed its `/staff` nav entry from `ADMIN_NAV`; `portalLabel` simplified from a three-way ternary
+      to `role === "admin" ? "Admin Portal" : "Leaf Node Portal"` (the `"Staff Portal"` fallback branch
+      was unreachable dead code the moment the role stopped existing).
+- [x] **`web/src/components/ApproveAssignModal.tsx`**: dropped the `mode === "clinic" ? ... : ...`
+      branching in the candidate filter, label, and empty-state hint — now unconditionally `p.role ===
+      "leaf_node"`, "Assign leaf node member", "No leaf node accounts yet — promote one from the Leaf
+      Nodes page first", matching the single-role DB guard above.
+- [x] **`web/src/components/OpsMemberList.tsx`**: reworded "Staff portal" → "Ops portal" and "not yet on
+      the staff portal" → "not yet on the ops portal" (search-result group headers) — cosmetic, no
+      behavior change, `ROLE_OPTIONS`/filtering already derive from `ROLES`.
+- [x] **`mobile/src/navigation/RootNavigator.tsx`**: `isOpsRole` narrowed from `role === "staff" ||
+      role === "admin" || role === "leaf_node"` to just the latter two — this is the gate that decides
+      whether `CompleteProfileScreen` shows for a web-registered account opening the mobile app.
+      **`mobile/src/screens/CompleteProfileScreen.tsx`**: reworded "Your staff account never collected
+      these…" → "Your account never collected these…" and a doc-comment, since the screen is no longer
+      staff-specific copy for a role that can still exist.
+- **`.next/`'s generated route types went stale** after deleting `web/src/app/staff/` (a leftover
+  `.next/types/app/staff/page.ts` referencing the now-missing file failed `tsc --noEmit`) — cleared the
+  directory before re-checking; `next build` regenerates it fresh regardless, so this is a non-issue
+  outside a dev environment with a pre-existing `.next/` from before the route was deleted.
+- Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes, `/staff` gone); `mobile`
+  `tsc --noEmit` clean + `expo export --platform web` bundle clean.
+- **Needs the user's machine, same as every prior migration:** `0021_drop_staff_role.sql` (or the
+  refreshed `install_all.sql`) has not run against the live Supabase project from this environment —
+  until it does, `'staff'` is still a valid role there, `is_staff()` still includes it, and any booking
+  assignment still permits a `staff`-role member for a legacy Clinic-mode booking, even though the app
+  no longer offers any way to create or promote a staff account.

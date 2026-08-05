@@ -10,7 +10,7 @@ import { GENDERS, GENDER_LABELS } from "@vagewell/shared";
 const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }));
 
 /**
- * One-time gate for a staff/admin/leaf_node account using the mobile app for
+ * One-time gate for an admin/leaf_node account using the mobile app for
  * the first time — their profile was created via the web portal's Register
  * page, which only ever collects Full Name + Mobile Number, so age/gender/
  * address are all still null. RootNavigator renders this instead of the
@@ -66,7 +66,7 @@ export function CompleteProfileScreen() {
             </View>
             <Text className="text-2xl font-bold text-gray-900">Complete your profile</Text>
             <Text className="mt-1 text-center text-sm text-gray-600">
-              Your staff account never collected these — fill them in once to use VAgeWell as a client too.
+              Your account never collected these — fill them in once to use VAgeWell as a client too.
             </Text>
           </View>
 

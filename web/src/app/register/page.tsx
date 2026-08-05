@@ -22,7 +22,7 @@ type OpsRole = (typeof OPS_ROLES)[number];
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<"details" | "otp">("details");
-  const [role, setRole] = useState<OpsRole>("staff");
+  const [role, setRole] = useState<OpsRole>("leaf_node");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [e164, setE164] = useState("");

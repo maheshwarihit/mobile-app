@@ -57,7 +57,7 @@ export function RootNavigator() {
   const profileResolved = !!profile && profile.id === user?.id;
   if (loading || (user && profileLoading && !profileResolved)) return <SplashScreen />;
   if (!user) return <AuthNavigator />;
-  const isOpsRole = role === "staff" || role === "admin" || role === "leaf_node";
+  const isOpsRole = role === "admin" || role === "leaf_node";
   const needsProfileCompletion =
     isOpsRole && !!profile && profile.age == null && profile.gender == null && profile.address == null;
   if (needsProfileCompletion) return <CompleteProfileScreen />;

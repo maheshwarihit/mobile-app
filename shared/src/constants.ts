@@ -18,15 +18,15 @@ export const SCREEN_IDS = {
 } as const;
 
 // ── Enums (arrays back the CHECK constraints & UI dropdowns) ──────
-export const ROLES = ["patient", "staff", "admin", "leaf_node"] as const;
+// 'staff' role retired (0021) — admin and leaf_node cover all ops needs.
+export const ROLES = ["patient", "admin", "leaf_node"] as const;
 export const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
   patient: "Client",
-  staff: "Staff",
   admin: "Admin",
   leaf_node: "Leaf Node",
 };
 // Roles that operate the web portal (vs. the patient mobile app).
-export const OPS_ROLES = ["staff", "admin", "leaf_node"] as const;
+export const OPS_ROLES = ["admin", "leaf_node"] as const;
 
 export const GENDERS = ["male", "female", "other", "prefer_not_to_say"] as const;
 export const GENDER_LABELS: Record<(typeof GENDERS)[number], string> = {

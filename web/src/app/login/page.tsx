@@ -18,7 +18,7 @@ type OpsRole = (typeof OPS_ROLES)[number];
 // shouldCreateUser: false — this portal never registers a new account.
 export default function LoginPage() {
   const router = useRouter();
-  const [role, setRole] = useState<OpsRole>("staff");
+  const [role, setRole] = useState<OpsRole>("leaf_node");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
