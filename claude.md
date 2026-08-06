@@ -1773,3 +1773,36 @@ Login/Register as popups.
   saving a profile photo will fail (`avatar_path` column and its grant, and the `profile-photos` bucket/
   policies, don't exist there yet). Bio field edits (name/age/DOB/gender/address) need no new migration —
   `0019`'s address grant already covers everything `profileSchema` writes.
+
+## Change round — Home screen gains a Premium Packages preview (user, 2026-08-06)
+User confirmed the Home screen's existing services teaser + tap-through-to-signup were right (previous
+round), and asked for one addition: Silver/Gold/Platinum "premium package" tiers with their benefits.
+Since nothing like tiered packages exists anywhere in this project's schema — services are flat per-visit/
+monthly items, no bundling/membership concept at all — asked two clarifying questions before inventing
+pricing for a real healthcare product: confirmed **marketing-only** (not a real bookable product, no DB
+table, no payment path) and **placeholder content**, explicitly OK'd, not something to be presented as
+final.
+
+- [x] **`mobile/src/screens/HomeScreen.tsx`**: new local `PACKAGES` array (Silver ₹1,999/mo, Gold
+      ₹3,999/mo, Platinum ₹6,999/mo, each with 3 short benefit bullets) rendered as its own "Premium
+      packages" section below the services list, above the Get Started/Login buttons — same card style
+      and same tap-to-open-`AuthModal` behavior as the service cards (there's no real product behind a
+      tier yet, so tapping one can only ever lead to sign-up, same as everything else pre-auth). Each
+      tier gets a distinct icon/accent color (Medal/gray, Award/amber, Crown/purple) purely for visual
+      differentiation. A small "Preview — final pricing & benefits to be confirmed." caption sits directly
+      under the section heading — visible to real users, not just a code comment, since these numbers
+      are invented and showing them as settled fact on a live healthcare product's pricing page would be
+      actively misleading.
+- **Explicitly not done:** no `packages` table, no pricing/benefit data sourced from anywhere real, no
+  booking/payment wiring — flagged here so a future round doesn't mistake this for a finished feature.
+  Swap `PACKAGES` in `HomeScreen.tsx` for the real content once the client confirms it; turning it into an
+  actual bookable product is a separate, larger round (new table, RLS, booking flow) if that's ever wanted.
+- Verified visually, not just `tsc`/build: launched the mobile web dev server (already running on
+  `localhost:8081` — the user's own session, reused rather than starting a duplicate) and drove it with
+  Playwright (`chromium-cli` isn't available in this environment, so used a plain Playwright script
+  instead, installing the `chromium` browser first) — screenshotted the Home screen (services teaser +
+  new Premium packages section, correctly laid out and styled) and confirmed tapping "Get Started" opens
+  the `AuthModal` popup as expected. One pre-existing, unrelated console warning noted (`Cannot manually
+  set color scheme...`, an RN Web/NativeWind runtime message, not from any file in `mobile/src`) — didn't
+  block rendering, not introduced by this round. `tsc --noEmit` also clean.
+- No DB/shared/web changes this round — mobile-only, `HomeScreen.tsx`.
