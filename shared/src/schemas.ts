@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  HOW_HEARD_OPTIONS,
   GENDERS,
   RELATIONSHIPS,
   BLOOD_GROUPS,
@@ -17,15 +16,12 @@ const optionalAge = z
   .union([z.literal(""), z.coerce.number().int().min(0, "Invalid age").max(150, "Invalid age")])
   .transform((v) => (v === "" ? null : v));
 
-// ── Registration (REGISTER) ──────────────────────────────────────
+// ── Registration (quick sign-up: name + phone only, OTP does the rest) ────
+// Everything else (age/gender/address/how_heard/wellness_note) is filled in
+// later via the Profile screen's edit form, not collected up front.
 export const registerSchema = z.object({
   full_name: z.string().trim().min(2, "Enter your full name"),
   phone,
-  age: optionalAge,
-  gender: z.union([z.enum(asTuple(GENDERS)), z.literal("")]).optional(),
-  address: z.string().trim().max(500).optional().default(""),
-  how_heard: z.enum(asTuple(HOW_HEARD_OPTIONS)),
-  wellness_note: z.string().trim().max(1000).optional().default(""),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
@@ -49,6 +45,7 @@ export const profileSchema = z.object({
   age: optionalAge,
   date_of_birth: z.string().optional().default(""),
   gender: z.union([z.enum(asTuple(GENDERS)), z.literal("")]).optional(),
+  address: z.string().trim().max(500).optional().default(""),
 });
 export type ProfileInput = z.infer<typeof profileSchema>;
 

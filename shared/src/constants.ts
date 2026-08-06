@@ -129,6 +129,9 @@ export const PAYMENT_QR_OBJECT = "upi.png"; // single fixed object, upserted on 
 
 // ── Medical reports (staff/leaf_node upload; admin-gated before the customer sees them) ──
 export const MEDICAL_REPORT_BUCKET = "medical-reports"; // private (see migration 0009)
+
+// ── Profile photo (self-uploaded; public bucket, no signed URL needed) ──
+export const PROFILE_PHOTO_BUCKET = "profile-photos"; // public (see migration 0022)
 export const MAX_REPORT_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 export const ALLOWED_REPORT_MIME = ["image/png", "image/jpeg", "image/webp", "application/pdf"] as const;
 

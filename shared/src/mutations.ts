@@ -8,6 +8,7 @@ import {
   MEDICAL_REPORT_BUCKET,
   ALLOWED_REPORT_MIME,
   MAX_REPORT_UPLOAD_BYTES,
+  PROFILE_PHOTO_BUCKET,
 } from "./constants";
 import type { Role, ServiceMode, ReportType } from "./types";
 
@@ -245,6 +246,34 @@ export function useUpdateProfile() {
     onSuccess: () => {
       invalidate([qk.profile]);
       toast.success("Profile updated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useUploadProfilePhoto() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    // Same platform-neutral ProofSource shape as payment-proof uploads: web
+    // wraps a File, mobile wraps an image-picker asset.
+    mutationFn: async ({ userId, source }: { userId: string; source: ProofSource }) => {
+      if (!ALLOWED_IMAGE_MIME.includes(source.contentType as (typeof ALLOWED_IMAGE_MIME)[number]))
+        throw new Error("Please upload a PNG, JPG, or WEBP image.");
+      if (source.sizeBytes > MAX_UPLOAD_BYTES) throw new Error("File exceeds the 5 MB limit.");
+      const sb = getSupabase();
+      const ext = source.contentType === "image/png" ? "png" : source.contentType === "image/webp" ? "webp" : "jpg";
+      const path = `${userId}/${Date.now()}.${ext}`;
+      const body = await source.toArrayBuffer();
+      const { error: upErr } = await sb.storage
+        .from(PROFILE_PHOTO_BUCKET)
+        .upload(path, body, { contentType: source.contentType, upsert: true });
+      if (upErr) throw upErr;
+      const { error } = await sb.from("profiles").update({ avatar_path: path }).eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.profile]);
+      toast.success("Photo updated");
     },
     onError: (e: Error) => toast.error(e.message),
   });

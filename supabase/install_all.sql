@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0021. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0022. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -33,6 +33,8 @@ alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('patient','admin','leaf_node'));
 -- Repair path: address on a table that predates 0011.
 alter table public.profiles add column if not exists address text;
+-- Repair path: avatar_path on a table that predates 0022.
+alter table public.profiles add column if not exists avatar_path text;
 
 create table if not exists public.family_members (
   id                uuid primary key default gen_random_uuid(),
@@ -534,7 +536,7 @@ grant select on public.profiles to authenticated;
 -- address (0019): was added to the table by 0011 but never actually granted
 -- for update — any update naming it was rejected outright with "permission
 -- denied for table profiles", regardless of role or RLS.
-grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address) on public.profiles to authenticated;
+grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path) on public.profiles to authenticated;
 revoke insert, update, delete on public.bookings from anon, authenticated;
 grant select on public.bookings to authenticated;
 -- account_id (0018): widened so an admin's insert can name the target
@@ -673,6 +675,27 @@ create policy report_file_select on storage.objects for select to authenticated
       where r.storage_path = storage.objects.name and r.reviewed and public.in_household(b.account_id)
     )
   ));
+
+-- profile-photos (0022): public bucket (avatars are routinely public, unlike
+-- payment proofs/medical reports — same precedent as payment-qr), per-user
+-- write folders. Path convention: `<user_id>/<timestamp>.<ext>`. No select
+-- policy needed for read — a public bucket serves object URLs directly.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('profile-photos','profile-photos', true, 5242880, array['image/png','image/jpeg','image/webp'])
+on conflict (id) do update
+  set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists avatar_insert on storage.objects;
+create policy avatar_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'profile-photos'
+    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
+drop policy if exists avatar_update on storage.objects;
+create policy avatar_update on storage.objects for update to authenticated
+  using (bucket_id = 'profile-photos'
+    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
+drop policy if exists avatar_delete on storage.objects;
+create policy avatar_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'profile-photos'
+    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
 
 -- ── BOOKING REQUESTS (0010) — quick "contact me" lead, admin-only inbox ─────
 create table if not exists public.booking_requests (

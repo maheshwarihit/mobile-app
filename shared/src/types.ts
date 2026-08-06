@@ -41,6 +41,7 @@ export interface Profile {
   gender: Gender | null;
   date_of_birth: string | null; // YYYY-MM-DD
   address: string | null;
+  avatar_path: string | null; // storage path in PROFILE_PHOTO_BUCKET (public bucket)
   how_heard: HowHeard | null;
   wellness_note: string | null; // "How well are you?" (R1.5)
   // Set once this account's phone auto-links to a family_members row on

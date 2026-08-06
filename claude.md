@@ -1708,3 +1708,68 @@ have been functionally identical for assignment purposes since Clinic Visit was 
   until it does, `'staff'` is still a valid role there, `is_staff()` still includes it, and any booking
   assignment still permits a `staff`-role member for a legacy Clinic-mode booking, even though the app
   no longer offers any way to create or promote a staff account.
+
+## Change round — new mobile Home screen with sign-in/up popup, restored profile edit, photo upload (user, 2026-08-05)
+User asked for four things at once: (1) a home screen (shown before login) with a centered sign-in/sign-up
+popup collecting just name + phone, then OTP; (2) short info about services and premium packages on that
+home page; (3) tapping a service opens the booking flow; (4) an edit-profile option for patients, plus
+photo upload. Confirmed scope via three clarifying questions: quick sign-up (name+phone only) with
+everything else filled in later via Edit Profile; **restore** self-service profile editing (deliberately
+made read-only in the `vc.pdf` round, 2026-07-30 — corrections had been routed through staff since then);
+and replace the three-screen Landing→Login→Register flow with one Home screen + modal, not just restyle
+Login/Register as popups.
+
+- [x] **New migration `0022_profile_photo.sql`** (mirrored into `install_all.sql`, header bumped to
+      "0001–0022"): `profiles.avatar_path text` column; widened the update grant to include it
+      (`0019`'s address bug taught this project a column must be explicitly named in the grant list or
+      every UPDATE naming it is rejected outright — added it up front here instead). New public
+      `profile-photos` storage bucket (avatars are routinely public, same precedent as `payment-qr`,
+      unlike the private `payment-proofs`/`medical-reports` buckets) with per-user write folders
+      (`<user_id>/<timestamp>.<ext>`) — no select policy needed since a public bucket serves object URLs
+      directly, no signed-URL/TTL management.
+- [x] **`shared/src/schemas.ts`**: `registerSchema` collapsed from the full RegisterScreen field set
+      (name/phone/age/gender/address/how_heard/wellness_note) down to just `full_name` + `phone` —
+      everything else is now a Profile-screen concern, not a signup one. `profileSchema` (already
+      existed as dead code since the `vc.pdf` removal — nothing referenced it) gained an `address` field
+      and is now actually used again. **`shared/src/types.ts`**: `Profile.avatar_path`. **`constants.ts`**:
+      `PROFILE_PHOTO_BUCKET`. **`mutations.ts`**: new `useUploadProfilePhoto()`, mirroring
+      `useReuploadProof()`'s upload-then-update-row shape.
+- [x] **New `mobile/src/components/feature/AuthModal.tsx`** — centered `AppModal` popup with a Login/Sign
+      up toggle. Sign up asks only Full Name + Mobile Number; Login asks only Mobile Number. Both flow
+      into the same OTP step (`OtpInput`, resend timer) as the old `LoginScreen`/`RegisterScreen`, whose
+      `signInWithOtp`/`verifyOtp` logic this component absorbed directly — `shouldCreateUser: false` for
+      login (existing-user only, same "No account found — try Sign up" message as before),
+      `data: { full_name }` metadata for sign-up (nothing else, since `handle_new_user()` already
+      defaults every other field — age/gender/address to null, how_heard to `'web_search'` — no DB
+      change was needed to support a minimal signup, it already tolerated one).
+- [x] **New `mobile/src/screens/HomeScreen.tsx`** replaces `LandingScreen` as the signed-out screen.
+      Brand header + a static services/pricing teaser built from `SEED_SERVICES` (not a live `services`
+      query — that table's grant is `authenticated`-only, so an unauthenticated request would just get a
+      permission error; this content doesn't need to be live before someone even has an account). Tapping
+      any service card, "Get Started — Book Care", or "Existing user — Login" all open `AuthModal` (register
+      or login mode respectively) — there's no way to deep-link a specific service across the sign-up/auth
+      boundary, so post-auth landing is just the normal tabs, whose Services screen is already
+      tap-to-book (previous round).
+- [x] **Deleted `LandingScreen.tsx`/`LoginScreen.tsx`/`RegisterScreen.tsx`** and the now-unused
+      `AuthStackParamList`/`AuthScreenProps` types (`navigation/types.ts`). `RootNavigator.tsx`: the
+      `AuthNavigator` stack (three screens) collapsed to `if (!user) return <HomeScreen />;` — no stack
+      needed for one screen. Doc-comment updated: an ordinary patient signup is now just as minimal as an
+      ops-role one (name+phone either way) but deliberately does **not** trigger `CompleteProfileScreen`'s
+      gate — a patient can fill in age/gender/address whenever they like via Edit Profile, never blocked
+      from booking first; that gate stays admin/leaf_node-only, unchanged.
+- [x] **`mobile/src/screens/ProfileScreen.tsx`** — restored self-edit ("Your details" now has an **Edit
+      details** button toggling to a form: Full Name, Age, Date of birth, Gender, Address, Save/Cancel,
+      via `useUpdateProfile()` + `profileSchema`, same `refreshProfile()`-after-`onSuccess` pattern
+      `CompleteProfileScreen` already established). Mobile number stays read-only always (it's the auth
+      identifier, not a bio field). Added a circular avatar at the top of the same card — tap to pick +
+      upload a photo (`useUploadProfilePhoto()`, same `pickImageAsset`/`ALLOWED_IMAGE_MIME`/
+      `MAX_UPLOAD_BYTES` guard pattern as payment-proof re-upload); public-bucket URL is cache-busted
+      with `?v=<profile.updated_at>` so a re-upload shows immediately instead of serving a stale cached
+      image at the same path prefix.
+- Verified: `mobile` `tsc --noEmit` clean + `expo export --platform web` bundle clean; `web`
+  `tsc`/`eslint`/`next build --webpack` clean (17 routes, unaffected — this round is mobile + shared only).
+- **Needs the user's machine, same as every prior migration:** `0022_profile_photo.sql` (or the refreshed
+  `install_all.sql`) has not run against the live Supabase project from this environment — until it does,
+  saving a profile photo will fail (`avatar_path` column and its grant, and the `profile-photos` bucket/
+  policies, don't exist there yet). Bio field edits (name/age/DOB/gender/address) need no new migration —
+  `0019`'s address grant already covers everything `profileSchema` writes.

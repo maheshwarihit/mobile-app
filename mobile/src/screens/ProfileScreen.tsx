@@ -1,15 +1,20 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Text, ScrollView, Pressable, Linking, Platform } from "react-native";
+import { View, Text, ScrollView, Pressable, Linking, Platform, Image, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { useFocusEffect } from "@react-navigation/native";
 import { toast } from "sonner-native";
-import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download } from "lucide-react-native";
+import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download, Camera } from "lucide-react-native";
 import {
   PageHeader,
   SectionCard,
   SelectSheet,
+  FormInput,
+  TextareaInput,
+  DateField,
+  ChoiceChips,
+  PrimaryButton,
   OutlineButton,
   IconButton,
   EmptyState,
@@ -20,21 +25,30 @@ import {
 import { useAuth } from "@/providers/AuthProvider";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { supabase } from "@/lib/supabase";
+import { pickImageAsset, assetToProofSource } from "@/lib/upload";
+import { BRAND } from "@/theme";
 import {
   useFamilyMembers,
   useClinicalRecords,
   useDeleteDependent,
   useMyReports,
   useMyBookings,
+  useUpdateProfile,
+  useUploadProfilePhoto,
   formatDate,
   formatLocalDateTime,
   formatLocalTime,
   groupByLocalDate,
   localPhone,
+  profileSchema,
+  GENDERS,
   GENDER_LABELS,
   REPORT_TYPE_LABELS,
   MEDICAL_REPORT_BUCKET,
+  PROFILE_PHOTO_BUCKET,
   SIGNED_URL_TTL_SECONDS,
+  ALLOWED_IMAGE_MIME,
+  MAX_UPLOAD_BYTES,
   isBookingTerminal,
   isBookingMissed,
   bookingStatusMeta,
@@ -44,15 +58,87 @@ import {
   type Booking,
 } from "@vagewell/shared";
 
+const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }));
+
 // SCREEN_ID: PROFILE
 export function ProfileScreen() {
-  const { profile, user, loading, signOut } = useAuth();
+  const { profile, user, loading, signOut, refreshProfile } = useAuth();
   const { data: dependents, isLoading: depsLoading } = useFamilyMembers();
   const del = useDeleteDependent();
+  const updateProfile = useUpdateProfile();
+  const uploadPhoto = useUploadProfilePhoto();
 
   const [depModalOpen, setDepModalOpen] = useState(false);
   const [editingDep, setEditingDep] = useState<FamilyMember | null>(null);
   const [deleteDep, setDeleteDep] = useState<FamilyMember | null>(null);
+
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioForm, setBioForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", address: "" });
+  const [bioErrors, setBioErrors] = useState<Record<string, string>>({});
+  const setBio = (k: keyof typeof bioForm) => (v: string) => setBioForm((f) => ({ ...f, [k]: v }));
+
+  const startEditBio = () => {
+    setBioForm({
+      full_name: profile?.full_name ?? "",
+      age: profile?.age?.toString() ?? "",
+      date_of_birth: profile?.date_of_birth ?? "",
+      gender: profile?.gender ?? "male",
+      address: profile?.address ?? "",
+    });
+    setBioErrors({});
+    setEditingBio(true);
+  };
+
+  const saveBio = () => {
+    setBioErrors({});
+    const parsed = profileSchema.safeParse(bioForm);
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      for (const issue of parsed.error.issues) errs[String(issue.path[0])] = issue.message;
+      setBioErrors(errs);
+      return;
+    }
+    if (!profile) return;
+    updateProfile.mutate(
+      {
+        id: profile.id,
+        full_name: parsed.data.full_name,
+        age: parsed.data.age,
+        date_of_birth: parsed.data.date_of_birth || null,
+        gender: parsed.data.gender || null,
+        address: parsed.data.address || null,
+      },
+      {
+        onSuccess: async () => {
+          setEditingBio(false);
+          await refreshProfile();
+        },
+      }
+    );
+  };
+
+  const avatarUrl = profile?.avatar_path
+    ? `${supabase.storage.from(PROFILE_PHOTO_BUCKET).getPublicUrl(profile.avatar_path).data.publicUrl}?v=${encodeURIComponent(profile.updated_at)}`
+    : null;
+
+  const pickPhoto = async () => {
+    if (!user) return;
+    try {
+      const img = await pickImageAsset();
+      if (!img) return;
+      if (!(ALLOWED_IMAGE_MIME as readonly string[]).includes(img.mimeType)) {
+        toast.error("Please upload a PNG, JPG, or WEBP image.");
+        return;
+      }
+      if (img.fileSize > MAX_UPLOAD_BYTES) {
+        toast.error("File exceeds the 5 MB limit.");
+        return;
+      }
+      uploadPhoto.mutate({ userId: user.id, source: assetToProofSource(img) }, { onSuccess: () => refreshProfile() });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open the picker.");
+    }
+  };
 
   const [subject, setSubject] = useState("self");
 
@@ -156,21 +242,60 @@ export function ProfileScreen() {
       <ScrollView contentContainerClassName="px-5 pt-4 pb-10" keyboardShouldPersistTaps="handled">
         <PageHeader title="Profile" subtitle="Your details, dependents, and health record." />
 
-        {/* ── Bio (read-only — contact VAgeWell staff to correct anything) ── */}
+        {/* ── Bio (self-editable) ─────────────────────────── */}
         <SectionCard icon={UserCircle} title="Your details">
-          <View className="gap-2">
-            <Row label="Name" value={profile?.full_name ?? "—"} />
-            <Row label="Mobile" value={localPhone(profile?.phone) || "—"} />
-            <Row label="Age" value={profile?.age?.toString() ?? "—"} />
-            <Row label="Gender" value={profile?.gender ? GENDER_LABELS[profile.gender] : "—"} />
-            <Row label="Address" value={profile?.address ?? "—"} />
+          <View className="mb-4 items-center">
+            <Pressable onPress={pickPhoto} disabled={uploadPhoto.isPending} className="relative h-24 w-24 active:opacity-70">
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} className="h-24 w-24 rounded-full" resizeMode="cover" />
+              ) : (
+                <View className="h-24 w-24 items-center justify-center rounded-full bg-purple-50">
+                  <UserCircle size={48} color={BRAND} />
+                </View>
+              )}
+              <View className="absolute -bottom-1 -right-1 h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-purple-600">
+                {uploadPhoto.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Camera size={14} color="#fff" />}
+              </View>
+            </Pressable>
           </View>
-          <View className="mt-3 flex-row items-center gap-1.5">
-            <Lock size={12} color="#9ca3af" />
-            <Text className="flex-1 text-[11px] text-gray-400">
-              Set once at registration. Contact our team if anything needs correcting.
-            </Text>
-          </View>
+
+          {editingBio ? (
+            <View className="gap-4">
+              <FormInput label="Full Name" value={bioForm.full_name} onChangeText={setBio("full_name")} error={bioErrors.full_name} autoCapitalize="words" required />
+              <FormInput label="Age (optional)" value={bioForm.age} onChangeText={setBio("age")} placeholder="Age" keyboardType="number-pad" error={bioErrors.age} />
+              <DateField label="Date of birth (optional)" value={bioForm.date_of_birth} onChange={setBio("date_of_birth")} />
+              <ChoiceChips label="Gender" value={bioForm.gender} onChange={setBio("gender")} options={GENDER_OPTIONS} />
+              <TextareaInput label="Address" value={bioForm.address} onChangeText={setBio("address")} placeholder="House/street, city, pincode…" rows={2} maxLength={500} />
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <OutlineButton fullWidth onPress={() => setEditingBio(false)}>
+                    Cancel
+                  </OutlineButton>
+                </View>
+                <View className="flex-1">
+                  <PrimaryButton fullWidth loading={updateProfile.isPending} onPress={saveBio}>
+                    Save
+                  </PrimaryButton>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View className="gap-2">
+                <Row label="Name" value={profile?.full_name ?? "—"} />
+                <Row label="Mobile" value={localPhone(profile?.phone) || "—"} />
+                <Row label="Age" value={profile?.age?.toString() ?? "—"} />
+                <Row label="Date of birth" value={profile?.date_of_birth ? formatDate(profile.date_of_birth) : "—"} />
+                <Row label="Gender" value={profile?.gender ? GENDER_LABELS[profile.gender] : "—"} />
+                <Row label="Address" value={profile?.address ?? "—"} />
+              </View>
+              <View className="mt-3">
+                <OutlineButton icon={Pencil} onPress={startEditBio}>
+                  Edit details
+                </OutlineButton>
+              </View>
+            </>
+          )}
         </SectionCard>
 
         {/* ── Dependents ──────────────────────────────────── */}

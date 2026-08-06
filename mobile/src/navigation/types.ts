@@ -3,14 +3,6 @@ import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps, NavigatorScreenParams } from "@react-navigation/native";
 import type { PricingModel, ServiceMode } from "@vagewell/shared";
 
-// ── Auth stack (signed-out) ──────────────────────────────────────
-export type AuthStackParamList = {
-  Landing: undefined;
-  Login: undefined;
-  Register: undefined;
-};
-export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
-
 // ── Booking draft handed Appointment → Payment (via route params) ─
 export interface BookingDraft {
   service_id: string;

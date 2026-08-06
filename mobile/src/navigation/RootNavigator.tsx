@@ -1,29 +1,13 @@
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "@/providers/AuthProvider";
-import type { AuthStackParamList } from "@/navigation/types";
 import { SplashScreen } from "@/screens/SplashScreen";
-import { LandingScreen } from "@/screens/LandingScreen";
-import { LoginScreen } from "@/screens/LoginScreen";
-import { RegisterScreen } from "@/screens/RegisterScreen";
+import { HomeScreen } from "@/screens/HomeScreen";
 import { CompleteProfileScreen } from "@/screens/CompleteProfileScreen";
 import { AppNavigator } from "@/navigation/AppNavigator";
-
-const Auth = createNativeStackNavigator<AuthStackParamList>();
-
-function AuthNavigator() {
-  return (
-    <Auth.Navigator screenOptions={{ headerShown: false }}>
-      <Auth.Screen name="Landing" component={LandingScreen} />
-      <Auth.Screen name="Login" component={LoginScreen} />
-      <Auth.Screen name="Register" component={RegisterScreen} />
-    </Auth.Navigator>
-  );
-}
 
 /**
  * One session tree. After verifyOtp the session flips, the profile loads,
  * and the shell swaps automatically:
- *   signed out                                → AuthNavigator
+ *   signed out                                → HomeScreen (sign-in/up is a popup on it, not a separate screen)
  *   ops role, never completed patient details  → CompleteProfileScreen
  *   any other case                             → AppNavigator (tabs)
  *
@@ -38,10 +22,12 @@ function AuthNavigator() {
  * A staff/admin/leaf_node profile is created via the web portal's Register
  * page, which only ever collects Full Name + Mobile Number — age/gender/
  * address stay null forever unless something asks for them. The one-time
- * `CompleteProfileScreen` gate catches exactly that case (all three still
- * null) and blocks the normal tabs until they're filled in; an ordinary
- * patient signup already has these from the mobile Register screen, so the
- * gate never triggers for them.
+ * `CompleteProfileScreen` gate catches exactly that case for an ops role
+ * (all three still null) and blocks the normal tabs until they're filled
+ * in. An ordinary patient signup is now just as minimal (name + phone —
+ * see HomeScreen's AuthModal), but deliberately does NOT trigger this gate:
+ * a patient can fill the rest in later from Profile → Edit details, at
+ * their own pace, without being blocked from booking first.
  *
  * The splash gate avoids a flicker to the patient shell before the role
  * resolves — but only until the CURRENT user's profile first resolves. A
@@ -56,7 +42,7 @@ export function RootNavigator() {
   const { user, profile, loading, profileLoading, role } = useAuth();
   const profileResolved = !!profile && profile.id === user?.id;
   if (loading || (user && profileLoading && !profileResolved)) return <SplashScreen />;
-  if (!user) return <AuthNavigator />;
+  if (!user) return <HomeScreen />;
   const isOpsRole = role === "admin" || role === "leaf_node";
   const needsProfileCompletion =
     isOpsRole && !!profile && profile.age == null && profile.gender == null && profile.address == null;
