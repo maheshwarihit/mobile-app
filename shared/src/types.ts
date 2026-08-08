@@ -42,6 +42,7 @@ export interface Profile {
   date_of_birth: string | null; // YYYY-MM-DD
   address: string | null;
   avatar_path: string | null; // storage path in PROFILE_PHOTO_BUCKET (public bucket)
+  emp_id: string | null; // free-text employee ID, ops accounts only in practice
   how_heard: HowHeard | null;
   wellness_note: string | null; // "How well are you?" (R1.5)
   // Set once this account's phone auto-links to a family_members row on
@@ -141,6 +142,18 @@ export interface BookingRequestWithAccount extends BookingRequest {
   account?: Pick<Profile, "full_name" | "phone"> | null;
 }
 
+// ── patient_leads ("User Details" — a brand-new caller logged before they ──
+// have a real, phone-verified account; see handle_new_user()'s auto-claim) ──
+export interface PatientLead {
+  id: string;
+  full_name: string;
+  phone: string;
+  note: string | null;
+  created_by: string; // stamped server-side from auth.uid(), never client-supplied
+  claimed_profile_id: string | null; // set once this phone completes a real signup
+  created_at: string;
+}
+
 // ── clinical_records (vitals ledger; one subject per row) ────────
 export interface ClinicalRecord {
   id: string;
@@ -169,6 +182,7 @@ export interface BookingWithNames extends Booking {
   subject_age?: number | null;
   subject_phone?: string | null;
   assigned_to_name?: string | null; // resolved from the assigned staff/leaf_node profile
+  assigned_to_phone?: string | null;
 }
 
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { OTP_LENGTH, ROLE_LABELS, type Role } from "@vagewell/shared";
@@ -17,6 +17,17 @@ function VerifyForm() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const resend = useResendTimer(60);
+
+  // /verify is only ever reached right after /login's send() already fired
+  // the first OTP — but that happened on a different page/component
+  // instance, so this timer (freshly mounted here) has no way to know that
+  // without an explicit kick on mount. Without this, canResend defaulted to
+  // true (secondsLeft starts at 0) until the first manual Resend click,
+  // making the countdown never show for the initial code.
+  useEffect(() => {
+    resend.restart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const resendCode = async () => {
     setErr(null);

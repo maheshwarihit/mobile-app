@@ -3,9 +3,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 import { Stethoscope, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
 import { PageHeader, PrimaryButton, OutlineButton, LoadingState, EmptyState, ErrorBanner, Card } from "@/components/ui";
+import { PremiumPackagesSection } from "@/components/feature/PremiumPackagesSection";
 import { useAuth } from "@/providers/AuthProvider";
 import { BRAND } from "@/theme";
-import { useServices, useCreateBookingRequest, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
+import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 const RING_SIZE = 44;
@@ -46,10 +47,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
   const { profile } = useAuth();
   const requestBooking = useCreateBookingRequest();
 
-  // Same 4 fields ProfileScreen's "Your details" card shows, so this ring and
-  // the Profile tab always agree.
-  const profileFields = [profile?.full_name, profile?.age, profile?.date_of_birth, profile?.gender];
-  const profilePercent = Math.round((profileFields.filter(Boolean).length / profileFields.length) * 100);
+  const profilePercent = profile ? profileCompletionPercent(profile) : 0;
 
   // No service picker here — this page is browse-only; the Service dropdown on
   // the Appointment screen is where a service is actually chosen.
@@ -89,6 +87,9 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           ListFooterComponent={
             (services?.length ?? 0) > 0 ? (
               <View className="mt-2 gap-3">
+                <View className="mb-2">
+                  <PremiumPackagesSection onPressPackage={book} />
+                </View>
                 <OutlineButton
                   fullWidth
                   icon={PhoneIncoming}

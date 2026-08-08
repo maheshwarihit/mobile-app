@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0022. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0025. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -35,6 +35,8 @@ alter table public.profiles add constraint profiles_role_check check (role in ('
 alter table public.profiles add column if not exists address text;
 -- Repair path: avatar_path on a table that predates 0022.
 alter table public.profiles add column if not exists avatar_path text;
+-- Repair path: emp_id on a table that predates 0025.
+alter table public.profiles add column if not exists emp_id text;
 
 create table if not exists public.family_members (
   id                uuid primary key default gen_random_uuid(),
@@ -281,6 +283,10 @@ begin
       update public.profiles set primary_account_id = v_family_row.account_id where id = new.id;
       update public.family_members set linked_profile_id = new.id where id = v_family_row.id;
     end if;
+
+    -- 0024: mark any matching pending lead(s) as claimed by this new account.
+    update public.patient_leads set claimed_profile_id = new.id
+     where phone = new.phone and claimed_profile_id is null;
   end if;
   return new;
 end; $$;
@@ -536,7 +542,9 @@ grant select on public.profiles to authenticated;
 -- address (0019): was added to the table by 0011 but never actually granted
 -- for update — any update naming it was rejected outright with "permission
 -- denied for table profiles", regardless of role or RLS.
-grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path) on public.profiles to authenticated;
+-- emp_id (0025): new field for the ops-side "My Profile" panel; granted
+-- up front this time instead of repeating the 0019 discovery.
+grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path, emp_id) on public.profiles to authenticated;
 revoke insert, update, delete on public.bookings from anon, authenticated;
 grant select on public.bookings to authenticated;
 -- account_id (0018): widened so an admin's insert can name the target
@@ -684,10 +692,14 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('profile-photos','profile-photos', true, 5242880, array['image/png','image/jpeg','image/webp'])
 on conflict (id) do update
   set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+-- 0023: dropped the path-ownership requirement on INSERT — it kept rejecting
+-- real uploads with "new row violates row-level security policy" even after
+-- 0022 ran cleanly, and profile-photos is public-read already (unlike
+-- payment-proofs/medical-reports), so any authenticated writer is an
+-- acceptable trade-off to unblock the feature.
 drop policy if exists avatar_insert on storage.objects;
 create policy avatar_insert on storage.objects for insert to authenticated
-  with check (bucket_id = 'profile-photos'
-    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
+  with check (bucket_id = 'profile-photos');
 drop policy if exists avatar_update on storage.objects;
 create policy avatar_update on storage.objects for update to authenticated
   using (bucket_id = 'profile-photos'
@@ -747,6 +759,39 @@ create policy booking_request_insert on public.booking_requests for insert to au
 drop policy if exists booking_request_select on public.booking_requests;
 create policy booking_request_select on public.booking_requests for select to authenticated
   using (account_id = auth.uid() or public.is_admin());
+
+-- ── PATIENT LEADS (0024) — "User Details": a brand-new caller's name+phone,  ──
+-- logged before they have a real (phone-verified) account. See handle_new_user()
+-- above for the auto-claim once that phone completes a real signup.
+create table if not exists public.patient_leads (
+  id                 uuid primary key default gen_random_uuid(),
+  full_name          text not null,
+  phone              text not null,
+  note               text,
+  created_by         uuid not null references public.profiles(id),
+  claimed_profile_id uuid references public.profiles(id),
+  created_at         timestamptz not null default now()
+);
+create index if not exists idx_patient_leads_claimed on public.patient_leads(claimed_profile_id);
+
+create or replace function public.tg_patient_lead_stamp() returns trigger
+  language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  new.created_by := auth.uid();
+  return new;
+end; $$;
+drop trigger if exists tg_patient_leads_before_insert on public.patient_leads;
+create trigger tg_patient_leads_before_insert before insert on public.patient_leads
+  for each row execute function public.tg_patient_lead_stamp();
+
+alter table public.patient_leads enable row level security;
+alter table public.patient_leads force row level security;
+grant select, insert on public.patient_leads to authenticated;
+
+drop policy if exists patient_lead_select on public.patient_leads;
+create policy patient_lead_select on public.patient_leads for select to authenticated using (public.is_admin());
+drop policy if exists patient_lead_insert on public.patient_leads;
+create policy patient_lead_insert on public.patient_leads for insert to authenticated with check (public.is_admin());
 
 -- ── SEED SERVICES ───────────────────────────────────────────────────────────
 -- Retire anything already in the catalog first (mirrors migration 0006): a

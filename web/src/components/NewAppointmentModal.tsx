@@ -142,7 +142,10 @@ export function NewAppointmentModal({ open, onClose }: { open: boolean; onClose:
         <div className="flex flex-col gap-3">
           <FormInput label="Find client" value={query} onChangeText={setQuery} placeholder="Name or phone…" icon={Search} />
           {query.trim() && matches.length === 0 ? (
-            <EmptyState title="No match" description="No client found with that name or phone. They need an account first." />
+            <EmptyState
+              title="No match"
+              description="No client found with that name or phone. Brand new caller? They need to complete sign-up first — then search here again."
+            />
           ) : (
             <div className="flex max-h-64 flex-col gap-1.5 overflow-y-auto">
               {matches.map((p) => (

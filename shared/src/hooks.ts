@@ -10,6 +10,7 @@ import type {
   BookingWithNames,
   ReportUpload,
   BookingRequestWithAccount,
+  PatientLead,
 } from "./types";
 
 // ── Services (SERVICE_LIST / APPOINTMENT) ────────────────────────
@@ -105,7 +106,7 @@ export function useMyBookings() {
 }
 
 const BOOKING_WITH_NAMES_SELECT =
-  "*, account:profiles!bookings_account_id_fkey(full_name, phone, age), dependent:family_members(full_name, relationship, age, contact_phone), assignee:profiles!bookings_assigned_to_fkey(full_name)";
+  "*, account:profiles!bookings_account_id_fkey(full_name, phone, age), dependent:family_members(full_name, relationship, age, contact_phone), assignee:profiles!bookings_assigned_to_fkey(full_name, phone)";
 
 function mapBookingWithNames(row: Record<string, unknown>): BookingWithNames {
   const account = row.account as Pick<Profile, "full_name" | "phone" | "age"> | null;
@@ -113,7 +114,7 @@ function mapBookingWithNames(row: Record<string, unknown>): BookingWithNames {
     FamilyMember,
     "full_name" | "relationship" | "age" | "contact_phone"
   > | null;
-  const assignee = row.assignee as Pick<Profile, "full_name"> | null;
+  const assignee = row.assignee as Pick<Profile, "full_name" | "phone"> | null;
   return {
     ...(row as unknown as Booking),
     account: account ?? undefined,
@@ -122,6 +123,7 @@ function mapBookingWithNames(row: Record<string, unknown>): BookingWithNames {
     subject_age: dependent ? dependent.age : account?.age ?? null,
     subject_phone: dependent ? dependent.contact_phone : account?.phone ?? null,
     assigned_to_name: assignee?.full_name ?? null,
+    assigned_to_phone: assignee?.phone ?? null,
   } as BookingWithNames;
 }
 
@@ -323,6 +325,21 @@ export function useBookingRequests(enabled: boolean) {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as BookingRequestWithAccount[];
+    },
+  });
+}
+
+export function usePatientLeads(enabled: boolean) {
+  return useQuery({
+    queryKey: qk.patientLeads,
+    enabled,
+    queryFn: async (): Promise<PatientLead[]> => {
+      const { data, error } = await getSupabase()
+        .from("patient_leads")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PatientLead[];
     },
   });
 }

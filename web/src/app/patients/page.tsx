@@ -5,10 +5,15 @@ import { useRouter } from "next/navigation";
 import { Users, ChevronRight } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { Card, Pill, FormInput, LoadingState, EmptyState, PageHeader } from "@/components/ui";
-import { useAllProfiles, useAllFamilyMembers, formatDate, localPhone } from "@vagewell/shared";
+import { ProfileAvatar, ProfileCompletionRing, profileCompletionPercent } from "@/components/ProfileSummary";
+import { useAllProfiles, useAllFamilyMembers, formatDate, localPhone, type Profile } from "@vagewell/shared";
 
+// Completion %/photo only apply to account holders — a `family_members` row
+// has no `avatar_path`/age/gender/dob of its own unless it's linked to its
+// own profile, which would need a second lookup; kept simple and scoped to
+// what actually carries those fields directly.
 type PatientRow =
-  | { kind: "account"; key: string; name: string; phone: string | null; detail: string; accountId: string }
+  | { kind: "account"; key: string; name: string; phone: string | null; detail: string; accountId: string; profile: Profile }
   | { kind: "dependent"; key: string; name: string; phone: string | null; detail: string; accountId: string; familyMemberId: string };
 
 function PatientsContent() {
@@ -31,6 +36,7 @@ function PatientsContent() {
         phone: p.phone,
         detail: `${localPhone(p.phone) || "—"} · Joined ${formatDate(p.created_at)}`,
         accountId: p.id,
+        profile: p,
       }));
 
     const members: PatientRow[] = (dependents ?? []).map((d) => ({
@@ -67,7 +73,8 @@ function PatientsContent() {
         <div className="flex flex-col gap-3">
           {rows.map((r) => (
             <button key={r.key} onClick={() => open(r)} className="text-left active:opacity-80">
-              <Card className="flex items-center justify-between p-4">
+              <Card className="flex items-center gap-3 p-4">
+                {r.kind === "account" ? <ProfileAvatar profile={r.profile} size={40} /> : null}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-base font-semibold text-gray-900">{r.name}</p>
@@ -79,6 +86,7 @@ function PatientsContent() {
                   </div>
                   <p className="text-xs text-gray-500">{r.detail}</p>
                 </div>
+                {r.kind === "account" ? <ProfileCompletionRing percent={profileCompletionPercent(r.profile)} size={36} /> : null}
                 <ChevronRight size={18} className="text-gray-400" />
               </Card>
             </button>

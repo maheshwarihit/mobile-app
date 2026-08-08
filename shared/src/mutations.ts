@@ -238,6 +238,7 @@ export function useUpdateProfile() {
       date_of_birth: string | null;
       gender: string | null;
       address?: string | null;
+      emp_id?: string | null;
     }) => {
       const { id, ...rest } = payload;
       const { error } = await getSupabase().from("profiles").update(rest).eq("id", id);
@@ -387,6 +388,25 @@ export function useCreateBookingRequest() {
     // pending migration reads as "Could not find the table…", which means
     // nothing to someone trying to book care).
     onError: () => toast.error("Could not send your request. Please try again shortly."),
+  });
+}
+
+// ── Patient leads ("User Details" — admin logs a brand-new caller) ───────────
+export function useCreatePatientLead() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (payload: { full_name: string; phone: string; note?: string }) => {
+      // created_by is stamped server-side (tg_patient_lead_stamp), not sent from the client.
+      const { error } = await getSupabase()
+        .from("patient_leads")
+        .insert({ full_name: payload.full_name, phone: payload.phone, note: payload.note || null });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.patientLeads]);
+      toast.success("Saved — they'll show up here as registered once they complete sign-up.");
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 }
 

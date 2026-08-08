@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { FileSearch, UserPlus2, CalendarDays, UploadCloud, Eye, Plus } from "lucide-react";
+import { FileSearch, UserPlus2, CalendarDays, UploadCloud, Eye, Plus, MessageCircle } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { useAuth } from "@/providers/AuthProvider";
 import { Card, Pill, FormInput, IconButton, LoadingState, EmptyState, ErrorBanner, PageHeader } from "@/components/ui";
@@ -12,6 +13,7 @@ import { PaymentReviewModal } from "@/components/PaymentReviewModal";
 import { ApproveAssignModal } from "@/components/ApproveAssignModal";
 import { ReportUploadModal } from "@/components/ReportUploadModal";
 import { NewAppointmentModal } from "@/components/NewAppointmentModal";
+import { assignmentMessage } from "@/lib/whatsapp";
 import {
   useAllBookings,
   useReportsForBooking,
@@ -20,6 +22,7 @@ import {
   formatLocalDateTime,
   paymentStatusMeta,
   bookingStatusMeta,
+  waLink,
   MEDICAL_REPORT_BUCKET,
   SIGNED_URL_TTL_SECONDS,
   type BookingWithNames,
@@ -135,6 +138,7 @@ function BookingCard({
   const latestReport = reports?.[0] ?? null;
   const isCancelled = booking.booking_status === "cancelled";
   const isRequested = booking.booking_status === "requested";
+  const waHref = booking.assigned_to_phone ? waLink(booking.assigned_to_phone, assignmentMessage(booking)) : null;
 
   // Prefetched and rendered as a real <a href>, not a click handler that
   // calls window.open() after an await — browsers' popup blockers silently
@@ -157,7 +161,9 @@ function BookingCard({
           <p className="text-base font-semibold text-gray-900">{booking.service_name}</p>
           <p className="text-xs text-gray-500">
             {booking.account?.full_name ?? "—"} Client{" "}
-            <span className="font-medium text-brand-600">{booking.subject_name ?? "—"}</span>
+            <Link href={`/patients/${booking.account_id}`} className="font-medium text-brand-600 hover:underline">
+              {booking.subject_name ?? "—"}
+            </Link>
           </p>
           <p className="mt-1 text-sm text-gray-600">
             {formatDate(booking.start_date)} · {money(booking.total_amount)}
@@ -208,6 +214,17 @@ function BookingCard({
             >
               <Eye size={14} />
               View Report
+            </a>
+          ) : null}
+          {waHref ? (
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-sm font-medium text-emerald-700 active:opacity-70"
+            >
+              <MessageCircle size={14} />
+              Message on WhatsApp
             </a>
           ) : null}
         </div>

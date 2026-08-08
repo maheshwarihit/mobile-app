@@ -4,9 +4,10 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { UserCircle, Users, ChevronRight, FileCheck2, Eye, Download } from "lucide-react";
+import { UserCircle, Users, ChevronRight, FileCheck2, Eye, Download, CalendarClock } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
 import { SectionCard, LoadingState, EmptyState, PageHeader, Pill } from "@/components/ui";
+import { ProfileAvatar, ProfileCompletionRing, profileCompletionPercent } from "@/components/ProfileSummary";
 import { supabase } from "@/lib/supabase";
 import {
   useAllProfiles,
@@ -15,7 +16,10 @@ import {
   useAllReports,
   localPhone,
   formatLocalTime,
+  formatDate,
+  money,
   groupByLocalDate,
+  bookingStatusMeta,
   REPORT_TYPE_LABELS,
   MEDICAL_REPORT_BUCKET,
   SIGNED_URL_TTL_SECONDS,
@@ -39,10 +43,14 @@ function PatientProfileContent({ accountId }: { accountId: string }) {
   // filtering bookings by account_id already covers the whole household.
   const { data: bookings } = useAllBookings(true);
   const { data: reports } = useAllReports(true);
-  const householdBookingIds = useMemo(
-    () => new Set((bookings ?? []).filter((b) => b.account_id === accountId).map((b) => b.id)),
+  const householdBookings = useMemo(
+    () =>
+      (bookings ?? [])
+        .filter((b) => b.account_id === accountId)
+        .sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at)),
     [bookings, accountId]
   );
+  const householdBookingIds = useMemo(() => new Set(householdBookings.map((b) => b.id)), [householdBookings]);
   const householdReports = useMemo(
     () => (reports ?? []).filter((r) => householdBookingIds.has(r.booking_id)).sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [reports, householdBookingIds]
@@ -79,6 +87,16 @@ function PatientProfileContent({ accountId }: { accountId: string }) {
       <PageHeader title="Family members" onBack={() => router.push("/patients")} />
 
       <SectionCard icon={UserCircle} title={patientName} subtitle="Account holder">
+        {profile ? (
+          <div className="mb-3 flex items-center gap-3">
+            <ProfileAvatar profile={profile} size={56} />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">Profile completion</p>
+              <p className="text-xs text-gray-500">Name, age, date of birth, gender</p>
+            </div>
+            <ProfileCompletionRing percent={profileCompletionPercent(profile)} size={48} />
+          </div>
+        ) : null}
         <button
           onClick={() => router.push(`/patients/${accountId}/self`)}
           className="flex w-full items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-3 text-left active:opacity-80"
@@ -89,6 +107,31 @@ function PatientProfileContent({ accountId }: { accountId: string }) {
           </div>
           <ChevronRight size={18} className="text-gray-400" />
         </button>
+      </SectionCard>
+
+      <SectionCard icon={CalendarClock} title="Appointment history" subtitle="Every booking for this household, newest first">
+        {householdBookings.length === 0 ? (
+          <EmptyState icon={CalendarClock} title="No appointments" description="Bookings for this account and its dependents appear here." />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {householdBookings.map((b) => {
+              const status = bookingStatusMeta(b.booking_status);
+              return (
+                <div key={b.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{b.service_name}</p>
+                    <p className="text-xs text-gray-500">
+                      {b.subject_name ?? "—"} · {formatDate(b.start_date)} · {money(b.total_amount)}
+                    </p>
+                  </div>
+                  <Pill bgClass={status.bg} textClass={status.text}>
+                    {status.label}
+                  </Pill>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </SectionCard>
 
       <SectionCard icon={Users} title="Dependents" subtitle="Tap to edit a member's record">

@@ -28,4 +28,5 @@ export const qk = {
   reportsUnreviewed: ["reports", "__unreviewed__"] as const,
   reportsAll: ["reports", "__all__"] as const,
   bookingRequests: ["booking_requests"] as const,
+  patientLeads: ["patient_leads"] as const,
 };

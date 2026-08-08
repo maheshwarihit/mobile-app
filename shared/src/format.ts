@@ -1,9 +1,18 @@
-import type { PaymentStatus, BookingStatus } from "./types";
+import type { PaymentStatus, BookingStatus, Profile } from "./types";
 import {
   SLOT_MINUTES,
   BOOKING_START_HOUR,
   BOOKING_END_HOUR,
+  NEW_SIGNUP_WINDOW_MS,
 } from "./constants";
+
+// Same 4 fields the mobile Profile screen's edit form covers, so every
+// "how complete is this profile" reading (mobile's ring, the web ops portal's
+// own-profile card, a client's profile card) always agrees.
+export function profileCompletionPercent(p: Pick<Profile, "full_name" | "age" | "date_of_birth" | "gender">): number {
+  const fields = [p.full_name, p.age, p.date_of_birth, p.gender];
+  return Math.round((fields.filter(Boolean).length / fields.length) * 100);
+}
 
 export function money(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -54,6 +63,12 @@ export function isBookingMissed(status: BookingStatus, startDate: string, timeSl
   if (!y || !m || !d) return false;
   const scheduled = new Date(y, m - 1, d, hh || 0, mm || 0);
   return scheduled.getTime() < Date.now();
+}
+
+/** Sign-up recency check for the web admin's nav badge + User Details "New" pill — kept as a plain
+ * function (not inlined at the call site) so `Date.now()` isn't called directly in a component body. */
+export function isNewSignup(createdAt: string): boolean {
+  return Date.now() - new Date(createdAt).getTime() < NEW_SIGNUP_WINDOW_MS;
 }
 
 // Rows can carry a status written before a schema migration ran (e.g. the old

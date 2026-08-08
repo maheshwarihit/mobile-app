@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, PlayCircle, UploadCloud, CheckCircle2, Eye } from "lucide-react";
 import { RequireStaff } from "@/components/RequireStaff";
@@ -96,7 +97,10 @@ function VisitCard({ booking, onVitals, onReport }: { booking: BookingWithNames;
         <div className="flex-1">
           <p className="text-base font-semibold text-gray-900">{booking.service_name}</p>
           <p className="text-xs text-gray-500">
-            Client <span className="font-medium text-brand-600">{booking.subject_name ?? "—"}</span>
+            Client{" "}
+            <Link href={`/patients/${booking.account_id}`} className="font-medium text-brand-600 hover:underline">
+              {booking.subject_name ?? "—"}
+            </Link>
           </p>
           <p className="mt-1 text-sm text-gray-600">
             {formatDate(booking.start_date)} · {money(booking.total_amount)}
