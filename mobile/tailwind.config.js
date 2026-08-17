@@ -7,6 +7,12 @@
 module.exports = {
   content: ["./App.tsx", "./src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
+  // "class" (not the Tailwind default "media") so the admin sidebar's
+  // Light/Dark toggle can actually override the scheme in JS
+  // (`useColorScheme().setColorScheme()`, see useThemePreference.ts) — with
+  // the default "media" strategy, dark: only ever follows the OS/browser
+  // preference and NativeWind *throws* if you try to override it manually.
+  darkMode: "class",
   theme: {
     extend: {
       colors: {

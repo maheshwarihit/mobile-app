@@ -1,45 +1,21 @@
 import { View, Text, FlatList, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle } from "react-native-svg";
 import { Stethoscope, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
-import { PageHeader, PrimaryButton, OutlineButton, LoadingState, EmptyState, ErrorBanner, Card } from "@/components/ui";
+import {
+  PageHeader,
+  PrimaryButton,
+  OutlineButton,
+  LoadingState,
+  EmptyState,
+  ErrorBanner,
+  Card,
+  ProfileCompletionRing,
+} from "@/components/ui";
 import { PremiumPackagesSection } from "@/components/feature/PremiumPackagesSection";
 import { useAuth } from "@/providers/AuthProvider";
 import { BRAND } from "@/theme";
 import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
-
-const RING_SIZE = 44;
-const RING_STROKE = 3;
-const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-
-/** Naukri-style profile completion ring — tap to jump to the Profile tab. */
-function ProfileCompletionButton({ percent, onPress }: { percent: number; onPress: () => void }) {
-  const clamped = Math.max(0, Math.min(100, percent));
-  const offset = RING_CIRCUMFERENCE * (1 - clamped / 100);
-  return (
-    <Pressable onPress={onPress} className="h-11 w-11 items-center justify-center active:opacity-70">
-      <Svg width={RING_SIZE} height={RING_SIZE} style={{ position: "absolute" }}>
-        <Circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS} stroke="#e5e7eb" strokeWidth={RING_STROKE} fill="none" />
-        <Circle
-          cx={RING_SIZE / 2}
-          cy={RING_SIZE / 2}
-          r={RING_RADIUS}
-          stroke={BRAND}
-          strokeWidth={RING_STROKE}
-          fill="none"
-          strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-        />
-      </Svg>
-      <Text className="text-[9px] font-bold text-gray-700">{clamped}%</Text>
-    </Pressable>
-  );
-}
 
 // SCREEN_ID: SERVICE_LIST
 export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Services">) {
@@ -67,7 +43,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
               >
                 <PhoneCall size={18} color={BRAND} />
               </Pressable>
-              <ProfileCompletionButton percent={profilePercent} onPress={() => navigation.navigate("ProfileTab")} />
+              <ProfileCompletionRing percent={profilePercent} onPress={() => navigation.navigate("ProfileTab")} />
             </View>
           }
         />

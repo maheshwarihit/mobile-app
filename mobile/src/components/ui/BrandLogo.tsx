@@ -12,8 +12,16 @@ const chipShadow = {
   shadowOffset: { width: 0, height: 1 },
 };
 
-/** VAgeWell brand mark. `size` is the chip's outer edge in px. */
-export function BrandLogo({ size = 64 }: { size?: number }) {
+/**
+ * VAgeWell brand mark. `size` is the chip's outer edge in px.
+ * `transparent` skips the white chip entirely and renders the mark directly —
+ * for the dark hero screens (Onboarding, Landing), where a solid white badge
+ * reads as a stray box over a photo instead of a mark blending into it.
+ */
+export function BrandLogo({ size = 64, transparent = false }: { size?: number; transparent?: boolean }) {
+  if (transparent) {
+    return <Image source={logo} style={{ width: size, height: size }} resizeMode="contain" />;
+  }
   const inner = Math.round(size * 0.82);
   return (
     <View

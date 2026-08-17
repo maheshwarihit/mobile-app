@@ -81,3 +81,19 @@ if (Platform.OS !== "web") {
     else supabase.auth.stopAutoRefresh();
   });
 }
+
+/**
+ * A throwaway client for admin-assisted live-OTP verification (see
+ * `NewAppointmentModal`'s "New caller" flow — admin sends a code to a caller
+ * who's on the phone with them, the caller reads it back, admin enters it).
+ * `verifyOtp()` on the shared `supabase` singleton above would overwrite
+ * *this device's own* persisted session with the caller's — this instance
+ * has `persistSession: false` and no storage adapter, so its session lives
+ * only in this JS object and is discarded once the caller's `user.id` is
+ * read out of the response; the admin's own session is never touched.
+ */
+export function createEphemeralClient() {
+  return createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}

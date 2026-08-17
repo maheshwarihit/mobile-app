@@ -8,7 +8,7 @@ function Field({ label, error, required, children }: FieldWrap) {
   return (
     <View>
       {label ? (
-        <Text className="mb-1.5 text-sm font-medium text-gray-700">
+        <Text className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
           {label}
           {required ? " *" : ""}
         </Text>
@@ -49,10 +49,10 @@ export function FormInput({
 }: FormInputProps) {
   const [focused, setFocused] = useState(false);
   const border = !editable
-    ? "border-gray-200 bg-gray-50"
+    ? "border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-800"
     : focused
-      ? "border-purple-500 bg-white"
-      : "border-gray-300 bg-white";
+      ? "border-purple-500 bg-white dark:bg-slate-800"
+      : "border-gray-300 bg-white dark:border-slate-600 dark:bg-slate-800";
   return (
     <Field label={label} error={error} required={required}>
       <View className={`flex-row items-center rounded-lg border ${border} px-3`}>
@@ -68,7 +68,7 @@ export function FormInput({
           maxLength={maxLength}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className={`flex-1 py-3 text-sm ${Icon ? "pl-2" : ""} ${editable ? "text-gray-900" : "text-gray-700"}`}
+          className={`flex-1 py-3 text-sm ${Icon ? "pl-2" : ""} ${editable ? "text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}
         />
       </View>
     </Field>
@@ -122,7 +122,7 @@ export function TextareaInput({
   rows = 5,
 }: TextareaProps) {
   const [focused, setFocused] = useState(false);
-  const border = focused ? "border-purple-500" : "border-gray-300";
+  const border = focused ? "border-purple-500" : "border-gray-300 dark:border-slate-600";
   return (
     <Field label={label} error={error} required={required}>
       <TextInput
@@ -136,10 +136,10 @@ export function TextareaInput({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{ minHeight: rows * 22 }}
-        className={`rounded-lg border ${border} bg-white px-3 py-3 text-sm text-gray-900`}
+        className={`rounded-lg border ${border} bg-white px-3 py-3 text-sm text-gray-900 dark:bg-slate-800 dark:text-white`}
       />
       {maxLength ? (
-        <Text className="mt-1 self-end text-xs text-gray-400">
+        <Text className="mt-1 self-end text-xs text-gray-400 dark:text-gray-500">
           {value?.length ?? 0}/{maxLength}
         </Text>
       ) : null}

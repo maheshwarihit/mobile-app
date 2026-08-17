@@ -37,3 +37,32 @@ export type ServicesStackScreenProps<T extends keyof ServicesStackParamList> = C
 >;
 
 export type AppTabScreenProps<T extends keyof AppTabsParamList> = BottomTabScreenProps<AppTabsParamList, T>;
+
+// ── Ops shells (admin + caregiver) ───────────────────────────────
+// The Clients tab is a stack (list → household detail) shared by both ops
+// roles; the other tabs are single screens.
+export type ClientsStackParamList = {
+  ClientsList: undefined;
+  ClientDetail: { accountId: string };
+};
+
+// Admin has no tab/stack param list of its own anymore — `AdminNavigator`
+// switches sections with plain `useState` (see `AdminTopNav`), not React
+// Navigation, since there's no swipe/URL behavior to preserve, just which
+// panel is mounted.
+export type CaregiverTabsParamList = {
+  MyVisitsTab: undefined;
+  CaregiverClientsTab: NavigatorScreenParams<ClientsStackParamList> | undefined;
+  OpsProfileTab: undefined;
+};
+
+/**
+ * The Clients stack is mounted inside both ops tab navigators, so its screens
+ * can't name a single parent tab param list. Composing against the stack alone
+ * still types `route.params`/`navigation.navigate` within the stack, which is
+ * all these two screens actually use.
+ */
+export type ClientsStackScreenProps<T extends keyof ClientsStackParamList> = NativeStackScreenProps<
+  ClientsStackParamList,
+  T
+>;

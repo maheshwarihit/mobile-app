@@ -47,7 +47,10 @@ export default function App() {
             >
               <RootNavigator />
             </NavigationContainer>
-            <Toaster />
+            {/* closeButton: a manual X on every toast — belt-and-braces so an
+                error is always dismissible by hand, not just by its 4s
+                auto-close timer. */}
+            <Toaster closeButton />
             <StatusBar style="dark" />
           </AuthProvider>
         </QueryClientProvider>
