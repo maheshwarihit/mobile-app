@@ -37,6 +37,25 @@ export function useCancelBooking() {
   });
 }
 
+/** Admin-entered patient details/needs — also folded into the WhatsApp assignment message. */
+export function useUpdateAdminNote() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const { error } = await getSupabase()
+        .from("bookings")
+        .update({ admin_note: note || null })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.bookings("all"), qk.bookings("mine")]);
+      toast.success("Note saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ── Assignment pipeline (admin approve/assign, assigned member run-the-visit) ──
 
 /** Admin approves a `requested` booking and picks Clinic Visit vs Home Care. */
@@ -252,6 +271,21 @@ export function useUpdateProfile() {
   });
 }
 
+/** Admin opened this person's Client detail — clears User Details' "New" pill. Silent: no toast, no error surfaced. */
+export function useMarkProfileViewedByAdmin() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await getSupabase()
+        .from("profiles")
+        .update({ viewed_by_admin_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidate([qk.users]),
+  });
+}
+
 export function useUploadProfilePhoto() {
   const invalidate = useInvalidate();
   return useMutation({
@@ -276,7 +310,11 @@ export function useUploadProfilePhoto() {
       invalidate([qk.profile]);
       toast.success("Photo updated");
     },
-    onError: (e: Error) => toast.error(e.message),
+    // Stable id: retapping the photo picker after a failed upload (the
+    // common case while this bucket's RLS policy is still being sorted out
+    // server-side) updates the same toast instead of stacking a new one on
+    // top of the last, which read as the error never going away.
+    onError: (e: Error) => toast.error(e.message, { id: "profile-photo-upload" }),
   });
 }
 

@@ -11,8 +11,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface ToastApi {
-  success: (message: string) => void;
-  error: (message: string) => void;
+  success: (message: string, opts?: { id?: string }) => void;
+  error: (message: string, opts?: { id?: string }) => void;
 }
 
 /**
@@ -48,6 +48,6 @@ export function getSupabase(): SupabaseClient {
 }
 
 export const toast: ToastApi = {
-  success: (m) => _toast.success(m),
-  error: (m) => _toast.error(m),
+  success: (m, opts) => _toast.success(m, opts),
+  error: (m, opts) => _toast.error(m, opts),
 };

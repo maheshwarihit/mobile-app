@@ -48,6 +48,9 @@ export interface Profile {
   // Set once this account's phone auto-links to a family_members row on
   // another account (household linking) — points at that account's id.
   primary_account_id: string | null;
+  // Set the moment an admin opens this person's Client detail page (0029) —
+  // drives User Details' "New" pill instead of a fixed 24h timer.
+  viewed_by_admin_at: string | null;
   created_at: string; // UTC ISO 8601
   updated_at: string;
 }
@@ -100,6 +103,7 @@ export interface Booking {
   payment_proof_path: string | null; // storage object path (online)
   service_mode: ServiceMode | null; // set on admin approval
   assigned_to: string | null; // FK -> profiles.id (staff or leaf_node), set on assignment
+  admin_note: string | null; // admin-entered patient details/needs, folded into the assignment WhatsApp message
   booking_status: BookingStatus;
   created_at: string;
   updated_at: string;

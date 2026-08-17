@@ -12,3 +12,4 @@ export * from "./Modal";
 export * from "./OtpInput";
 export * from "./ChoiceChips";
 export * from "./TimeField";
+export * from "./ProfileCompletionRing";

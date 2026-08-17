@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0025. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0029. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -37,6 +37,13 @@ alter table public.profiles add column if not exists address text;
 alter table public.profiles add column if not exists avatar_path text;
 -- Repair path: emp_id on a table that predates 0025.
 alter table public.profiles add column if not exists emp_id text;
+-- Repair path: viewed_by_admin_at on a table that predates 0029.
+alter table public.profiles add column if not exists viewed_by_admin_at timestamptz;
+-- Backfill pre-existing profiles as already-viewed (fixed cutoff, not now() —
+-- this script re-runs repeatedly, and now() would wrongly re-mark a genuinely
+-- new, still-unviewed sign-up as viewed on every later re-run).
+update public.profiles set viewed_by_admin_at = created_at
+ where viewed_by_admin_at is null and created_at < '2026-08-12'::timestamptz;
 
 create table if not exists public.family_members (
   id                uuid primary key default gen_random_uuid(),
@@ -112,6 +119,8 @@ create table if not exists public.bookings (
 alter table public.bookings add column if not exists pricing_model text;
 alter table public.bookings add column if not exists service_mode  text;
 alter table public.bookings add column if not exists assigned_to   uuid references public.profiles(id);
+-- Repair path: admin_note on a table that predates 0027.
+alter table public.bookings add column if not exists admin_note    text;
 alter table public.bookings alter column total_amount drop expression if exists;
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'bookings_service_mode_check') then
@@ -143,9 +152,9 @@ end $$;
 update public.bookings set booking_status = 'requested' where booking_status = 'open';
 update public.bookings set booking_status = 'completed' where booking_status = 'closed';
 do $$ begin
-  if exists (select 1 from pg_trigger where tgname = 'tg_bookings_before_update' and tgrelid = 'public.bookings'::regclass) then
-    execute 'alter table public.bookings enable trigger tg_bookings_before_update';
-  end if;
+  if exists (select 1 from pg_trigg
+  
+  
 end $$;
 alter table public.bookings validate constraint bookings_booking_status_check;
 
@@ -226,6 +235,19 @@ create or replace function public.in_household(p_account_id uuid) returns boolea
       or exists (select 1 from public.profiles where id = auth.uid() and primary_account_id = p_account_id); $$;
 revoke all on function public.in_household(uuid) from public, anon;
 grant execute on function public.in_household(uuid) to authenticated;
+
+-- 0026: pre-auth phone-existence check, so Sign-up can warn "this number
+-- already has an account" before sending an OTP. Reads auth.users directly
+-- (security definer) since an unauthenticated caller can't reach profiles via
+-- RLS; returns only a boolean, no other profile data.
+create or replace function public.phone_registered(p_phone text) returns boolean
+  language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1 from auth.users where phone = regexp_replace(p_phone, '\D', '', 'g')
+  );
+$$;
+revoke all on function public.phone_registered(text) from public;
+grant execute on function public.phone_registered(text) to anon, authenticated;
 
 -- ── updated_at STAMPER ──────────────────────────────────────────────────────
 create or replace function public.tg_set_updated_at() returns trigger language plpgsql as $$
@@ -544,7 +566,7 @@ grant select on public.profiles to authenticated;
 -- denied for table profiles", regardless of role or RLS.
 -- emp_id (0025): new field for the ops-side "My Profile" panel; granted
 -- up front this time instead of repeating the 0019 discovery.
-grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path, emp_id) on public.profiles to authenticated;
+grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path, emp_id, viewed_by_admin_at) on public.profiles to authenticated;
 revoke insert, update, delete on public.bookings from anon, authenticated;
 grant select on public.bookings to authenticated;
 -- account_id (0018): widened so an admin's insert can name the target
@@ -552,7 +574,7 @@ grant select on public.bookings to authenticated;
 -- tg_booking_snapshot() still forces it back to auth.uid() for anyone
 -- who isn't admin, regardless of what they submit.
 grant insert (account_id, service_id, family_member_id, num_days, start_date, time_slot, symptom_brief, payment_method, payment_proof_path, service_mode) on public.bookings to authenticated;
-grant update (booking_status, symptom_brief, payment_proof_path, service_mode, assigned_to) on public.bookings to authenticated;
+grant update (booking_status, symptom_brief, payment_proof_path, service_mode, assigned_to, admin_note) on public.bookings to authenticated;
 grant select, insert, update, delete on public.family_members   to authenticated;
 grant select, insert, update, delete on public.services         to authenticated;
 grant select, insert, update, delete on public.clinical_records to authenticated;
@@ -656,18 +678,15 @@ drop policy if exists pay_proof_delete on storage.objects;
 create policy pay_proof_delete on storage.objects for delete to authenticated
   using (bucket_id = 'payment-proofs' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
 
--- payment-qr policies (public read, admin write)
+-- payment-qr policies (public read only — see 0028)
 drop policy if exists qr_public_read on storage.objects;
 create policy qr_public_read on storage.objects for select using (bucket_id = 'payment-qr');
+-- 0028: dropped, not recreated. The QR is developer-changed only (Storage
+-- dashboard or SQL, both of which bypass RLS) — no authenticated role,
+-- admin included, can write to this bucket through the app anymore.
 drop policy if exists qr_admin_insert on storage.objects;
-create policy qr_admin_insert on storage.objects for insert to authenticated
-  with check (bucket_id = 'payment-qr' and public.is_admin());
 drop policy if exists qr_admin_update on storage.objects;
-create policy qr_admin_update on storage.objects for update to authenticated
-  using (bucket_id = 'payment-qr' and public.is_admin()) with check (bucket_id = 'payment-qr' and public.is_admin());
 drop policy if exists qr_admin_delete on storage.objects;
-create policy qr_admin_delete on storage.objects for delete to authenticated
-  using (bucket_id = 'payment-qr' and public.is_admin());
 
 -- medical-reports policies (staff write; household reads once reviewed)
 -- Path convention: `<booking_id>/<uploaded_by>/<timestamp>.<ext>`.

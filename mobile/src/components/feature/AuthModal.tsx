@@ -2,29 +2,61 @@ import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { toast } from "sonner-native";
 import { ArrowLeft } from "lucide-react-native";
-import { AppModal, FormInput, OtpInput, PrimaryButton, TextButton, ErrorBanner } from "@/components/ui";
+import { AppModal, FormInput, OtpInput, ChoiceChips, PrimaryButton, TextButton, ErrorBanner } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useResendTimer } from "@/hooks/useResendTimer";
 import { normalizePhone, OTP_LENGTH } from "@vagewell/shared";
 
 type Mode = "login" | "register";
 type Step = "details" | "otp";
+type OpsRole = "admin" | "leaf_node";
+
+const ROLE_OPTIONS: { value: OpsRole; label: string }[] = [
+  { value: "leaf_node", label: "Leaf Node" },
+  { value: "admin", label: "Admin" },
+];
 
 /**
- * Centered sign-in/sign-up popup shown over the Home screen. Sign-up only
- * ever collects Name + Phone here — age/gender/address/etc. are filled in
- * later from the Profile screen's edit form, not up front. No manual
- * navigation on success: RootNavigator swaps to the app shell the moment
- * the session changes.
+ * Centered sign-in/sign-up popup, opened from the Landing and Home screens.
+ * Sign-up only ever collects Name + Phone here — age/gender/address/etc. are
+ * filled in later from the Profile screen's edit form, not up front. No
+ * manual navigation on success: RootNavigator swaps to the app shell the
+ * moment the session changes, based on whatever role the account actually
+ * holds — not on which door (client/staff) the caller opened this modal from.
+ *
+ * `allowModeSwitch={false}` locks the modal to `initialMode` and hides the
+ * Login/Sign up toggle — used where a signup path genuinely doesn't apply.
+ *
+ * `rolePicker={true}` adds an Admin/Leaf Node choice to the Sign up step and
+ * sends it as `requested_role` in the OTP signup metadata — `handle_new_user()`
+ * (DB trigger) grants that role the instant the account is created, no
+ * approval step. This is a deliberate, explicit trade-off the user chose:
+ * anyone who can complete an OTP on this door can make themselves an admin.
+ * Reuses the exact mechanism the project's earlier web portal had (see
+ * migration 0013) — never removed at the DB layer. Wired to Landing's
+ * Caregiver·Admin door (2026-08-11).
+ *
+ * Sign-up also checks `phone_registered()` (migration 0026, pre-auth RPC)
+ * before sending the OTP — an already-registered number otherwise gets
+ * silently OTP-logged into its existing account under the Sign-up tab
+ * (`shouldCreateUser` defaults true; `requested_role`/`full_name` metadata is
+ * ignored since `handle_new_user()` only fires on a brand-new account), which
+ * reads as "nothing happened" rather than the actual cause.
  */
 export function AuthModal({
   visible,
   onClose,
   initialMode = "register",
+  allowModeSwitch = true,
+  title,
+  rolePicker = false,
 }: {
   visible: boolean;
   onClose: () => void;
   initialMode?: Mode;
+  allowModeSwitch?: boolean;
+  title?: string;
+  rolePicker?: boolean;
 }) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [step, setStep] = useState<Step>("details");
@@ -32,6 +64,9 @@ export function AuthModal({
   const [phoneRaw, setPhoneRaw] = useState("");
   const [e164, setE164] = useState("");
   const [otp, setOtp] = useState("");
+  // Defaults to the lower-privilege option, not Admin — a safer default when
+  // this picker is shown at all.
+  const [role, setRole] = useState<OpsRole>("leaf_node");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const resend = useResendTimer(60);
@@ -42,6 +77,7 @@ export function AuthModal({
     setPhoneRaw("");
     setE164("");
     setOtp("");
+    setRole("leaf_node");
     setErr(null);
   };
 
@@ -65,10 +101,9 @@ export function AuthModal({
         return false;
       }
     } else {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone,
-        options: { data: { full_name: fullName.trim() } },
-      });
+      const data: Record<string, string> = { full_name: fullName.trim() };
+      if (rolePicker) data.requested_role = role;
+      const { error } = await supabase.auth.signInWithOtp({ phone, options: { data } });
       if (error) {
         setErr(error.message);
         return false;
@@ -90,6 +125,18 @@ export function AuthModal({
       return;
     }
     setBusy(true);
+    if (mode === "register") {
+      const { data: alreadyRegistered, error: checkErr } = await supabase.rpc("phone_registered", {
+        p_phone: normalized,
+      });
+      // A failed check (e.g. migration 0026 not yet run) shouldn't block
+      // sign-up outright — fall through and let the normal OTP flow proceed.
+      if (!checkErr && alreadyRegistered) {
+        setBusy(false);
+        setErr("This number already has an account. Please use Login instead.");
+        return;
+      }
+    }
     const ok = await requestCode(normalized);
     setBusy(false);
     if (!ok) return;
@@ -130,16 +177,18 @@ export function AuthModal({
         reset();
         onClose();
       }}
-      title={mode === "login" ? "Welcome back" : "Create your account"}
+      title={title ?? (mode === "login" ? "Welcome back" : "Create your account")}
     >
-      <View className="mb-4 flex-row rounded-lg bg-gray-100 p-1">
-        <Pressable onPress={() => switchMode("login")} className={`flex-1 items-center rounded-md py-2 ${mode === "login" ? "bg-white" : ""}`}>
-          <Text className={`text-sm font-semibold ${mode === "login" ? "text-purple-700" : "text-gray-500"}`}>Login</Text>
-        </Pressable>
-        <Pressable onPress={() => switchMode("register")} className={`flex-1 items-center rounded-md py-2 ${mode === "register" ? "bg-white" : ""}`}>
-          <Text className={`text-sm font-semibold ${mode === "register" ? "text-purple-700" : "text-gray-500"}`}>Sign up</Text>
-        </Pressable>
-      </View>
+      {allowModeSwitch ? (
+        <View className="mb-4 flex-row rounded-lg bg-gray-100 p-1">
+          <Pressable onPress={() => switchMode("login")} className={`flex-1 items-center rounded-md py-2 ${mode === "login" ? "bg-white" : ""}`}>
+            <Text className={`text-sm font-semibold ${mode === "login" ? "text-purple-700" : "text-gray-500"}`}>Login</Text>
+          </Pressable>
+          <Pressable onPress={() => switchMode("register")} className={`flex-1 items-center rounded-md py-2 ${mode === "register" ? "bg-white" : ""}`}>
+            <Text className={`text-sm font-semibold ${mode === "register" ? "text-purple-700" : "text-gray-500"}`}>Sign up</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {err ? (
         <View className="mb-4">
@@ -151,6 +200,9 @@ export function AuthModal({
         <View className="gap-4">
           {mode === "register" ? (
             <FormInput label="Full Name" value={fullName} onChangeText={setFullName} placeholder="Name" autoCapitalize="words" required />
+          ) : null}
+          {mode === "register" && rolePicker ? (
+            <ChoiceChips label="Registering as" value={role} onChange={(v) => setRole(v as OpsRole)} options={ROLE_OPTIONS} required />
           ) : null}
           <FormInput
             label="Mobile Number"

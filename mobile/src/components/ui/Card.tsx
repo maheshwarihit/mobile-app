@@ -7,7 +7,10 @@ const cardShadow = { elevation: 1, shadowColor: "#000", shadowOpacity: 0.05, sha
 /** Base white card */
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <View style={cardShadow} className={`rounded-xl border border-gray-100 bg-white ${className}`}>
+    <View
+      style={cardShadow}
+      className={`rounded-xl border border-gray-100 bg-white dark:border-slate-700 dark:bg-slate-800 ${className}`}
+    >
       {children}
     </View>
   );
@@ -30,14 +33,17 @@ export function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <View style={cardShadow} className="mb-5 rounded-xl border border-gray-100 bg-white p-5">
+    <View
+      style={cardShadow}
+      className="mb-5 rounded-xl border border-gray-100 bg-white p-5 dark:border-slate-700 dark:bg-slate-800"
+    >
       <View className="mb-5 flex-row items-center gap-3">
         <View className={`h-8 w-8 items-center justify-center rounded-lg ${iconBg}`}>
           <Icon size={18} color={iconColor} />
         </View>
         <View className="flex-1">
-          <Text className="text-lg font-bold text-gray-900">{title}</Text>
-          {subtitle ? <Text className="text-sm text-gray-500">{subtitle}</Text> : null}
+          <Text className="text-lg font-bold text-gray-900 dark:text-white">{title}</Text>
+          {subtitle ? <Text className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</Text> : null}
         </View>
       </View>
       {children}
@@ -69,8 +75,8 @@ export function PageHeader({
         </Pressable>
       ) : null}
       <View className="flex-1">
-        <Text className="text-2xl font-bold text-gray-900">{title}</Text>
-        {subtitle ? <Text className="mt-1 text-sm text-gray-500">{subtitle}</Text> : null}
+        <Text className="text-2xl font-bold text-gray-900 dark:text-white">{title}</Text>
+        {subtitle ? <Text className="mt-1 text-sm text-gray-500 dark:text-gray-400">{subtitle}</Text> : null}
       </View>
       {action ? <View>{action}</View> : null}
     </View>

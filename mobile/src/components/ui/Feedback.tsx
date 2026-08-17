@@ -12,7 +12,7 @@ export function LoadingState({ message = "Loading…" }: { message?: string }) {
   return (
     <View className="items-center justify-center py-12">
       <ActivityIndicator size="large" color={BRAND} />
-      <Text className="mt-3 text-sm text-gray-500">{message}</Text>
+      <Text className="mt-3 text-sm text-gray-500 dark:text-gray-400">{message}</Text>
     </View>
   );
 }
@@ -33,11 +33,13 @@ export function EmptyState({
 }) {
   return (
     <View className="items-center justify-center py-12">
-      <View className="mb-3 h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+      <View className="mb-3 h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
         <Icon size={24} color="#d1d5db" />
       </View>
-      <Text className="mb-1 text-sm font-medium text-gray-500">{title}</Text>
-      {description ? <Text className="mb-3 max-w-xs text-center text-sm text-gray-400">{description}</Text> : null}
+      <Text className="mb-1 text-sm font-medium text-gray-500 dark:text-gray-400">{title}</Text>
+      {description ? (
+        <Text className="mb-3 max-w-xs text-center text-sm text-gray-400 dark:text-gray-500">{description}</Text>
+      ) : null}
       {actionLabel && onAction ? (
         <Pressable onPress={onAction} className="flex-row items-center gap-1 active:opacity-70">
           <Plus size={14} color={BRAND} />

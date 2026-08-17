@@ -3,15 +3,21 @@
 > (per user direction: build to the requirements file, don't force the org CLAUDE.md ceremony).
 
 ## Architecture (locked)
-- **Supabase-native**, no backend service. Two separate apps share one Supabase project + one
-  `shared/` data layer: **`mobile/`** (Expo/React Native, patient-only) and **`web/`** (Next.js 16,
-  staff/admin-only). Neither embeds the other's role.
-- Auth: phone + 6-digit SMS OTP, `auth.uid()`, RLS, 72h session — same gateway for both apps; role
-  (read after verify) decides which app a given account is allowed into.
+- **Supabase-native**, no backend service. **One app** — `mobile/` (Expo/React Native) — covers all
+  three roles (client, caregiver/leaf_node, admin) against one Supabase project + `shared/` data layer.
+  The former separate `web/` (Next.js) staff/admin portal was merged into `mobile/` and then **deleted**
+  (user, 2026-08-10 — see "single mobile app" round below); every mention of `web/` in the change log
+  below is historical, describing the app as it was before that merge, not current state.
+- Auth: phone + 6-digit SMS OTP, `auth.uid()`, RLS, 72h session. Role (read after verify) decides which
+  shell inside the one app an account lands in — `RootNavigator` routes admin/leaf_node/patient to their
+  own tab set; RLS remains the real access boundary regardless of which shell renders.
 - Admin booking notification (R3.4): **removed** (user, 2026-07-21). No email / edge fn — the payment
   proof lands in the private `payment-proofs` bucket and the admin reviews & clears it from the dashboard.
-- Excel/CSV export: client-side (browser), same `liveSheetRows()` builder shared by both apps.
-- Roles: `patient` / `staff` / `admin` (spec's `leaf_node` ≡ `staff`).
+- Excel/CSV export (`liveSheetRows()` in `shared/src/export.ts`): dead code as of the `web/` deletion —
+  no screen in `mobile/` calls it (live-sheet/CSV export was out of scope for the mobile ops build, see
+  the round below). Left in place rather than deleted, matching this project's own precedent for
+  superseded-but-harmless leftovers (0017, 0024); safe to remove in a future cleanup pass.
+- Roles: `patient` / `admin` / `leaf_node` (`staff` retired, see 0021).
 
 ## Dropped (not in requirements)
 Shared Feedback system · shared `employees`/`apps` auth · `model_configs`/LLM-admin screens ·
@@ -2139,3 +2145,405 @@ stated plainly, is that it's admin-initiated (a real click sends it), not a full
 - Verified: `web` `tsc`/`eslint`/`next build --webpack` clean (17 routes); `mobile` `tsc --noEmit` clean
   (shared `types.ts`/`hooks.ts`/`phone.ts` touched, mobile unaffected — it doesn't render assignment
   actions). No DB migration — `profiles.phone` already existed and was already selectable.
+
+## Change round — merged the web ops portal into the mobile app, then deleted `web/` (user, 2026-08-10)
+User asked for "local caregiver for care seeker (clients) and caregiver (leaf node) and admin" — all
+three roles — "in a single mobile app," with a reworked Skip/Next onboarding. Scoped via clarifying
+questions: rework the existing onboarding carousel (not a login wizard or guest mode); genuinely retire
+the web split, not just add mobile screens alongside it; core ops workflow first (not full 1:1 parity
+with all 17 web routes — live sheet/CSV export, `/reports` table, `/team`, `/user-details` and
+`/payment-qr` admin were intentionally left off mobile). Same day, user confirmed "now" to actually
+delete `web/` once the mobile side worked, rather than leaving both around.
+
+- [x] **`RootNavigator.tsx`** now routes by role into three shells sharing one Supabase session: admin →
+      `AdminNavigator`, leaf_node → `CaregiverNavigator`, patient → the existing `AppNavigator`. Role
+      picks the shell; RLS (unchanged) remains the actual access boundary in every case, same principle
+      as every prior round in this log. The `CompleteProfileScreen` gate that used to block an ops
+      account behind a client bio form is now dead code (unreferenced, not deleted) — it only existed
+      because staff/admin used to land in the *client* tabs; they now get their own shell where those
+      fields don't apply.
+- [x] **New `mobile/src/navigation/OpsNavigator.tsx`** — `AdminNavigator` (Appointments, Requests,
+      Clients, Team, Profile) and `CaregiverNavigator` (My Visits, Clients, Profile). No Requests/Team
+      tabs for leaf_node: `booking_request_select` and `set_user_role()` are admin-only server-side, so
+      those screens would only ever be empty/erroring for that role.
+- [x] **New `mobile/src/screens/ops/*`** — direct ports of the web portal's core admin/caregiver pages,
+      rebuilt as React Native screens against the same `shared/` hooks/mutations (no new backend surface):
+      `AdminAppointmentsScreen` (search + date range, review payment, approve & assign, upload/view
+      report, WhatsApp the caregiver — port of `/dashboard`), `AdminRequestsScreen` (port of
+      `/requests`), `AdminTeamScreen` (caregiver roster + promote-by-search, port of `OpsMemberList` as
+      used by `/leaf-nodes`), `MyVisitsScreen` (start → vitals → upload report → complete, port of
+      `/my-visits`), `OpsClientsScreen` + `OpsClientDetailScreen` (client directory and one household's
+      details/dependents/appointment history/reports-by-date, condensing `/patients` + its sub-routes),
+      `OpsProfileScreen` (the signed-in ops account's own name/employee ID/photo/sign-out — phone and
+      role are read-only, matching that promotion is never self-service).
+- [x] **New `mobile/src/components/ops/*`** — `ApproveAssignModal`, `PaymentReviewModal`, `VitalsModal`,
+      `ReportUploadModal` (RN ports of the matching `web/src/components/*.tsx`), plus `ProfilePhoto`
+      (public-bucket avatar with the same `?v=<updated_at>` cache-bust `ProfileScreen` already used).
+- [x] **New `mobile/src/lib/signedUrl.ts`** (`useSignedUrl` + `openUrl`) — every report/proof link is
+      fetched up front and opened via `Linking.openURL`, never awaited inside a press handler. This app
+      also ships as a web/PWA build via react-native-web, where `Linking.openURL` becomes `window.open`;
+      awaiting a signed URL first severs the call from the user gesture and a popup blocker silently eats
+      it — the exact bug this log's web side hit and fixed twice already (2026-07-31 rounds). Prefetching
+      here means the mobile app can't reintroduce it.
+- [x] **New `mobile/src/lib/reportFile.ts`**, backed by the newly added **`expo-document-picker`**
+      dependency (`mobile/package.json`/`app.json`) — the only new package this round needed.
+      `expo-image-picker` (already used for payment-proof/avatar uploads) can't return a PDF, and the web
+      portal's report upload already accepts one (`ALLOWED_REPORT_MIME`); a caregiver uploading a lab
+      report or prescription PDF is a normal case on mobile too, not something to silently drop.
+- [x] **`mobile/src/screens/OnboardingScreen.tsx`** reworked: Skip now stays visible on every slide
+      (including the last, so it's never a dead end); a **Back** button was added (absent on slide 1 so
+      Next doesn't jump width when it appears on slide 2); the 4 dots are now individually tappable
+      (jump straight to a slide, not just swipe-past); added a "1 of 4" step counter; and the 4 slides
+      themselves now introduce all three roles (client booking, family, caregiver visits, admin
+      oversight) instead of only the client booking journey — since the same onboarding is now the front
+      door for everyone, not just clients. Verified in a real browser (Playwright against the exported
+      web bundle): Next/Back/dot-jump/Skip all screenshotted working, zero console errors.
+- [x] **`web/` deleted entirely** (all 17 routes, `AGENTS.md`'s "not the Next.js you know" notice
+      included) — confirmed first that `mobile/`/`shared/` never referenced anything under `web/`
+      (checked `package.json`s, `.env` files — none matched) and that its working tree had no
+      uncommitted changes before removing it. `shared/src/export.ts`'s `liveSheetRows()` is now dead code
+      (nothing in `mobile/` calls it — live sheet/CSV export wasn't in this round's mobile scope) but was
+      left in place rather than stripped, matching this project's existing precedent for a
+      superseded-but-harmless leftover (see 0017's/0024's dormant DB objects) rather than expanding this
+      round's blast radius into `shared/`.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green (4.4 MB, 0 errors).
+  **Not click-tested against a real backend** — the ops screens (approve & assign, payment review, vitals,
+  report upload) all need a real OTP login against the live Supabase project to exercise, which this
+  environment can't drive; only the pre-auth onboarding flow was live-verified. Worth a real click-through
+  on a device as an admin and as a leaf_node before relying on this in production.
+- **Not done, flagged not guessed:** no DB migration this round (pure frontend consolidation — every
+  screen calls the same `shared/` hooks/mutations the web portal already used, RLS unchanged); any live
+  deployment that used to point at `web/` (Vercel project, DNS, etc.) needs to be taken down separately —
+  outside what this environment can see or touch.
+
+## Change round — new Landing screen: Get Started / View as Guest / Staff or Admin sign-in (user, 2026-08-10)
+Same-day follow-up: user wanted the front door to explicitly ask whether someone is a client or staff
+(leaf_node/admin), not just silently route by role after login. Scoped via clarifying questions: the
+choice lives on a new screen shown right after the onboarding slides (not folded into HomeScreen's
+existing buttons), offering exactly two primary actions — "Get Started" and "View as Guest" — plus a
+staff/admin entry point; and that staff/admin entry is **login-only, no self-signup** — caregiver/admin
+accounts stay admin-promoted only (Team tab or founding-admin SQL), matching this project's original
+principle before the now-deleted web portal's 2026-07-31 "self-select role" round explicitly accepted the
+opposite trade-off for itself.
+
+- [x] **New `mobile/src/screens/LandingScreen.tsx`.** Three doors: **Get Started** opens the existing
+      client `AuthModal` (full Login/Sign up toggle, unchanged behavior); **View as Guest** skips straight
+      to `HomeScreen`'s services/packages browsing (that screen's own "Get Started"/"Existing user —
+      Login" buttons are still there if someone changes their mind mid-browse); **"Staff or Admin? Sign
+      in"** opens a second `AuthModal` locked to login mode with no Sign-up tab. All three still funnel
+      into the same phone+OTP gateway and the same post-login role-based routing in `RootNavigator` —
+      this screen only picks which *form* someone sees, not what they're allowed to do; RLS is still the
+      real boundary, unchanged.
+- [x] **`AuthModal.tsx`** gained two optional props: `allowModeSwitch` (hides the Login/Sign-up toggle
+      row entirely when false, used for the staff/admin entry) and `title` (overrides the default
+      "Welcome back"/"Create your account" heading — used for "Staff / Admin sign in"). Both default to
+      the prior behavior, so `HomeScreen`'s existing usage is unaffected.
+- [x] **`RootNavigator.tsx`**: inserted between Onboarding and HomeScreen. Unlike `onboardingSeen`,
+      `guestMode` is plain in-memory `useState`, not persisted to `AsyncStorage` — Landing is a chooser
+      shown every time the app opens signed out, not a once-ever intro, so it reappears on a cold restart
+      until the device actually signs in.
+- [x] **Bugfix found while touching this code, fixed in passing:** `HomeScreen`'s shared `AuthModal`
+      instance read its internal `mode` from `initialMode` only at first mount (React `useState` ignores
+      later prop changes) — the modal itself never unmounts when `visible` flips to `false`, so on a cold
+      HomeScreen, tapping "Existing user — Login" *before* ever tapping "Get Started" would have opened
+      the modal still defaulted to the Sign-up tab. Fixed by keying that instance on `authMode` so it
+      remounts fresh whenever the requested mode actually changes. `LandingScreen`'s two modals don't need
+      this — each has a fixed `initialMode` for its whole lifetime, so there's no prop change to go stale
+      against.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. Live-verified in a
+  real browser (Playwright): Skip → Landing renders; "Staff or Admin? Sign in" opens a modal with **zero**
+  "Sign up" tabs and the correct "Staff / Admin sign in" title; "Get Started" opens a modal with the
+  Login/Sign-up toggle present; "View as Guest" lands on the unchanged HomeScreen content. Zero console
+  errors across the whole run.
+- **Not built, explicitly out of scope per the user's answer:** no role-mismatch message if a client's
+  number is used through the staff door (or vice versa) — the account's real role decides the shell either
+  way, so a "wrong door" attempt is harmless, just routes correctly regardless of which button was tapped.
+  The now-deleted web portal did carry this kind of mismatch check; flagging here in case it's wanted back
+  as a UX nicety, not because anything is unsafe without it.
+
+## Change round — dark hero restyle of Onboarding/Landing + "Visit as" picker (user, 2026-08-10)
+Same-day follow-up: user shared screenshots of a reference caregiver-marketplace app (localcaregiver.net)
+— full-bleed photo onboarding slides, a "Visit as: Care Seeker / Caregiver" picker, gradient buttons — and
+asked for that look. Scoped via clarifying questions before touching anything, since two parts of the
+reference conflict with decisions this project has already made and reversed once: (1) **caregiver stays
+admin-only** — the picker's "Caregiver" option was confirmed to route to the existing login-only door
+(no self-signup), not grant a role the instant OTP verifies, which is exactly the trade-off the
+now-deleted web portal's 2026-07-31 round accepted and this round does NOT repeat; (2) **no public job
+feed** — the reference's guest-mode "Recent Jobs" list (browsable before login) was confirmed out of
+scope; guest mode stays the existing services/packages browsing, since VAgeWell has no open-marketplace
+data model (admin-approved booking + assignment, not caregivers browsing/messaging clients directly);
+(3) **full visual match** was the one part approved as-is.
+
+- [x] **New `mobile/src/components/feature/DarkHeroBackground.tsx`** — a full-bleed teal-to-near-black
+      diagonal gradient plus a bottom-weighted darkening scrim, standing in for the reference's
+      photograph. No licensed photography ships with this app, so rather than fabricate or source an
+      image, this matches the *visual system* the photo was doing the job for (full-bleed backdrop,
+      darkest where the headline/buttons sit) using `expo-linear-gradient` (already a dependency). Shared
+      by both Onboarding and Landing so the two read as one continuous experience.
+- [x] **New `GradientButton`/`TranslucentButton`** (`mobile/src/components/ui/Button.tsx`) — a
+      diagonal teal→green gradient primary and a translucent-white-on-dark secondary, scoped
+      *deliberately* to these hero screens only. The ordinary flat-teal `PrimaryButton`/`OutlineButton`
+      used everywhere else in the app (Services, Payment, every ops screen, …) are untouched — this
+      isn't a global re-theme, just new variants for the one context that needed them.
+- [x] **New `mobile/src/components/feature/VisitAsModal.tsx`** — a bespoke dark rounded-card modal (not
+      the shared white `AppModal` used by every other modal in the app, same "scoped, not global"
+      reasoning as the buttons above), with two radio-style options: **Care Seeker** (pre-selected,
+      matching the reference) and **Caregiver / Admin** (labelled with both roles, since this app's
+      single login-only staff door already covers both — the reference only had one "Caregiver" concept
+      to begin with). Continue only ever decides which *sign-in form* opens next; it creates nothing and
+      assigns no role itself.
+- [x] **`OnboardingScreen.tsx` restyled**, same interaction logic as before (Skip/Next/Back/tappable dots,
+      the scroll-transition lock, `markOnboardingSeen()`), new look: `DarkHeroBackground` behind
+      everything; small logo+wordmark top-left (no language-picker chip — the reference's is
+      decorative-only in this app since there's no i18n system, and adding a dead dropdown would be a
+      fake feature, not a restyle); each slide's title is now two-tone (a teal-highlighted phrase inside
+      a white headline, e.g. "Care that **comes to you**"); Skip/dot-pager/Back/Next all moved into one
+      bottom row on translucent dark circular buttons; the Next button swaps its icon to a checkmark on
+      the last slide instead of turning into a differently-shaped "Get Started" pill, so the bottom row's
+      layout stays identical across all 4 slides.
+- [x] **`LandingScreen.tsx` restyled and restructured** — same `DarkHeroBackground` + logo lockup;
+      **Get Started** now opens `VisitAsModal` first (was: straight to the client `AuthModal`) —
+      Care Seeker → the existing full client Login/Sign-up modal, Caregiver/Admin → the existing
+      login-only staff modal (both doors' underlying behavior is unchanged from the prior round, only
+      how they're reached changed); **View as Guest** is unchanged; a new **"Already have account? Log
+      In"** text link was added as a fast path straight into the client modal's login mode, bypassing the
+      picker for the common case of a returning client. Both client-modal entry points now share one
+      `clientAuthMode` state keyed onto the `AuthModal` instance (same stale-`initialMode` fix already
+      applied to `HomeScreen`'s modal — see below).
+- [x] **`AuthModal.tsx`** gained `allowModeSwitch`/`title` props in the prior round; unchanged this round
+      — `VisitAsModal`'s Caregiver/Admin path reuses the exact same login-only configuration the
+      standalone "Staff or Admin? Sign in" door used before, just reached through one extra step now.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. Live-verified in a
+  real browser (Playwright, fresh context each run): onboarding slide 1 and slide 4 screenshotted (teal
+  two-tone headline, checkmark on last slide, Back appears from slide 2 on); Landing screenshotted
+  (gradient Get Started, translucent View as Guest, Log In link); tapping Get Started → Visit as modal
+  screenshotted with Care Seeker pre-selected; selecting Caregiver / Admin → Continue opened the staff
+  modal with the Sign-up tab confirmed absent (count 0), matching the admin-only decision above. Zero
+  console errors across the whole run.
+- **Not built, explicitly out of scope per the user's answers:** no self-service caregiver signup, no
+  public browsable listings/jobs feed, no bottom tab bar in guest mode. Guest mode (`HomeScreen`) itself
+  was not touched this round.
+
+## Change round — removed the dev-only onboarding reset link (user, 2026-08-10)
+User hit the same "onboarding not showing" confusion twice in one session — the cause both times was the
+persisted per-device `vagewell.onboardingSeen` flag, not a bug (confirmed via a fresh-storage Playwright
+run each time). A `process.env.NODE_ENV`-gated "Reset onboarding (dev)" link was added to `LandingScreen`
+as a fix for the recurring friction, verified present in a `--dev` export and absent from the production
+one. Same-day, user asked for it removed — the onboarding carousel's own Skip/Next is enough.
+
+- [x] **Reverted in full**: `LandingScreen.tsx`'s `onResetOnboarding` prop and the link itself,
+      `RootNavigator.tsx`'s `resetOnboarding` callback / `isDev` check / the prop wiring, and
+      `lib/onboarding.ts`'s `resetOnboardingSeen()` helper — all deleted, not just hidden, since nothing
+      else came to depend on them. `hasSeenOnboarding()`/`markOnboardingSeen()` are unchanged.
+- Verified: `mobile` `tsc --noEmit` clean; confirmed no leftover references to `resetOnboardingSeen`,
+  `onResetOnboarding`, or `isDev` anywhere in `src/`.
+- **For the user, still true:** to see the onboarding carousel again after it's been dismissed once on a
+  device, the `vagewell.onboardingSeen` flag has to be cleared manually — web: DevTools → Local Storage →
+  delete the key → reload; Expo Go: no direct storage-clear in the dev menu, reinstall/clear the app's
+  cache. No in-app affordance for this anymore, by request.
+
+## Bugfix — Skip/Next unresponsive on a real Android phone (user, 2026-08-10)
+Follow-up to the restyle: user reported Skip/Next "not working" on `OnboardingScreen`, tested via Expo Go
+on an Android phone. Root-caused across two rounds, both confirmed with automated browser testing (a real
+device isn't reachable from this environment) rather than guessed:
+
+1. **First pass — missing `hitSlop`.** `HeroCircleButton` (the Next/Back control) was the only
+   interactive element on the screen without one, unlike Skip (`hitSlop={8}`) and the dots
+   (`hitSlop={10}`). Enlarged 48px → 56px and added `hitSlop={12}`. Confirmed via `react-native-web`'s
+   own source (`node_modules/react-native-web/dist/exports/Pressable/index.js` — no `hitSlop` reference
+   anywhere; it only exists in the legacy `Touchable` mixin, not `Pressable`, which this app uses
+   throughout) that `hitSlop` is a *no-op on web* but works correctly on native — so this fix helps real
+   devices specifically, even though it couldn't be verified in this environment's browser tests.
+2. **Second pass, after the user confirmed it was still happening on Expo Go — edge clearance.** The
+   bottom control row used `px-6` (24px) horizontal padding, putting Skip flush against the left screen
+   edge and the Next circle flush against the right — both landing inside Android's system-wide
+   edge-swipe-back gesture zone (Google's own Material guidance: keep interactive controls ≥24dp clear of
+   the left/right edges; `px-6` sits exactly on that boundary, not clear of it). A tap that close to either
+   edge can be consumed by the OS back-gesture recognizer before the app's touch responder ever sees it —
+   consistent with *both* Skip (left) and Next (right) failing while the centered dot pager (unaffected by
+   an edge report) was not mentioned as broken. Widened that row's horizontal padding to `px-10` (40px).
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. Live-verified with
+  precise DOM-bounding-box clicks (not guessed coordinates) walking the full slide1→2→3→4→finish path
+  after each fix, confirmed by dot-position and body-text checks at each step; screenshotted the new
+  layout to confirm the extra padding didn't break slide 1's composition. Zero console errors throughout.
+- **Not verifiable from this environment:** the actual fix's effect on a real Android phone — no
+  device/emulator reachable here. Both changes are the standard, correct mitigations for their respective
+  root causes (hitSlop for native touch forgiveness, edge clearance for Android's system gesture zone),
+  not speculative tweaks — but confirmation still needs the user's own device.
+
+## Bugfix #2 — user still reported Skip/Next unresponsive after both prior fixes; reverted to a full-width labeled button (user, 2026-08-10)
+Two targeted patches (hitSlop, edge clearance) made no difference the user could observe. Rather than
+keep guessing at a third variant of the same small-cornered-circle control, reverted to the interaction
+pattern the very first, pre-restyle version of this screen used — a full-width, clearly labeled
+"Next"/"Get Started" button — which was never once reported broken across the whole life of this project,
+before or after any of the visual rounds. The small icon-only circle introduced by the dark-hero restyle
+is the one variable that changed between "never reported broken" and "reported broken four times in a
+row"; this round removes that variable entirely rather than continuing to patch around it.
+
+- [x] **`OnboardingScreen.tsx` restructured**: Skip moved from the bottom-left corner back to the
+      top-right corner (next to the logo, its original pre-restyle position — also never reported
+      broken). The dot pager now sits alone on its own centered row, no longer sharing a row with any
+      edge-adjacent control. The bottom row is now a full-width `GradientButton` (new, teal-gradient,
+      built for the hero screens — see the prior restyle round) reading "Next" or "Get Started" with the
+      arrow/check icon, taking up nearly the entire row width via `flex-1`; **Back** stays a small circle
+      but now sits directly beside that large button rather than isolated alone in the far corner — even
+      a near-miss on Back has a much larger, unambiguous sibling target immediately next to it. `goTo`/
+      `goNext`/the transition-lock logic are all unchanged; this was a layout-only change.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. Live-verified the
+  full path by clicking the actual "Next"/"Get Started" text labels (not guessed coordinates) through
+  all 4 slides to Landing, plus Skip and Back — screenshotted at each step. Zero console errors.
+- **Not verifiable from this environment, same caveat as bugfix #1:** confirmation on the user's actual
+  Android device still hasn't happened — this round changes the interaction pattern, not just padding, on
+  the theory that the small-circle design itself (not a fixable spacing/hitSlop detail of it) was the
+  problem, which is the strongest lead available given the before/after pattern, but remains unconfirmed
+  until the user tests it.
+
+## Bugfix #3 — the real root cause: LinearGradient not inheriting pointerEvents="none" from its parent (user, 2026-08-10)
+User reported the button redesign made no difference either — pressed for concrete diagnostic detail
+this time rather than another guess: confirmed the **full-width** Get Started/View as Guest buttons on
+`LandingScreen` were *also* completely dead, with **zero visual reaction** on tap (no press-opacity
+flash, nothing). That ruled out every hit-target/edge-clearance theory from bugfixes #1–#2 outright — a
+full-width button spanning nearly the whole screen can't be a "too small/too close to the edge" problem,
+and "zero visual reaction" means the touch never reached the `Pressable` at all, on *any* button, on
+*every* screen using the dark hero background. The one thing shared by every affected screen (Onboarding,
+Landing) and never touched by prior fixes: `DarkHeroBackground`.
+
+- [x] **Root cause**: `DarkHeroBackground`'s two full-bleed `LinearGradient` layers sat inside a wrapping
+      `View` with `pointerEvents="none"`, relying on that to cascade down to the gradients. `LinearGradient`
+      (`expo-linear-gradient`) renders its own native view — a custom Android drawing surface, not a plain
+      RN `View` — and a parent's `pointerEvents="none"` (a JS-level convenience RN compiles into a
+      touch-handling flag per native view) does not reliably propagate into a third-party native
+      component's own view the same way it does into a nested plain `View`. Left unset on the gradient
+      itself, it could end up the frontmost thing Android's touch dispatcher sees over the buttons sitting
+      visually on top of it, silently absorbing every tap with no feedback — matching the reported symptom
+      exactly. This is a native-only failure mode: `react-native-web`'s gradient fallback is a plain CSS
+      `<div>` with standard `pointer-events` semantics, which is why every round of browser-based testing
+      in this session passed cleanly while the real device kept failing.
+- [x] **Fix**: `pointerEvents="none"` added directly to **each** `<LinearGradient>` element in
+      `DarkHeroBackground.tsx`, not only the wrapping `View` (kept as belt-and-braces). Three-line change,
+      no layout/visual difference — this is a touch-routing fix, not a restyle.
+- Verified: `mobile` `tsc --noEmit` clean (confirms `LinearGradient` accepts `pointerEvents`, inherited
+  from `ViewProps`); `expo export --platform web` bundle green; full click-through smoke test (Skip →
+  Landing → Get Started → Visit-as modal) still passes with zero console errors — expected, since this
+  fix targets a native-only symptom the web build never exhibited in the first place.
+- **Not verifiable from this environment, same caveat as bugfixes #1–#2**: no Android device/emulator
+  reachable here. Unlike the prior two rounds, this fix targets a mechanism (native pointerEvents
+  inheritance into a third-party view) that plausibly explains *all* of this session's reports at once —
+  every screen, every button, zero visual feedback — rather than one narrow slice of them, which is why
+  it's the strongest candidate so far. Still needs the user's own device to confirm.
+
+## Change round — reverted Onboarding's bottom row back to the corner-circle layout (user, 2026-08-10)
+User re-shared the same localcaregiver.net reference screenshot (Skip bottom-left, dots centered, a
+small circular Next arrow bottom-right) and asked for the carousel to match it — i.e., undo bugfix #2's
+full-width "Next"/"Get Started" button. That change had been a defensive guess made *before* the real
+root cause (bugfix #3: `DarkHeroBackground`'s `LinearGradient` layers not inheriting `pointerEvents="none"`)
+was found — now that the actual bug is fixed at its source, the button shape/size was never the problem,
+so it's safe to go back to the layout the user actually wants.
+
+- [x] **`OnboardingScreen.tsx`**: bottom row reverted to Skip (left) + dot pager (center) + Back/Next
+      circle cluster (right) in one row, matching the reference exactly; Skip moved back off the top
+      corner. Kept every hardening change from bugfixes #1–#2 that doesn't fight the reference layout:
+      `HeroCircleButton` stays at 56px with `hitSlop={12}` (real tap-forgiveness on native, inert but
+      harmless on web), and the row keeps `px-10` (40px) horizontal padding instead of the original
+      `px-6` (Android's edge-swipe-back gesture zone guidance — cheap insurance even though it likely
+      wasn't the actual cause of any of this). `GradientButton`'s unused import removed from this file
+      (still used by `LandingScreen`, which keeps its own full-width buttons — that screen's reference
+      screenshot always showed full-width pills, so it was never changed).
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green; full click-through
+  (precise DOM-bounding-box clicks) through all 4 slides to Landing, screenshotted slide 1 to confirm the
+  layout visually matches the reference. Zero console errors.
+- **Still the same standing caveat**: none of this session's fixes have been confirmed against the user's
+  actual Android device yet. The pointerEvents fix (bugfix #3) is the one that should matter most; this
+  round is purely a layout preference once that fix made the button-shape question moot.
+
+## Change round — re-added the dev-only onboarding reset link (removed two rounds ago, user, 2026-08-10)
+Follow-up diagnostic confirmed the app was going straight to the "Get Started" Landing screen on every
+launch — which only happens when `vagewell.onboardingSeen` is already `true`, i.e. the device successfully
+completed onboarding at some point (most likely evidence the touch-fix chain actually worked, since that
+flag only gets set from a real Skip/Next tap reaching `finish()`). With no in-app way left to clear it
+(removed earlier this session at the user's request) a full Expo Go uninstall/reinstall was the only
+option, which was clearly too much friction for the iterative testing this conversation had been doing —
+asked directly whether to restore the dev-only reset link, and the user confirmed.
+
+- [x] **Reinstated exactly as it was before removal**: `lib/onboarding.ts`'s `resetOnboardingSeen()`,
+      `RootNavigator.tsx`'s `isDev` check (`process.env.NODE_ENV !== "production"`, not React Native's
+      untyped `__DEV__`) and `resetOnboarding` callback, and `LandingScreen.tsx`'s `onResetOnboarding` prop
+      + small "Reset onboarding (dev)" link.
+- Verified: `mobile` `tsc --noEmit` clean; built both `expo export --platform web --dev` and the plain
+  production export side-by-side — confirmed via Playwright the link is present and functionally resets
+  back to slide 1 in the dev bundle, and completely absent from the production bundle. Zero non-WebSocket
+  console errors in both (the dev bundle's WebSocket errors are expected — it's trying to reach Metro's
+  HMR server, which isn't running against a static file server).
+- **For the user:** tap "Reset onboarding (dev)" at the bottom of the Landing screen any time you want to
+  see the 4-slide carousel again during testing — no reinstall needed. It will never appear in a real
+  production build.
+
+## Change round — onboarding is no longer "once per device"; shows on every app open, for every user (user, 2026-08-10)
+Confirmed the app was landing straight on "Get Started" every time (per the previous round's diagnostic),
+and asked directly whether the user actually wants the carousel to show once per device (as it always
+had) or every single time the app opens, for every real user — not just during testing. The user chose
+the latter: **always**, unconditionally.
+
+This removes the entire persistence layer behind the earlier confusion, not just the symptom — with
+onboarding no longer tracked as "seen," there's nothing left to get stuck, nothing left to reset, and no
+more dev-only escape hatch needed at all.
+
+- [x] **Deleted `mobile/src/lib/onboarding.ts` entirely** (`hasSeenOnboarding`/`markOnboardingSeen`/
+      `resetOnboardingSeen`, the whole `AsyncStorage`-backed module) — confirmed via repo-wide grep that
+      nothing else referenced any of its exports before removing it.
+- [x] **`RootNavigator.tsx`** rewritten: `onboardingSeen` (a `boolean | null` fed by an async
+      `AsyncStorage` read, gating an extra `SplashScreen` flash while it loaded) replaced by
+      `onboardingDone`, a plain synchronous `useState(false)` — no `useEffect`, no async gate. A fresh
+      cold start creates a fresh `RootNavigator` instance with this back at `false`, which is exactly what
+      "every time the app opens" means; no storage read/write required to achieve it.
+- [x] **`OnboardingScreen.tsx`**: `finish()` no longer calls `markOnboardingSeen()` — it only calls the
+      `onDone` prop now, which is purely in-memory routing state owned by `RootNavigator`, not a
+      persisted fact about the device.
+- [x] **`LandingScreen.tsx`**: `onResetOnboarding` prop and the "Reset onboarding (dev)" link removed —
+      meaningless now that there's nothing to reset. Doc comment updated to state plainly that neither
+      screen persists anything anymore.
+- Verified: `mobile` `tsc --noEmit` clean. Live-verified with Playwright, including the one check that
+  actually matters for "every time the app opens": loaded fresh (slide 1 visible), clicked through Skip to
+  Landing, confirmed **zero** `localStorage` keys at any point, confirmed the reset link is gone entirely,
+  then did a full `page.reload()` (the closest a browser test can get to simulating a cold app restart)
+  and confirmed slide 1 reappeared automatically — no button, no flag, no persistence anywhere in the path.
+  Zero console errors.
+- **Product-behavior note, stated plainly since this is a real change from how onboarding intros usually
+  work:** every single person who opens this app, every single time, including a returning client on
+  their tenth visit, will now see the 4-slide carousel before reaching Get Started. This was an explicit,
+  direct choice, not a default — flagging here in case it's worth revisiting once the immediate testing
+  need that drove today's back-and-forth has passed.
+
+## Root cause of the entire "stale build" saga — a Metro dev server left running since before several fixes
+User's testing finally produced a desktop-browser screenshot showing the app working correctly (Landing,
+no dev-reset text, the auth modal opening properly) — confirming the fix. Investigated why phone testing
+kept showing stale content through every prior fix in this session despite full Expo Go closes/reopens and
+`expo start -c`: `netstat` found an active process already bound to port 8081 (Metro's default port),
+independent of anything this session's `expo export`-based verification builds ever touched. Almost
+certainly a Metro instance the user had left running continuously across the whole session — Metro's
+incremental Fast Refresh can fail to cleanly drop a **deleted** file from its module graph (this session
+deleted `lib/onboarding.ts` twice), which would explain a stale bundle surviving every phone-side reset
+that never touches the *server* itself. Killed the process (`taskkill //F //PID 8876`); confirmed port 8081
+free afterward. This is almost certainly the true root cause behind bugfixes #1–#3 all reading as "no
+effect" from the user's side even though each was independently verified correct in isolation — the phone
+was very plausibly never running any of that code at all until the server itself restarted clean.
+
+## Change round — "Already have account? Log In" now also asks Care Seeker vs Caregiver·Admin (user, 2026-08-10)
+Once the stale-build mystery was resolved, user pointed out a real, remaining product gap visible in the
+now-correctly-loading app: "Log In" skipped the Visit-as picker entirely and went straight to the client
+login form — meaning a returning caregiver or admin tapping the more natural "Already have account? Log
+In" link (rather than "Get Started") would land in the wrong form with no way to reach their own login
+door from there.
+
+- [x] **`LandingScreen.tsx`**: both "Get Started" and "Already have account? Log In" now open the same
+      `VisitAsModal`, via a new `openVisitAs(intent)` helper that remembers which of `"register"`/`"login"`
+      the **Care Seeker** path should open as once chosen — `visitAsIntent` state, read only by
+      `handleVisitAs`'s `care_seeker` branch. The **Caregiver · Admin** path is unaffected by intent
+      either way — it's already login-only regardless of which button opened the picker, matching the
+      standing "no caregiver self-signup" decision from earlier in this session.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. Live-verified: Log In
+  → Visit as (picker shown, not skipped) → Care Seeker (pre-selected) → Continue → opens `AuthModal`
+  titled "Welcome back" (login mode, not "Create your account") with the Login/Sign-up toggle still
+  present; separately, Log In → Caregiver / Admin → Continue → opens the same login-only staff modal as
+  before, Sign-up tab confirmed absent. Screenshotted the login-mode modal to confirm visually. Zero
+  console errors.
