@@ -23,7 +23,7 @@ export const ROLES = ["patient", "admin", "leaf_node"] as const;
 export const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
   patient: "Client",
   admin: "Admin",
-  leaf_node: "Leaf Node",
+  leaf_node: "Care Assistant",
 };
 // Roles that operate the web portal (vs. the patient mobile app).
 export const OPS_ROLES = ["admin", "leaf_node"] as const;

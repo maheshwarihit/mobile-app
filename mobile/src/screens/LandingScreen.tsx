@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Image, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { LinearGradient } from "expo-linear-gradient";
 import { ArrowRight } from "lucide-react-native";
 import { BrandLogo, GradientButton, TranslucentButton } from "@/components/ui";
 import { AuthModal } from "@/components/feature/AuthModal";
-import { DarkHeroBackground } from "@/components/feature/DarkHeroBackground";
 import { VisitAsModal, type VisitAs } from "@/components/feature/VisitAsModal";
+
+const landingPhoto = require("../../assets/onboarding/image5.png.png");
 
 /**
  * SCREEN_ID: LANDING — the screen after onboarding, shown every time the app
@@ -77,7 +79,22 @@ export function LandingScreen({ onGuest }: { onGuest: () => void }) {
   return (
     <View className="flex-1 bg-black">
       <StatusBar style="light" />
-      <DarkHeroBackground />
+      {/* Same full-bleed photo + scrim pattern as OnboardingScreen: the image
+          needs explicit width/height (not just StyleSheet.absoluteFill) to
+          actually stretch on web — a CSS replaced element like <img> keeps
+          its own intrinsic size otherwise, even when absolutely positioned
+          with all four insets at 0. */}
+      <Image
+        source={landingPhoto}
+        style={[StyleSheet.absoluteFill, { width: "100%", height: "100%" }]}
+        resizeMode="cover"
+      />
+      <LinearGradient
+        pointerEvents="none"
+        colors={["transparent", "rgba(2,10,13,0.5)", "rgba(2,10,13,0.92)"]}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
       <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
         <View className="flex-row items-center gap-2 px-6 pt-2">
           <BrandLogo size={36} transparent />
@@ -89,7 +106,7 @@ export function LandingScreen({ onGuest }: { onGuest: () => void }) {
             Quality care, <Text className="text-teal-300">right at home</Text>
           </Text>
           <Text className="mt-3 text-base text-gray-300">
-            Physio, nutrition, and wellness visits from trusted professionals, without leaving your house.
+            Verified Care Assistants and health professionals, ready to visit whenever you need them.
           </Text>
         </View>
 

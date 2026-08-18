@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+  Hide the browser's scrollbar everywhere on web. RN's ScrollView has no
+  concept of a persistent desktop scrollbar — on native it's a fading touch
+  indicator, not a permanent bar — but react-native-web renders each
+  ScrollView as a plain scrollable <div>, so desktop browsers (mouse-driven,
+  unlike mobile Safari/Chrome's auto-hiding bars) draw their own default
+  scrollbar over it. Scrolling itself (wheel, drag, touch) is unaffected;
+  this only hides the visual bar, matching how the rest of the app already
+  reads as a mobile app rather than a desktop web page.
+*/
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge/IE */
+}
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Chromium-based Edge */
+}

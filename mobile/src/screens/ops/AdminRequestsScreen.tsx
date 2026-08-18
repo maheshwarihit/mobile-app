@@ -105,7 +105,7 @@ function RequestCard({
         )}
       </View>
 
-      <View className="mt-3 flex-row items-center gap-5 border-t border-gray-100 pt-3">
+      <View className="mt-3 flex-row items-center gap-5">
         {r.account?.phone ? (
           <CardAction icon={Phone} label="Call" onPress={() => openUrl(`tel:${r.account!.phone}`)} />
         ) : null}

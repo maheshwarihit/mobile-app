@@ -6,11 +6,14 @@ import { PACKAGES } from "@/lib/packages";
 /**
  * Silver/Gold/Platinum teaser — shared between the pre-login HomeScreen and
  * the post-login ServicesScreen so both stay in sync. Marketing-only (see
- * `PACKAGES`' own TODO) — `onPressPackage` is whatever the calling screen's
- * "I want this" action already is (opening the sign-up modal, or navigating
- * to Appointment), since there's no real per-tier product to link to yet.
+ * `PACKAGES`' own TODO) — there's no real per-tier product to link to yet.
+ * `onPressPackage` is optional: HomeScreen passes it (tapping opens the
+ * sign-up modal, its own "I want this" action pre-login); ServicesScreen
+ * omits it, so a signed-in patient sees the same preview cards but tapping
+ * one does nothing — there's genuinely nowhere for it to go once they
+ * already have an account.
  */
-export function PremiumPackagesSection({ onPressPackage }: { onPressPackage: () => void }) {
+export function PremiumPackagesSection({ onPressPackage }: { onPressPackage?: () => void }) {
   return (
     <View>
       <View className="mb-4">
@@ -18,8 +21,8 @@ export function PremiumPackagesSection({ onPressPackage }: { onPressPackage: () 
         <Text className="mt-0.5 text-xs text-gray-400">Preview — final pricing & benefits to be confirmed.</Text>
       </View>
       <View className="gap-3">
-        {PACKAGES.map((p) => (
-          <Pressable key={p.tier} onPress={onPressPackage} className="active:opacity-70">
+        {PACKAGES.map((p) => {
+          const card = (
             <Card className="p-4">
               <View className="flex-row items-start gap-3">
                 <View className={`mt-0.5 h-9 w-9 items-center justify-center rounded-lg ${p.accent.bg}`}>
@@ -41,8 +44,15 @@ export function PremiumPackagesSection({ onPressPackage }: { onPressPackage: () 
                 </View>
               </View>
             </Card>
-          </Pressable>
-        ))}
+          );
+          return onPressPackage ? (
+            <Pressable key={p.tier} onPress={onPressPackage} className="active:opacity-70">
+              {card}
+            </Pressable>
+          ) : (
+            <View key={p.tier}>{card}</View>
+          );
+        })}
       </View>
     </View>
   );

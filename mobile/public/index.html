@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /*
+        These styles disable body scrolling if you are using <ScrollView>.
+        `overflow: hidden` alone stops mouse-wheel/scrollbar dragging, but on
+        mobile WebKit/Chrome a touch-driven drag can still rubber-band/pan the
+        *entire page* as one unit (dragging a "fixed" header/footer along with
+        it) even though overflow is hidden — overflow only clips, it doesn't
+        stop the page itself from being translated by a touch gesture.
+        `position: fixed; inset: 0;` pins the body to the viewport outright,
+        which mobile browsers do respect for touch panning — the only thing
+        left that can scroll is a genuine inner ScrollView/FlatList, which is
+        what should happen: header and footer stay put, the list scrolls.
+      */
+      body {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        overflow: hidden;
+      }
+      /*
+        `overflow: hidden` stops mouse-wheel/scrollbar-drag horizontal
+        scrolling, but on touch devices (iOS Safari especially) the OS's own
+        rubber-band/overscroll pan gesture can still drag the whole page
+        sideways regardless of overflow — a well-known mobile quirk, not
+        something react-native-web's own overflow-x:hidden on each
+        ScrollView (already correct) can prevent by itself. `touch-action:
+        pan-y` explicitly tells the browser only vertical touch panning is
+        allowed here; `overscroll-behavior-x: none` additionally blocks any
+        horizontal bounce/chaining effect.
+      */
+      html,
+      body {
+        touch-action: pan-y;
+        overscroll-behavior-x: none;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+      /*
+        Mobile browsers report `100%`/`100vh` against the LARGEST possible
+        viewport (address bar collapsed), not the actual visible area — as
+        the address bar shows/hides on scroll, the real visible height
+        shrinks/grows underneath a page still sized to that larger number,
+        which is what makes a "fixed" bottom tab bar look like it scrolls
+        with the page instead of staying put. `100dvh` (dynamic viewport
+        height) tracks the real visible area instead; feature-detected so
+        browsers without it keep the exact behavior above, unchanged.
+      */
+      @supports (height: 100dvh) {
+        html,
+        body {
+          height: 100dvh;
+        }
+        #root {
+          height: 100dvh;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  </body>
+</html>

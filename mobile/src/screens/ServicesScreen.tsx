@@ -15,6 +15,7 @@ import { PremiumPackagesSection } from "@/components/feature/PremiumPackagesSect
 import { useAuth } from "@/providers/AuthProvider";
 import { BRAND } from "@/theme";
 import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
+import { iconForService } from "@/lib/serviceIcon";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: SERVICE_LIST
@@ -64,7 +65,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
             (services?.length ?? 0) > 0 ? (
               <View className="mt-2 gap-3">
                 <View className="mb-2">
-                  <PremiumPackagesSection onPressPackage={book} />
+                  <PremiumPackagesSection />
                 </View>
                 <OutlineButton
                   fullWidth
@@ -89,12 +90,14 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
               </View>
             ) : null
           }
-          renderItem={({ item: s }) => (
+          renderItem={({ item: s }) => {
+            const Icon = iconForService(s.name);
+            return (
             <Pressable onPress={() => navigation.navigate("Appointment", { serviceId: s.id })} className="active:opacity-70">
               <Card className="p-4">
                 <View className="flex-row items-start gap-3">
                   <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                    <Stethoscope size={18} color={BRAND} />
+                    <Icon size={18} color={BRAND} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
@@ -106,7 +109,8 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
                 </View>
               </Card>
             </Pressable>
-          )}
+            );
+          }}
         />
       </View>
     </SafeAreaView>

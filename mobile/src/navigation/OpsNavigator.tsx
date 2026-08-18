@@ -7,6 +7,7 @@ import { Users, User, CalendarCheck, Menu } from "lucide-react-native";
 import { BRAND } from "@/theme";
 import { useBookingRequests } from "@vagewell/shared";
 import type { ClientsStackParamList, CaregiverTabsParamList } from "@/navigation/types";
+import { AppTabBar } from "@/navigation/AppTabBar";
 import { BrandLogo } from "@/components/ui";
 import { AdminSidebar, type AdminSection } from "@/components/ops/AdminSidebar";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
@@ -94,12 +95,12 @@ export function AdminNavigator() {
 
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={["top"]}>
-      <View className="flex-row items-center justify-between border-b border-gray-100 bg-[#0B1526] px-4 py-3">
+      <View className="flex-row items-center justify-between bg-[#0B1526] px-4 py-3">
         <Pressable onPress={() => setSidebarOpen(true)} hitSlop={10} className="active:opacity-70">
           <Menu size={22} color="#fff" />
         </Pressable>
         <View className="flex-row items-center gap-2">
-          <BrandLogo size={26} />
+          <BrandLogo size={26} transparent />
           <Text className="text-sm font-bold text-white">VAgeWell Care</Text>
         </View>
         <Pressable onPress={() => selectSection("profile")} className="active:opacity-70">
@@ -127,7 +128,7 @@ export function AdminNavigator() {
         {active === "requests" ? <AdminRequestsScreen /> : null}
         {active === "userDetails" ? <AdminUserDetailsScreen onOpenClient={openClientDetail} /> : null}
         {active === "clients" ? <ClientsStackNavigator initialAccountId={clientTarget} /> : null}
-        {active === "team" ? <AdminTeamScreen /> : null}
+        {active === "team" ? <AdminTeamScreen onOpenClient={openClientDetail} /> : null}
         {active === "reports" ? <AdminReportsScreen /> : null}
         {active === "liveSheet" ? <AdminLiveSheetScreen /> : null}
         {active === "paymentProofs" ? <AdminPaymentProofsScreen /> : null}
@@ -148,7 +149,7 @@ const CaregiverTabs = createBottomTabNavigator<CaregiverTabsParamList>();
  */
 export function CaregiverNavigator() {
   return (
-    <CaregiverTabs.Navigator screenOptions={tabScreenOptions}>
+    <CaregiverTabs.Navigator tabBar={(props) => <AppTabBar {...props} />} screenOptions={tabScreenOptions}>
       <CaregiverTabs.Screen
         name="MyVisitsTab"
         component={MyVisitsScreen}

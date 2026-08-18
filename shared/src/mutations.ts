@@ -299,9 +299,14 @@ export function useUploadProfilePhoto() {
       const ext = source.contentType === "image/png" ? "png" : source.contentType === "image/webp" ? "webp" : "jpg";
       const path = `${userId}/${Date.now()}.${ext}`;
       const body = await source.toArrayBuffer();
+      // upsert: false — paths already include a timestamp so a collision is
+      // never expected, and upsert:true was routing through the storage
+      // update policy (stricter than insert) instead of the insert policy,
+      // which was the actual cause of a "row-level security policy" error
+      // even once the insert policy itself was correctly relaxed.
       const { error: upErr } = await sb.storage
         .from(PROFILE_PHOTO_BUCKET)
-        .upload(path, body, { contentType: source.contentType, upsert: true });
+        .upload(path, body, { contentType: source.contentType, upsert: false });
       if (upErr) throw upErr;
       const { error } = await sb.from("profiles").update({ avatar_path: path }).eq("id", userId);
       if (error) throw error;

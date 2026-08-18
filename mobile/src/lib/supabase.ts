@@ -69,7 +69,13 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storage: Platform.OS === "web" ? undefined : chunkedSecureStore,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // no OTP redirect callback on mobile
+    // OTP has no redirect callback (native or web), but Google/Apple OAuth
+    // does — on web the provider redirects back to this same page with the
+    // session in the URL fragment, which only gets picked up automatically
+    // if this is true. Native OAuth doesn't go through this at all (see
+    // lib/oauth.ts — it parses the redirect URL itself via expo-web-browser
+    // and calls setSession() directly), so this stays false there.
+    detectSessionInUrl: Platform.OS === "web",
   },
 });
 

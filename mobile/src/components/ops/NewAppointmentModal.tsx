@@ -380,6 +380,14 @@ function BookingForm({
       setErrors(errs);
       return;
     }
+    // symptom_brief stays optional at the schema level (shared with the
+    // patient's own Appointment screen, which enforces it the same manual
+    // way) — enforced here too so an admin booking on someone's behalf always
+    // captures a reason for the visit.
+    if (form.symptom_brief.trim().length === 0) {
+      setErrors({ symptom_brief: "Describe the symptoms or concerns" });
+      return;
+    }
     // Same same-day-past-slot guard the client's own Appointment screen has —
     // the defaults (today + earliest slot) would otherwise create a booking
     // that's already "missed" the instant it's submitted.
@@ -469,12 +477,14 @@ function BookingForm({
           </View>
           <TimeField label="Preferred time" value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
           <TextareaInput
-            label="Note (optional)"
+            label="Note"
             value={form.symptom_brief}
             onChangeText={set("symptom_brief")}
             placeholder="Describe symptoms or concerns…"
             rows={2}
             maxLength={2000}
+            error={errors.symptom_brief}
+            required
           />
         </View>
       </ScrollView>
