@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stethoscope, PhoneCall, ArrowRight } from "lucide-react-native";
-import { PrimaryButton, OutlineButton, Card } from "@/components/ui";
+import { PrimaryButton, OutlineButton, GradientButton, Card } from "@/components/ui";
 import { AuthModal } from "@/components/feature/AuthModal";
 import { PremiumPackagesSection } from "@/components/feature/PremiumPackagesSection";
 import { BRAND } from "@/theme";
@@ -32,6 +32,18 @@ export function HomeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <ScrollView contentContainerClassName="px-6 pb-8 pt-4">
+        <Card className="mb-6 p-6">
+          <Text className="text-2xl font-bold text-gray-900">Create an account</Text>
+          <Text className="mt-2 text-base text-gray-500">
+            Book care and connect with our trusted Care Assistants today.
+          </Text>
+          <View className="mt-5">
+            <GradientButton fullWidth onPress={() => open("register")}>
+              Sign Up Now
+            </GradientButton>
+          </View>
+        </Card>
+
         <View className="mb-4 flex-row items-center justify-between">
           <Text className="text-lg font-bold text-gray-900">Our services</Text>
           <Pressable

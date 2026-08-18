@@ -9,6 +9,7 @@ import {
   localPhone,
   profileCompletionPercent,
   type Profile,
+  type FamilyMember,
 } from "@vagewell/shared";
 import { PageHeader, Card, Pill, FormInput, LoadingState, EmptyState, ProfileCompletionRing } from "@/components/ui";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
@@ -20,13 +21,23 @@ import type { ClientsStackScreenProps } from "@/navigation/types";
  * profiles_select both grant any is_staff() caller full visibility, and a
  * caregiver looking up who they're about to visit is part of the job.
  *
- * Completion %/photo only apply to account holders — a `family_members` row has
- * no avatar_path/age/gender/dob of its own unless it's linked to its own
- * profile, which would need a second lookup.
+ * Photo only applies to account holders — a `family_members` row has no
+ * `avatar_path` of its own unless it's linked to its own profile, which would
+ * need a second lookup. Completion % applies to both: `family_members` carries
+ * its own `age`/`date_of_birth`/`gender` directly on the row, same shape
+ * `profileCompletionPercent()` already expects.
  */
 type ClientRow =
   | { kind: "account"; key: string; name: string; phone: string | null; detail: string; accountId: string; profile: Profile }
-  | { kind: "dependent"; key: string; name: string; phone: string | null; detail: string; accountId: string };
+  | {
+      kind: "dependent";
+      key: string;
+      name: string;
+      phone: string | null;
+      detail: string;
+      accountId: string;
+      dependent: FamilyMember;
+    };
 
 export function OpsClientsScreen({ navigation }: ClientsStackScreenProps<"ClientsList">) {
   const { data: profiles, isLoading: profilesLoading } = useAllProfiles(true);
@@ -59,6 +70,7 @@ export function OpsClientsScreen({ navigation }: ClientsStackScreenProps<"Client
         nameById.get(d.account_id) ?? "—"
       } · ${localPhone(d.contact_phone) || "no number"}`,
       accountId: d.account_id,
+      dependent: d,
     }));
 
     const q = query.trim().toLowerCase();
@@ -100,10 +112,16 @@ export function OpsClientsScreen({ navigation }: ClientsStackScreenProps<"Client
           )
         }
         renderItem={({ item }) => (
-          // Both kinds open the same household page — a dependent has no page
-          // of its own here; its record lives under the account that owns it.
+          // Both kinds open the same household page, but a dependent passes
+          // its own id (memberId) so the page opens focused on *that* person
+          // instead of always defaulting to the account holder.
           <Pressable
-            onPress={() => navigation.navigate("ClientDetail", { accountId: item.accountId })}
+            onPress={() =>
+              navigation.navigate("ClientDetail", {
+                accountId: item.accountId,
+                memberId: item.kind === "dependent" ? item.dependent.id : undefined,
+              })
+            }
             className="active:opacity-80"
           >
             <Card className="flex-row items-center gap-3 p-4">
@@ -117,9 +135,10 @@ export function OpsClientsScreen({ navigation }: ClientsStackScreenProps<"Client
                 </View>
                 <Text className="text-xs text-gray-500 dark:text-gray-400">{item.detail}</Text>
               </View>
-              {item.kind === "account" ? (
-                <ProfileCompletionRing percent={profileCompletionPercent(item.profile)} size={36} />
-              ) : null}
+              <ProfileCompletionRing
+                percent={profileCompletionPercent(item.kind === "account" ? item.profile : item.dependent)}
+                size={36}
+              />
               <ChevronRight size={18} color="#9ca3af" />
             </Card>
           </Pressable>

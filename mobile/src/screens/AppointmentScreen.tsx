@@ -84,6 +84,14 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
       setErrors(errs);
       return;
     }
+    // symptom_brief is optional in the shared schema (NewAppointmentModal's
+    // admin-side "Note (optional)" field reuses the same schema and must stay
+    // genuinely optional) — required specifically on the patient's own
+    // booking form, enforced here rather than in the shared schema.
+    if (form.symptom_brief.trim().length === 0) {
+      setErrors({ symptom_brief: "Describe the symptoms or concerns" });
+      return;
+    }
     // The date picker only blocks past dates, not a past time slot on today's
     // date — defaults (today + the earliest slot) would otherwise create a
     // booking that's already "missed" the instant it's submitted.
@@ -162,7 +170,16 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
                 </View>
               </View>
               <TimeField label="Preferred time" value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
-              <TextareaInput label="Brief on the problem faced" value={form.symptom_brief} onChangeText={set("symptom_brief")} placeholder="Describe symptoms or concerns…" rows={3} maxLength={2000} />
+              <TextareaInput
+                label="Brief on the problem faced"
+                value={form.symptom_brief}
+                onChangeText={set("symptom_brief")}
+                placeholder="Describe symptoms or concerns…"
+                rows={3}
+                maxLength={2000}
+                error={errors.symptom_brief}
+                required
+              />
             </View>
           </SectionCard>
 

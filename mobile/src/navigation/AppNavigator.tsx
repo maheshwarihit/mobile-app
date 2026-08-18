@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Stethoscope, ClipboardList, User } from "lucide-react-native";
 import { BRAND } from "@/theme";
 import type { ServicesStackParamList, AppTabsParamList } from "@/navigation/types";
+import { AppTabBar } from "@/navigation/AppTabBar";
 import { ServicesScreen } from "@/screens/ServicesScreen";
 import { AppointmentScreen } from "@/screens/AppointmentScreen";
 import { PaymentScreen } from "@/screens/PaymentScreen";
@@ -26,6 +27,7 @@ const Tabs = createBottomTabNavigator<AppTabsParamList>();
 export function AppNavigator() {
   return (
     <Tabs.Navigator
+      tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: BRAND,

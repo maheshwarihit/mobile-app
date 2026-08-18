@@ -152,9 +152,9 @@ end $$;
 update public.bookings set booking_status = 'requested' where booking_status = 'open';
 update public.bookings set booking_status = 'completed' where booking_status = 'closed';
 do $$ begin
-  if exists (select 1 from pg_trigg
-  
-  
+  if exists (select 1 from pg_trigger where tgname = 'tg_bookings_before_update' and tgrelid = 'public.bookings'::regclass) then
+    execute 'alter table public.bookings enable trigger tg_bookings_before_update';
+  end if;
 end $$;
 alter table public.bookings validate constraint bookings_booking_status_check;
 

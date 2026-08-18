@@ -102,7 +102,7 @@ export function DependentModal({
                   </View>
                 </View>
                 <SelectSheet label="Gender (optional)" value={form.gender} onValueChange={set("gender")} options={GENDER_OPTIONS} />
-                <FormInput label="Contact number (optional)" value={form.contact_phone} onChangeText={set("contact_phone")} keyboardType="phone-pad" error={errors.contact_phone} />
+                <FormInput label="Contact number" value={form.contact_phone} onChangeText={set("contact_phone")} keyboardType="phone-pad" error={errors.contact_phone} required />
               </View>
 
               <View className="mt-6 flex-row justify-end gap-2">

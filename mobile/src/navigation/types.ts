@@ -43,7 +43,10 @@ export type AppTabScreenProps<T extends keyof AppTabsParamList> = BottomTabScree
 // roles; the other tabs are single screens.
 export type ClientsStackParamList = {
   ClientsList: undefined;
-  ClientDetail: { accountId: string };
+  // memberId (optional): which specific person to open on — a family member
+  // tapped from the list, not the account holder. Omitted, the page opens on
+  // the account holder (unchanged default).
+  ClientDetail: { accountId: string; memberId?: string };
 };
 
 // Admin has no tab/stack param list of its own anymore — `AdminNavigator`

@@ -42,13 +42,13 @@ export function VisitAsModal({
           <View className="gap-3">
             <VisitAsOption
               icon={HeartHandshake}
-              label="Care Seeker"
+              label="Clients"
               selected={choice === "care_seeker"}
               onPress={() => setChoice("care_seeker")}
             />
             <VisitAsOption
               icon={Stethoscope}
-              label="Caregiver / Admin"
+              label="Care Assistant / Admin"
               selected={choice === "caregiver"}
               onPress={() => setChoice("caregiver")}
             />

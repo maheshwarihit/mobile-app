@@ -33,8 +33,8 @@ export const dependentSchema = z.object({
   contact_phone: z
     .string()
     .trim()
-    .optional()
-    .refine((v) => !v || normalizePhone(v) !== null, "Enter a valid mobile number"),
+    .min(1, "Enter a contact number")
+    .refine((v) => normalizePhone(v) !== null, "Enter a valid mobile number"),
   gender: z.union([z.enum(asTuple(GENDERS)), z.literal("")]).optional(),
 });
 export type DependentInput = z.infer<typeof dependentSchema>;

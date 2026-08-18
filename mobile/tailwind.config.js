@@ -5,7 +5,16 @@
 // `bg-purple-600` / `text-purple-700` etc. becomes teal with no per-screen edits.
 // Inline hex props (color="…") that bypass Tailwind are handled via src/theme.ts.
 module.exports = {
-  content: ["./App.tsx", "./src/**/*.{js,jsx,ts,tsx}"],
+  // `../shared/src` is included too: PAYMENT_STATUS_META/BOOKING_STATUS_META
+  // (shared/src/format.ts) hold Tailwind class *strings* as plain data — e.g.
+  // "bg-blue-50" — that are never independently typed as a literal className
+  // anywhere in mobile/src's own JSX. Without shared in the scan glob,
+  // NativeWind's JIT never sees those strings and silently never compiles the
+  // corresponding CSS, so a <Pill bgClass="bg-blue-50" .../> renders with no
+  // background at all — invisible, not merely uncolored. Only status values
+  // that happen to reuse a color also used literally elsewhere in mobile/src
+  // (gray/emerald/amber) worked by coincidence; blue/violet/indigo did not.
+  content: ["./App.tsx", "./src/**/*.{js,jsx,ts,tsx}", "../shared/src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
   // "class" (not the Tailwind default "media") so the admin sidebar's
   // Light/Dark toggle can actually override the scheme in JS

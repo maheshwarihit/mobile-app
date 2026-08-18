@@ -1,9 +1,21 @@
 import { useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { toast } from "sonner-native";
 import { ArrowLeft } from "lucide-react-native";
-import { AppModal, FormInput, OtpInput, ChoiceChips, PrimaryButton, TextButton, ErrorBanner } from "@/components/ui";
+import {
+  AppModal,
+  FormInput,
+  OtpInput,
+  ChoiceChips,
+  PrimaryButton,
+  OutlineButton,
+  TextButton,
+  ErrorBanner,
+  GoogleIcon,
+  AppleIcon,
+} from "@/components/ui";
 import { supabase } from "@/lib/supabase";
+import { signInWithProvider, type OAuthProvider } from "@/lib/oauth";
 import { useResendTimer } from "@/hooks/useResendTimer";
 import { normalizePhone, OTP_LENGTH } from "@vagewell/shared";
 
@@ -12,7 +24,7 @@ type Step = "details" | "otp";
 type OpsRole = "admin" | "leaf_node";
 
 const ROLE_OPTIONS: { value: OpsRole; label: string }[] = [
-  { value: "leaf_node", label: "Leaf Node" },
+  { value: "leaf_node", label: "Care Assistant" },
   { value: "admin", label: "Admin" },
 ];
 
@@ -69,7 +81,20 @@ export function AuthModal({
   const [role, setRole] = useState<OpsRole>("leaf_node");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [oauthBusy, setOauthBusy] = useState<OAuthProvider | null>(null);
   const resend = useResendTimer(60);
+
+  // Google/Apple never hand back a phone number — this app's identity model
+  // (RLS, family-member auto-link, staff calling a patient) is built around
+  // one, so an OAuth account will read "—" wherever a phone would show until
+  // it's added by hand later. Flagged, not silently patched around here.
+  const oauthSignIn = async (provider: OAuthProvider) => {
+    setErr(null);
+    setOauthBusy(provider);
+    const { error } = await signInWithProvider(provider, mode === "register" && rolePicker ? role : undefined);
+    setOauthBusy(null);
+    if (error) setErr(error);
+  };
 
   const reset = () => {
     setStep("details");
@@ -198,6 +223,31 @@ export function AuthModal({
 
       {step === "details" ? (
         <View className="gap-4">
+          <View className="gap-2.5">
+            <OutlineButtonWithNode
+              icon={<GoogleIcon size={16} />}
+              loading={oauthBusy === "google"}
+              disabled={oauthBusy !== null}
+              onPress={() => oauthSignIn("google")}
+            >
+              Continue with Google
+            </OutlineButtonWithNode>
+            <OutlineButtonWithNode
+              icon={<AppleIcon size={16} />}
+              loading={oauthBusy === "apple"}
+              disabled={oauthBusy !== null}
+              onPress={() => oauthSignIn("apple")}
+            >
+              Continue with Apple
+            </OutlineButtonWithNode>
+          </View>
+
+          <View className="flex-row items-center gap-3">
+            <View className="h-px flex-1 bg-gray-200" />
+            <Text className="text-xs text-gray-400">Or</Text>
+            <View className="h-px flex-1 bg-gray-200" />
+          </View>
+
           {mode === "register" ? (
             <FormInput label="Full Name" value={fullName} onChangeText={setFullName} placeholder="Name" autoCapitalize="words" required />
           ) : null}
@@ -245,5 +295,35 @@ export function AuthModal({
         </View>
       )}
     </AppModal>
+  );
+}
+
+/** Same visual style as `OutlineButton`, but takes an arbitrary icon node
+ * (react-native-svg brand marks) instead of a `LucideIcon` component type,
+ * plus its own `loading` spinner — OAuth has no separate "sending" step to
+ * borrow one from. */
+function OutlineButtonWithNode({
+  children,
+  icon,
+  onPress,
+  disabled,
+  loading,
+}: {
+  children: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  const off = disabled || loading;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={off}
+      className={`w-full flex-row items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-3 active:bg-gray-50 dark:border-slate-600 dark:bg-slate-800 dark:active:bg-slate-700 ${off ? "opacity-60" : ""}`}
+    >
+      {loading ? <ActivityIndicator size="small" color="#4b5563" /> : icon}
+      <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300">{children}</Text>
+    </Pressable>
   );
 }

@@ -4,6 +4,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import { Toaster } from "sonner-native";
+import * as WebBrowser from "expo-web-browser";
 import {
   useFonts,
   NunitoSans_400Regular,
@@ -20,6 +21,10 @@ import "./global.css";
 // Inject the mobile platform implementations into the shared data layer (once).
 configureCore({ supabase, toast });
 const queryClient = makeQueryClient();
+// Required by expo-web-browser (lib/oauth.ts's WebBrowser.openAuthSessionAsync)
+// to cleanly dismiss the in-app browser once Google/Apple redirect back to
+// the app — a documented no-op on web, where there's no such session to close.
+WebBrowser.maybeCompleteAuthSession();
 
 export default function App() {
   const [fontsLoaded] = useFonts({

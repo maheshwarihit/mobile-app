@@ -12,6 +12,8 @@ import {
   ClipboardList,
   NotebookPen,
   Plus,
+  Wallet,
+  UserCheck,
 } from "lucide-react-native";
 import {
   useAllBookings,
@@ -45,6 +47,7 @@ import { AdminNoteModal } from "@/components/ops/AdminNoteModal";
 import { NewAppointmentModal } from "@/components/ops/NewAppointmentModal";
 import { assignmentMessage } from "@/lib/whatsapp";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
+import { iconForService } from "@/lib/serviceIcon";
 import { BRAND } from "@/theme";
 
 /**
@@ -115,7 +118,7 @@ export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (acco
 
       <View className="mb-4 gap-3">
         <FormInput
-          label="Search by client, service, or caregiver"
+          label="Search by client, service, or Care Assistant"
           value={query}
           onChangeText={setQuery}
           placeholder="Name or service…"
@@ -221,19 +224,50 @@ function AdminBookingCard({
   const isRequested = booking.booking_status === "requested";
   const waHref = booking.assigned_to_phone ? waLink(booking.assigned_to_phone, assignmentMessage(booking)) : null;
   const { data: reportUrl } = useSignedUrl(MEDICAL_REPORT_BUCKET, latestReport?.storage_path);
+  const ServiceIcon = iconForService(booking.service_name);
 
   return (
-    <Card className="p-4">
-      <View className="flex-row items-center justify-between gap-3">
-        <Text className="flex-1 text-base font-semibold text-gray-900 dark:text-white">{booking.service_name}</Text>
-        <View className="flex-row items-center gap-1.5">
+    <Card className="rounded-2xl p-5">
+      <View className="flex-row items-start gap-3">
+        <View className="h-12 w-12 items-center justify-center rounded-xl bg-purple-50 dark:bg-slate-700">
+          <ServiceIcon size={22} color={BRAND} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-base font-bold text-gray-900 dark:text-white">{booking.service_name}</Text>
+          <Pressable onPress={onOpenClient} disabled={!onOpenClient} hitSlop={4} className="mt-0.5 active:opacity-70">
+            <Text className="text-sm text-gray-500 dark:text-gray-400">
+              {booking.account?.full_name ?? "—"} · Client{" "}
+              <Text className="font-semibold text-purple-600 underline dark:text-purple-300">
+                {booking.subject_name ?? "—"}
+              </Text>
+            </Text>
+          </Pressable>
+        </View>
+        <View className="items-end gap-1.5">
           {!isCancelled ? <Pill bgClass={pay.bg} textClass={pay.text}>{pay.label}</Pill> : null}
           <Pill bgClass={status.bg} textClass={status.text}>{status.label}</Pill>
         </View>
       </View>
 
+      <View className="mt-3 flex-row flex-wrap gap-2">
+        <InfoPill icon={CalendarDays} text={formatDate(booking.start_date)} />
+        <InfoPill icon={Wallet} text={money(booking.total_amount)} />
+        {booking.assigned_to_name ? <InfoPill icon={UserCheck} text={booking.assigned_to_name} /> : null}
+      </View>
+
+      {booking.admin_note ? (
+        <Text className="mt-2 text-xs text-gray-500 dark:text-gray-400" numberOfLines={2}>
+          Note: {booking.admin_note}
+        </Text>
+      ) : null}
+      {latestReport ? (
+        <Text className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+          Report uploaded: {formatLocalDateTime(latestReport.created_at)}
+        </Text>
+      ) : null}
+
       {!isCancelled ? (
-        <View className="flex-row flex-wrap gap-x-5 gap-y-2">
+        <View className="mt-4 flex-row flex-wrap gap-2 border-t border-gray-100 pt-4 dark:border-slate-700">
           <CardAction icon={FileSearch} label="Review" onPress={onReview} />
           <CardAction
             icon={NotebookPen}
@@ -254,41 +288,24 @@ function AdminBookingCard({
           ) : null}
         </View>
       ) : null}
-
-      <View className="mt-1 border-t border-gray-100 pt-1 dark:border-slate-700">
-        <Pressable onPress={onOpenClient} disabled={!onOpenClient} hitSlop={4} className="active:opacity-70">
-          <Text className="text-xs text-gray-500 dark:text-gray-400">
-            {booking.account?.full_name ?? "—"} · Client{" "}
-            <Text className="font-medium text-purple-700 dark:text-purple-300 underline">
-              {booking.subject_name ?? "—"}
-            </Text>
-          </Text>
-        </Pressable>
-        <Text className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-          {formatDate(booking.start_date)} · {money(booking.total_amount)}
-        </Text>
-        {booking.assigned_to_name ? (
-          <Text className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Assigned to {booking.assigned_to_name}</Text>
-        ) : null}
-        {booking.admin_note ? (
-          <Text className="mt-0.5 text-xs text-gray-500 dark:text-gray-400" numberOfLines={2}>
-            Note: {booking.admin_note}
-          </Text>
-        ) : null}
-        {latestReport ? (
-          <Text className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-            Report uploaded: {formatLocalDateTime(latestReport.created_at)}
-          </Text>
-        ) : null}
-      </View>
     </Card>
   );
 }
 
+/** Small rounded info badge — date/amount/assignee, matching the reference's location/rate pills. */
+function InfoPill({ icon: Icon, text }: { icon: React.ComponentType<{ size?: number; color?: string }>; text: string }) {
+  return (
+    <View className="flex-row items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 dark:bg-slate-700">
+      <Icon size={13} color="#6b7280" />
+      <Text className="text-xs font-medium text-gray-600 dark:text-gray-300">{text}</Text>
+    </View>
+  );
+}
+
 const TONES = {
-  brand: { color: BRAND, text: "text-purple-600 dark:text-purple-300" },
-  success: { color: "#047857", text: "text-emerald-700 dark:text-emerald-400" },
-  muted: { color: "#4b5563", text: "text-gray-600 dark:text-gray-300" },
+  brand: { color: BRAND, bg: "bg-purple-50 dark:bg-purple-900/30", text: "text-purple-600 dark:text-purple-300" },
+  success: { color: "#047857", bg: "bg-emerald-50 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-400" },
+  muted: { color: "#4b5563", bg: "bg-gray-100 dark:bg-slate-700", text: "text-gray-600 dark:text-gray-300" },
 } as const;
 
 export function CardAction({
@@ -309,10 +326,10 @@ export function CardAction({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className={`flex-row items-center gap-1 active:opacity-70 ${disabled ? "opacity-50" : ""}`}
+      className={`flex-row items-center gap-1.5 rounded-full px-3 py-2 active:opacity-70 ${t.bg} ${disabled ? "opacity-50" : ""}`}
     >
       <Icon size={14} color={t.color} />
-      <Text className={`text-sm font-medium ${t.text}`}>{label}</Text>
+      <Text className={`text-xs font-semibold ${t.text}`}>{label}</Text>
     </Pressable>
   );
 }

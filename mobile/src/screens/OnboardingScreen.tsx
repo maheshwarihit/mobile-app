@@ -16,9 +16,9 @@ import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   HeartHandshake,
-  Users,
-  ClipboardCheck,
+  Activity,
   Utensils,
+  Users,
   ArrowRight,
   ArrowLeft,
   Check,
@@ -39,13 +39,13 @@ type Slide = {
 };
 
 /**
- * One app, three roles (client, family, caregiver) — plus a closing slide on
- * the services themselves. Slide 4 used to introduce the admin role by name;
- * the user asked for it to match its photo (a nutrition/meal-prep scene)
- * instead, so it's a services highlight now, not an admin intro. Admin
- * functionality is unchanged elsewhere (RootNavigator still routes an admin
- * account to its own shell) — this is a wording/copy change only, on the one
- * slide whose photo never matched the "admin" theme it was carrying.
+ * 4 slides (image1-4, in filename order) — image5 (the heart-hands photo,
+ * "Care Assistant") moved to LandingScreen as its full-bleed backdrop
+ * instead of staying a 5th onboarding slide. Covers intro, physio, nutrition,
+ * and family — admin isn't named by a slide of its own (unchanged from the
+ * prior round's decision); admin functionality itself is untouched
+ * (RootNavigator still routes an admin account to its own shell), this is
+ * wording/photo selection only.
  */
 const SLIDES: Slide[] = [
   {
@@ -60,24 +60,25 @@ const SLIDES: Slide[] = [
     description: "Healthy choices today, a healthier tomorrow.",
   },
   {
-    icon: Users,
-    image: require("../../assets/onboarding/image.png"),
-    titleBefore: "Book for the ",
-    titleHighlight: "whole family",
-    description: "Add parents, kids, or anyone you care for as dependents and manage every visit from one account.",
-  },
-  {
-    icon: ClipboardCheck,
-    image: require("../../assets/onboarding/image3.png.png"),
-    titleHighlight: "Care Assistant",
-    description: "Assigned home visits, vitals and report uploads all live in this app — no separate tool to log into.",
+    icon: Activity,
+    image: require("../../assets/onboarding/image2.png"),
+    titleHighlight: "Physiotherapy",
+    titleAfter: " sessions at home",
+    description: "Guided exercises and mobility support from a trained professional, right in your living room.",
   },
   {
     icon: Utensils,
-    image: require("../../assets/onboarding/image2.png.png"),
+    image: require("../../assets/onboarding/image3.png"),
     titleHighlight: "Nutrition & wellness",
     titleAfter: ", tailored to you",
     description: "Personalized meal and wellness plans designed around each person's needs.",
+  },
+  {
+    icon: Users,
+    image: require("../../assets/onboarding/image4.png"),
+    titleBefore: "Book for the ",
+    titleHighlight: "whole family",
+    description: "Add parents, kids, or anyone you care for as dependents and manage every visit from one account.",
   },
 ];
 
