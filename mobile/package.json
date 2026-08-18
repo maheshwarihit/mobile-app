@@ -6,7 +6,8 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "expo export --platform web"
   },
   "dependencies": {
     "@expo-google-fonts/nunito-sans": "^0.2.3",
