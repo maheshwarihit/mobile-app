@@ -3050,3 +3050,15 @@ applied yet. Committed + pushed the AuthModal change (commit `d5bb796`), then re
   role." — screenshotted. Zero console errors.
 - **For the user:** future redeploys are just `bash scripts/deploy-vercel.sh` from the repo root — no more
   manual copy/rename/patch steps.
+
+## Change round — guest Home screen now shows per-service icons, matching the Services tab (user, 2026-08-22)
+User noticed every service card on the guest ("View as Guest") Home screen showed the same stethoscope
+icon, unlike the signed-in Services tab, which already uses a distinct icon per service
+(`iconForService()` — Para-Medical/Stethoscope, Mental Wellbeing/Brain, Nutrition/Apple, Physio/Activity).
+
+- [x] **`mobile/src/screens/HomeScreen.tsx`**: replaced the hardcoded `<Stethoscope>` icon with
+      `iconForService(s.name)` (the same lookup `ServicesScreen.tsx` already uses), computed per card
+      inside the `SEED_SERVICES.map()`. Dropped the now-unused direct `Stethoscope` import.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green; live-verified with
+  Playwright — screenshotted the guest Home screen showing Para-Medical with the stethoscope icon and
+  Mental Wellbeing with the brain icon (previously both showed stethoscope), zero console errors.

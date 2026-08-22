@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Stethoscope, PhoneCall, ArrowRight } from "lucide-react-native";
+import { PhoneCall, ArrowRight } from "lucide-react-native";
 import { PrimaryButton, OutlineButton, GradientButton, Card } from "@/components/ui";
 import { AuthModal } from "@/components/feature/AuthModal";
 import { LanguageToggle } from "@/components/feature/LanguageToggle";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceDescription } from "@/components/feature/ServiceDescription";
+import { iconForService } from "@/lib/serviceIcon";
 import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import { SEED_SERVICES, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
@@ -58,21 +59,24 @@ export function HomeScreen() {
         </View>
 
         <View className="gap-3">
-          {SEED_SERVICES.map((s) => (
-            <Pressable key={s.name} onPress={() => open("register")} className="active:opacity-70">
-              <Card className="p-4">
-                <View className="flex-row items-start gap-3">
-                  <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                    <Stethoscope size={18} color={BRAND} />
+          {SEED_SERVICES.map((s) => {
+            const Icon = iconForService(s.name);
+            return (
+              <Pressable key={s.name} onPress={() => open("register")} className="active:opacity-70">
+                <Card className="p-4">
+                  <View className="flex-row items-start gap-3">
+                    <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
+                      <Icon size={18} color={BRAND} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-semibold text-gray-900">{translateServiceName(t, s.name)}</Text>
+                      <ServiceDescription text={translateServiceDescription(t, s.description)} />
+                    </View>
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900">{translateServiceName(t, s.name)}</Text>
-                    <ServiceDescription text={translateServiceDescription(t, s.description)} />
-                  </View>
-                </View>
-              </Card>
-            </Pressable>
-          ))}
+                </Card>
+              </Pressable>
+            );
+          })}
         </View>
 
         <View className="mt-3 rounded-xl bg-[#63A147] p-4">
