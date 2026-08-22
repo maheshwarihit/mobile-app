@@ -5,6 +5,7 @@ import { UserPlus } from "lucide-react-native";
 import { useAllProfiles, formatLocalDateTime, localPhone } from "@vagewell/shared";
 import { PageHeader, Card, Pill, LoadingState, EmptyState } from "@/components/ui";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
+import { useLanguage } from "@/lib/i18n";
 
 /**
  * SCREEN_ID: ADMIN_USER_DETAILS — every registered client, newest first, a
@@ -20,6 +21,7 @@ import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
  * and which is also where `viewed_by_admin_at` actually gets set).
  */
 export function AdminUserDetailsScreen({ onOpenClient }: { onOpenClient: (accountId: string) => void }) {
+  const { t } = useLanguage();
   const { data: profiles, isLoading } = useAllProfiles(true);
 
   const recent = useMemo(
@@ -37,12 +39,12 @@ export function AdminUserDetailsScreen({ onOpenClient }: { onOpenClient: (accoun
         keyExtractor={(p) => p.id}
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         ItemSeparatorComponent={() => <View className="h-3" />}
-        ListHeaderComponent={<PageHeader title="User details" subtitle="Recently registered clients." />}
+        ListHeaderComponent={<PageHeader title={t("ops.userDetails.title")} subtitle={t("ops.userDetails.subtitle")} />}
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading…" />
+            <LoadingState message={t("ops.userDetails.loading")} />
           ) : (
-            <EmptyState icon={UserPlus} title="No clients yet" description="New sign-ups appear here." />
+            <EmptyState icon={UserPlus} title={t("ops.userDetails.empty.title")} description={t("ops.userDetails.empty.description")} />
           )
         }
         renderItem={({ item }) => (
@@ -53,11 +55,13 @@ export function AdminUserDetailsScreen({ onOpenClient }: { onOpenClient: (accoun
                 <View className="flex-row items-center gap-2">
                   <Text className="text-sm font-semibold text-gray-900 dark:text-white">{item.full_name ?? "—"}</Text>
                   {!item.viewed_by_admin_at ? (
-                    <Pill bgClass="bg-red-50 dark:bg-red-400/10" textClass="text-red-600 dark:text-red-400">New</Pill>
+                    <Pill bgClass="bg-red-50 dark:bg-red-400/10" textClass="text-red-600 dark:text-red-400">{t("ops.userDetails.new")}</Pill>
                   ) : null}
                 </View>
                 <Text className="text-xs text-gray-500 dark:text-gray-400">{localPhone(item.phone) || "—"}</Text>
-                <Text className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Joined {formatLocalDateTime(item.created_at)}</Text>
+                <Text className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                  {t("ops.userDetails.joined", { date: formatLocalDateTime(item.created_at) })}
+                </Text>
               </View>
             </Card>
           </Pressable>

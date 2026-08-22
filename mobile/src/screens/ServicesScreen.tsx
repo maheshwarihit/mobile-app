@@ -11,15 +11,18 @@ import {
   Card,
   ProfileCompletionRing,
 } from "@/components/ui";
-import { PremiumPackagesSection } from "@/components/feature/PremiumPackagesSection";
 import { useAuth } from "@/providers/AuthProvider";
+import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
 import { iconForService } from "@/lib/serviceIcon";
+import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
+import { ServiceDescription } from "@/components/feature/ServiceDescription";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: SERVICE_LIST
 export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Services">) {
+  const { t } = useLanguage();
   const { data: services, isLoading, error } = useServices();
   const { profile } = useAuth();
   const requestBooking = useCreateBookingRequest();
@@ -34,8 +37,8 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <View className="flex-1 px-5 pt-4">
         <PageHeader
-          title="Our services"
-          subtitle="Choose a service to begin your care journey."
+          title={t("services.title")}
+          subtitle={t("services.subtitle")}
           action={
             <View className="flex-row items-center gap-2">
               <Pressable
@@ -49,8 +52,8 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           }
         />
 
-        {error ? <ErrorBanner message="Could not load services. Please try again." /> : null}
-        {isLoading ? <LoadingState message="Loading services…" /> : null}
+        {error ? <ErrorBanner message={t("services.loadError")} /> : null}
+        {isLoading ? <LoadingState message={t("services.loading")} /> : null}
 
         <FlatList
           data={services ?? []}
@@ -58,14 +61,16 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           contentContainerClassName="gap-3 pb-6"
           ListEmptyComponent={
             !isLoading && !error ? (
-              <EmptyState icon={Stethoscope} title="No services available" description="Please check back later." />
+              <EmptyState icon={Stethoscope} title={t("services.empty.title")} description={t("services.empty.description")} />
             ) : null
           }
           ListFooterComponent={
             (services?.length ?? 0) > 0 ? (
               <View className="mt-2 gap-3">
-                <View className="mb-2">
-                  <PremiumPackagesSection />
+                <View className="rounded-xl bg-[#63A147] p-4">
+                  <Text className="text-center text-sm font-bold text-white">
+                    {t("services.pricesFromNote", { price: money(Math.min(...(services ?? []).map((s) => s.price_per_day))) })}
+                  </Text>
                 </View>
                 <OutlineButton
                   fullWidth
@@ -73,20 +78,16 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
                   disabled={requestBooking.isPending}
                   onPress={() => requestBooking.mutate(undefined)}
                 >
-                  {requestBooking.isPending ? "Sending…" : "Request for Booking"}
+                  {requestBooking.isPending ? t("services.requestSending") : t("services.requestForBooking")}
                 </OutlineButton>
-                <Text className="-mt-2 text-center text-xs text-gray-400">
-                  Not ready to pick a service? Ask our team to call you back.
-                </Text>
+                <Text className="-mt-2 text-center text-xs text-gray-400">{t("services.requestHint")}</Text>
                 <PrimaryButton fullWidth icon={ArrowRight} onPress={book}>
-                  Book Appointment
+                  {t("services.bookAppointment")}
                 </PrimaryButton>
                 <OutlineButton fullWidth icon={UserPlus} onPress={() => navigation.navigate("ProfileTab")}>
-                  Add a family member
+                  {t("services.addFamilyMember")}
                 </OutlineButton>
-                <Text className="text-center text-xs text-purple-700">
-                  Book for a parent, spouse, or child under this same login.
-                </Text>
+                <Text className="text-center text-xs text-purple-700">{t("services.addFamilyHint")}</Text>
               </View>
             ) : null
           }
@@ -100,11 +101,8 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
                     <Icon size={18} color={BRAND} />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
-                    {s.description ? <Text className="mt-0.5 text-sm text-gray-500">{s.description}</Text> : null}
-                    <Text className="mt-1 text-sm font-semibold text-purple-700">
-                      {s.pricing_model === "flat_advance" ? `Advance ${money(s.price_per_day)} (monthly package)` : `${money(s.price_per_day)}/day`}
-                    </Text>
+                    <Text className="text-base font-semibold text-gray-900">{translateServiceName(t, s.name)}</Text>
+                    {s.description ? <ServiceDescription text={translateServiceDescription(t, s.description)} /> : null}
                   </View>
                 </View>
               </Card>

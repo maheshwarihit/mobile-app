@@ -9,6 +9,7 @@ import { AppointmentScreen } from "@/screens/AppointmentScreen";
 import { PaymentScreen } from "@/screens/PaymentScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
+import { useLanguage } from "@/lib/i18n";
 
 const Stack = createNativeStackNavigator<ServicesStackParamList>();
 
@@ -25,6 +26,7 @@ function ServicesStackNavigator() {
 const Tabs = createBottomTabNavigator<AppTabsParamList>();
 
 export function AppNavigator() {
+  const { t } = useLanguage();
   return (
     <Tabs.Navigator
       tabBar={(props) => <AppTabBar {...props} />}
@@ -37,17 +39,17 @@ export function AppNavigator() {
       <Tabs.Screen
         name="ServicesTab"
         component={ServicesStackNavigator}
-        options={{ title: "Services", tabBarIcon: ({ color, size }) => <Stethoscope size={size} color={color} /> }}
+        options={{ title: t("common.tab.services"), tabBarIcon: ({ color, size }) => <Stethoscope size={size} color={color} /> }}
       />
       <Tabs.Screen
         name="AppointmentsTab"
         component={DashboardScreen}
-        options={{ title: "Appointments", tabBarIcon: ({ color, size }) => <ClipboardList size={size} color={color} /> }}
+        options={{ title: t("common.tab.appointments"), tabBarIcon: ({ color, size }) => <ClipboardList size={size} color={color} /> }}
       />
       <Tabs.Screen
         name="ProfileTab"
         component={ProfileScreen}
-        options={{ title: "Profile", tabBarIcon: ({ color, size }) => <User size={size} color={color} /> }}
+        options={{ title: t("common.tab.profile"), tabBarIcon: ({ color, size }) => <User size={size} color={color} /> }}
       />
     </Tabs.Navigator>
   );

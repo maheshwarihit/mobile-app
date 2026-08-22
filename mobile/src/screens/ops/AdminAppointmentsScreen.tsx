@@ -48,6 +48,8 @@ import { NewAppointmentModal } from "@/components/ops/NewAppointmentModal";
 import { assignmentMessage } from "@/lib/whatsapp";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
 import { iconForService } from "@/lib/serviceIcon";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 
 /**
@@ -60,6 +62,7 @@ import { BRAND } from "@/theme";
  * ones assigned to them, which is what the Visits tab is for.
  */
 export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (accountId: string) => void }) {
+  const { t } = useLanguage();
   const { data: bookings, isLoading, error, refetch } = useAllBookings(true);
   // One reports query for the whole list instead of one per card — every row
   // needs "is there a report yet?", and report_select already returns every
@@ -111,31 +114,31 @@ export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (acco
   const header = (
     <View>
       <PageHeader
-        title="All appointments"
-        subtitle="Every booking across every client."
+        title={t("ops.appointments.title")}
+        subtitle={t("ops.appointments.subtitle")}
         action={<IconButton icon={Plus} onPress={() => setCreating(true)} />}
       />
 
       <View className="mb-4 gap-3">
         <FormInput
-          label="Search by client, service, or Care Assistant"
+          label={t("ops.appointments.search")}
           value={query}
           onChangeText={setQuery}
-          placeholder="Name or service…"
+          placeholder={t("ops.appointments.searchPlaceholder")}
         />
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <DateField label="From" value={dayFrom} onChange={setDayFrom} placeholder="Any date" />
+            <DateField label={t("ops.appointments.from")} value={dayFrom} onChange={setDayFrom} placeholder={t("ops.appointments.anyDate")} />
           </View>
           <View className="flex-1">
-            <DateField label="To" value={dayTo} onChange={setDayTo} placeholder="Any date" />
+            <DateField label={t("ops.appointments.to")} value={dayTo} onChange={setDayTo} placeholder={t("ops.appointments.anyDate")} />
           </View>
         </View>
         {hasFilter ? (
           <View className="flex-row items-center gap-3">
             <CalendarDays size={14} color="#9ca3af" />
             <Text className="flex-1 text-xs text-gray-500 dark:text-gray-400">
-              Showing {filtered.length} of {bookings?.length ?? 0} appointments
+              {t("ops.appointments.showingCount", { shown: filtered.length, total: bookings?.length ?? 0 })}
             </Text>
             <TextButton
               onPress={() => {
@@ -143,13 +146,13 @@ export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (acco
                 setDayTo("");
               }}
             >
-              Clear dates
+              {t("ops.appointments.clearDates")}
             </TextButton>
           </View>
         ) : null}
       </View>
 
-      {error ? <ErrorBanner message="Could not load appointments." /> : null}
+      {error ? <ErrorBanner message={t("ops.appointments.loadError")} /> : null}
     </View>
   );
 
@@ -164,12 +167,12 @@ export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (acco
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading appointments…" />
+            <LoadingState message={t("ops.appointments.loading")} />
           ) : (
             <EmptyState
               icon={ClipboardList}
-              title="No appointments"
-              description="Bookings from all clients appear here."
+              title={t("ops.appointments.empty.title")}
+              description={t("ops.appointments.empty.description")}
             />
           )
         }
@@ -218,6 +221,7 @@ function AdminBookingCard({
   onNote: () => void;
   onOpenClient?: () => void;
 }) {
+  const { t } = useLanguage();
   const pay = paymentStatusMeta(booking.payment_status);
   const status = bookingStatusMeta(booking.booking_status);
   const isCancelled = booking.booking_status === "cancelled";
@@ -233,10 +237,10 @@ function AdminBookingCard({
           <ServiceIcon size={22} color={BRAND} />
         </View>
         <View className="flex-1">
-          <Text className="text-base font-bold text-gray-900 dark:text-white">{booking.service_name}</Text>
+          <Text className="text-base font-bold text-gray-900 dark:text-white">{translateServiceName(t, booking.service_name)}</Text>
           <Pressable onPress={onOpenClient} disabled={!onOpenClient} hitSlop={4} className="mt-0.5 active:opacity-70">
             <Text className="text-sm text-gray-500 dark:text-gray-400">
-              {booking.account?.full_name ?? "—"} · Client{" "}
+              {booking.account?.full_name ?? "—"} · {t("ops.client")}{" "}
               <Text className="font-semibold text-purple-600 underline dark:text-purple-300">
                 {booking.subject_name ?? "—"}
               </Text>
@@ -257,34 +261,34 @@ function AdminBookingCard({
 
       {booking.admin_note ? (
         <Text className="mt-2 text-xs text-gray-500 dark:text-gray-400" numberOfLines={2}>
-          Note: {booking.admin_note}
+          {t("ops.appointments.note", { note: booking.admin_note })}
         </Text>
       ) : null}
       {latestReport ? (
         <Text className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-          Report uploaded: {formatLocalDateTime(latestReport.created_at)}
+          {t("ops.appointments.reportUploaded", { date: formatLocalDateTime(latestReport.created_at) })}
         </Text>
       ) : null}
 
       {!isCancelled ? (
         <View className="mt-4 flex-row flex-wrap gap-2 border-t border-gray-100 pt-4 dark:border-slate-700">
-          <CardAction icon={FileSearch} label="Review" onPress={onReview} />
+          <CardAction icon={FileSearch} label={t("ops.appointments.action.review")} onPress={onReview} />
           <CardAction
             icon={NotebookPen}
-            label={booking.admin_note ? "Edit Note" : "+ Note"}
+            label={booking.admin_note ? t("ops.appointments.action.editNote") : t("ops.appointments.action.addNote")}
             onPress={onNote}
             tone="muted"
           />
           {isRequested ? (
-            <CardAction icon={UserPlus2} label="Approve & Assign" onPress={onApprove} tone="success" />
+            <CardAction icon={UserPlus2} label={t("ops.appointments.action.approveAssign")} onPress={onApprove} tone="success" />
           ) : (
-            <CardAction icon={UploadCloud} label="Upload Report" onPress={onUploadReport} tone="muted" />
+            <CardAction icon={UploadCloud} label={t("ops.appointments.action.uploadReport")} onPress={onUploadReport} tone="muted" />
           )}
           {reportUrl ? (
-            <CardAction icon={Eye} label="View Report" onPress={() => openUrl(reportUrl)} tone="muted" />
+            <CardAction icon={Eye} label={t("ops.appointments.action.viewReport")} onPress={() => openUrl(reportUrl)} tone="muted" />
           ) : null}
           {waHref ? (
-            <CardAction icon={MessageCircle} label="WhatsApp" onPress={() => openUrl(waHref)} tone="success" />
+            <CardAction icon={MessageCircle} label={t("ops.appointments.action.whatsapp")} onPress={() => openUrl(waHref)} tone="success" />
           ) : null}
         </View>
       ) : null}

@@ -1,18 +1,20 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { CompositeScreenProps, NavigatorScreenParams } from "@react-navigation/native";
-import type { PricingModel, ServiceMode } from "@vagewell/shared";
+import type { ServiceMode } from "@vagewell/shared";
 
 // ── Booking draft handed Appointment → Payment (via route params) ─
+// No price/pricing_model here — the amount is no longer calculated at
+// booking time; the care assistant/admin shares it with the customer after
+// the visit (see the "no payment-at-booking" round in CLAUDE.md).
 export interface BookingDraft {
   service_id: string;
   service_name: string;
-  price_per_day: number;
-  pricing_model: PricingModel;
   family_member_id: string | null;
   subject_name: string;
   service_mode: ServiceMode;
   start_date: string;
+  end_date: string;
   num_days: number;
   time_slot: string;
   symptom_brief: string;

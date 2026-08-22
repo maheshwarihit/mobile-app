@@ -50,8 +50,8 @@ export function todayISODate(): string {
 
 /**
  * Compose a 12-hour picker (hour 1–12 + minute + AM/PM) into a 24-hour "HH:MM"
- * string for storage/validation. Inverse of formatSlot(). The caller is
- * responsible for validating the result against timeSlots() / the DB window.
+ * string for storage. Inverse of formatSlot(). Always produces a valid
+ * 15-minute-boundary time (00/15/30/45) — no business-hours restriction.
  */
 export function combineTime(h12: number, minute: number, meridiem: "AM" | "PM"): string {
   let h24 = h12 % 12; // 12 → 0
@@ -65,6 +65,15 @@ export function addDays(dateStr: string, days: number): string {
   const dt = new Date(y, m - 1, d);
   dt.setDate(dt.getDate() + Math.max(0, days - 1));
   return dt.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+}
+
+/** Inclusive day count between two "YYYY-MM-DD" dates (same day = 1). */
+export function daysBetween(startISO: string, endISO: string): number {
+  const [y1, m1, d1] = startISO.split("-").map(Number);
+  const [y2, m2, d2] = endISO.split("-").map(Number);
+  const start = new Date(y1, m1 - 1, d1);
+  const end = new Date(y2, m2 - 1, d2);
+  return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
 }
 
 /**

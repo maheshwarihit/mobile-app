@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, Pressable, Modal } from "react-native";
 import { HeartHandshake, Stethoscope } from "lucide-react-native";
 import { GradientButton } from "@/components/ui";
+import { useLanguage } from "@/lib/i18n";
 
 export type VisitAs = "care_seeker" | "caregiver";
 
@@ -28,6 +29,7 @@ export function VisitAsModal({
   onClose: () => void;
   onContinue: (choice: VisitAs) => void;
 }) {
+  const { t } = useLanguage();
   const [choice, setChoice] = useState<VisitAs>("care_seeker");
 
   return (
@@ -37,18 +39,18 @@ export function VisitAsModal({
           className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0F2A30] p-5"
           onPress={() => {}}
         >
-          <Text className="mb-4 text-lg font-bold text-white">Visit as</Text>
+          <Text className="mb-4 text-lg font-bold text-white">{t("landing.visitAs.title")}</Text>
 
           <View className="gap-3">
             <VisitAsOption
               icon={HeartHandshake}
-              label="Clients"
+              label={t("landing.visitAs.careSeeker")}
               selected={choice === "care_seeker"}
               onPress={() => setChoice("care_seeker")}
             />
             <VisitAsOption
               icon={Stethoscope}
-              label="Care Assistant / Admin"
+              label={t("landing.visitAs.caregiver")}
               selected={choice === "caregiver"}
               onPress={() => setChoice("caregiver")}
             />
@@ -56,7 +58,7 @@ export function VisitAsModal({
 
           <View className="mt-5">
             <GradientButton fullWidth onPress={() => onContinue(choice)}>
-              Continue
+              {t("landing.visitAs.continue")}
             </GradientButton>
           </View>
         </Pressable>

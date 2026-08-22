@@ -20,7 +20,6 @@ import {
   bookingStatusMeta,
   profileCompletionPercent,
   GENDERS,
-  GENDER_LABELS,
   REPORT_TYPE_LABELS,
   MEDICAL_REPORT_BUCKET,
   type ReportUpload,
@@ -47,9 +46,11 @@ import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
 import { useAuth } from "@/providers/AuthProvider";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
+import { translateTamilToEnglish } from "@/lib/translateText";
+import { useLanguage } from "@/lib/i18n";
 import type { ClientsStackScreenProps } from "@/navigation/types";
-
-const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }));
 
 /**
  * SCREEN_ID: OPS_CLIENT_DETAIL — one household at a glance: the account
@@ -58,6 +59,8 @@ const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }
  * spreads across /patients/[accountId] and its sub-routes.
  */
 export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenProps<"ClientDetail">) {
+  const { t } = useLanguage();
+  const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }));
   const { accountId, memberId } = route.params;
   const { role } = useAuth();
   const { data: profiles, isLoading: profilesLoading, refetch: refetchProfiles } = useAllProfiles(true);
@@ -134,8 +137,8 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
     return (
       <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900" edges={["top"]}>
         <View className="p-5">
-          <PageHeader title="Client" onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined} />
-          <LoadingState message="Loading client…" />
+          <PageHeader title={t("ops.clientDetail.title")} onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined} />
+          <LoadingState message={t("ops.clientDetail.loading")} />
         </View>
       </SafeAreaView>
     );
@@ -145,10 +148,13 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900" edges={["top"]}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
         <PageHeader
-          title={focusedDependent ? focusedDependent.full_name : profile?.full_name ?? "Client"}
+          title={focusedDependent ? focusedDependent.full_name : profile?.full_name ?? t("ops.clientDetail.title")}
           subtitle={
             focusedDependent
-              ? `${focusedDependent.relationship[0].toUpperCase()}${focusedDependent.relationship.slice(1)} · part of ${profile?.full_name ?? "—"}'s household`
+              ? t("ops.clientDetail.partOfHousehold", {
+                  relationship: relationshipLabel(t, focusedDependent.relationship),
+                  name: profile?.full_name ?? "—",
+                })
               : localPhone(profile?.phone) || undefined
           }
           onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
@@ -161,12 +167,12 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
             className="mb-4 self-start active:opacity-70"
           >
             <Text className="text-xs font-medium text-purple-600 underline dark:text-purple-300">
-              View {profile?.full_name ?? "account holder"}&apos;s own profile
+              {t("ops.clientDetail.viewAccountHolder", { name: profile?.full_name ?? "account holder" })}
             </Text>
           </Pressable>
         ) : null}
 
-        <SectionCard icon={User} title="Details">
+        <SectionCard icon={User} title={t("ops.clientDetail.detailsSection")}>
           {focusedDependent ? (
             <View className="gap-3">
               <View className="flex-row items-center gap-3">
@@ -174,29 +180,29 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
                 <View className="flex-1">
                   <Text className="text-base font-semibold text-gray-900 dark:text-white">{focusedDependent.full_name}</Text>
                   <Text className="text-xs text-gray-500 dark:text-gray-400">
-                    Profile {profileCompletionPercent(focusedDependent)}% complete
+                    {t("ops.clientDetail.profileComplete", { percent: profileCompletionPercent(focusedDependent) })}
                   </Text>
                 </View>
                 <View className="flex-row gap-2">
                   {focusedDependent.contact_phone ? (
-                    <CardAction icon={Phone} label="Call" onPress={() => openUrl(`tel:${focusedDependent.contact_phone}`)} />
+                    <CardAction icon={Phone} label={t("ops.call")} onPress={() => openUrl(`tel:${focusedDependent.contact_phone}`)} />
                   ) : null}
-                  <CardAction icon={Pencil} label="Edit" onPress={() => setEditingDependent(focusedDependent)} tone="muted" />
+                  <CardAction icon={Pencil} label={t("ops.edit")} onPress={() => setEditingDependent(focusedDependent)} tone="muted" />
                 </View>
               </View>
               <InfoRow
-                label="Relationship"
-                value={`${focusedDependent.relationship[0].toUpperCase()}${focusedDependent.relationship.slice(1)}`}
+                label={t("ops.clientDetail.relationship")}
+                value={relationshipLabel(t, focusedDependent.relationship)}
               />
-              <InfoRow label="Contact number" value={localPhone(focusedDependent.contact_phone) || "—"} />
-              <InfoRow label="Age" value={focusedDependent.age != null ? String(focusedDependent.age) : "—"} />
-              <InfoRow label="Gender" value={focusedDependent.gender ? GENDER_LABELS[focusedDependent.gender] : "—"} />
+              <InfoRow label={t("ops.clientDetail.contactNumber")} value={localPhone(focusedDependent.contact_phone) || "—"} />
+              <InfoRow label={t("ops.clientDetail.age")} value={focusedDependent.age != null ? String(focusedDependent.age) : "—"} />
+              <InfoRow label={t("ops.clientDetail.gender")} value={focusedDependent.gender ? genderLabel(t, focusedDependent.gender) : "—"} />
               <InfoRow
-                label="Date of birth"
+                label={t("ops.clientDetail.dob")}
                 value={focusedDependent.date_of_birth ? formatDate(focusedDependent.date_of_birth) : "—"}
               />
               {focusedDependent.linked_profile_id ? (
-                <InfoRow label="Login" value="Has own login" />
+                <InfoRow label="Login" value={t("ops.clientDetail.hasOwnLogin")} />
               ) : null}
             </View>
           ) : profile ? (
@@ -206,31 +212,31 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
                 <View className="flex-1">
                   <Text className="text-base font-semibold text-gray-900 dark:text-white">{profile.full_name ?? "—"}</Text>
                   <Text className="text-xs text-gray-500 dark:text-gray-400">
-                    Profile {profileCompletionPercent(profile)}% complete
+                    {t("ops.clientDetail.profileComplete", { percent: profileCompletionPercent(profile) })}
                   </Text>
                 </View>
                 <View className="flex-row gap-2">
                   {profile.phone ? (
-                    <CardAction icon={Phone} label="Call" onPress={() => openUrl(`tel:${profile.phone}`)} />
+                    <CardAction icon={Phone} label={t("ops.call")} onPress={() => openUrl(`tel:${profile.phone}`)} />
                   ) : null}
-                  <CardAction icon={Pencil} label="Edit" onPress={() => setEditingProfile(true)} tone="muted" />
+                  <CardAction icon={Pencil} label={t("ops.edit")} onPress={() => setEditingProfile(true)} tone="muted" />
                 </View>
               </View>
-              <InfoRow label="Mobile" value={localPhone(profile.phone) || "—"} />
-              <InfoRow label="Age" value={profile.age != null ? String(profile.age) : "—"} />
-              <InfoRow label="Gender" value={profile.gender ? GENDER_LABELS[profile.gender] : "—"} />
-              <InfoRow label="Date of birth" value={profile.date_of_birth ? formatDate(profile.date_of_birth) : "—"} />
-              <InfoRow label="Address" value={profile.address || "—"} />
-              <InfoRow label="Joined" value={formatDate(profile.created_at)} />
+              <InfoRow label={t("ops.clientDetail.mobile")} value={localPhone(profile.phone) || "—"} />
+              <InfoRow label={t("ops.clientDetail.age")} value={profile.age != null ? String(profile.age) : "—"} />
+              <InfoRow label={t("ops.clientDetail.gender")} value={profile.gender ? genderLabel(t, profile.gender) : "—"} />
+              <InfoRow label={t("ops.clientDetail.dob")} value={profile.date_of_birth ? formatDate(profile.date_of_birth) : "—"} />
+              <InfoRow label={t("ops.clientDetail.address")} value={profile.address || "—"} />
+              <InfoRow label={t("ops.clientDetail.joined")} value={formatDate(profile.created_at)} />
             </View>
           ) : (
-            <Text className="text-sm text-gray-500 dark:text-gray-400">This account could not be found.</Text>
+            <Text className="text-sm text-gray-500 dark:text-gray-400">{t("ops.clientDetail.notFound")}</Text>
           )}
         </SectionCard>
 
-        <SectionCard icon={Users} title="Family members" subtitle={`${dependents?.length ?? 0} on this account`}>
+        <SectionCard icon={Users} title={t("ops.clientDetail.familyMembersTitle")} subtitle={t("ops.clientDetail.familyMembersSubtitle", { count: dependents?.length ?? 0 })}>
           {(dependents ?? []).length === 0 ? (
-            <Text className="mb-3 text-sm text-gray-500 dark:text-gray-400">No dependents added yet.</Text>
+            <Text className="mb-3 text-sm text-gray-500 dark:text-gray-400">{t("ops.clientDetail.noDependents")}</Text>
           ) : (
             <View className="mb-3 gap-3">
               {(dependents ?? []).map((d) => (
@@ -244,17 +250,17 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
                   <View className="flex-1">
                     <Text className="text-sm font-medium text-gray-900 dark:text-white">{d.full_name}</Text>
                     <Text className="text-xs text-gray-500 dark:text-gray-400">
-                      {d.relationship[0].toUpperCase() + d.relationship.slice(1)}
+                      {relationshipLabel(t, d.relationship)}
                       {d.age != null ? ` · ${d.age} yrs` : ""}
                       {localPhone(d.contact_phone) ? ` · ${localPhone(d.contact_phone)}` : ""}
                     </Text>
                     <Text className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                      Profile {profileCompletionPercent(d)}% complete
+                      {t("ops.clientDetail.profileComplete", { percent: profileCompletionPercent(d) })}
                     </Text>
                   </View>
                   <View className="items-end gap-1.5">
                     {d.linked_profile_id ? (
-                      <Pill bgClass="bg-emerald-50 dark:bg-emerald-400/10" textClass="text-emerald-700 dark:text-emerald-400">Has own login</Pill>
+                      <Pill bgClass="bg-emerald-50 dark:bg-emerald-400/10" textClass="text-emerald-700 dark:text-emerald-400">{t("ops.clientDetail.hasOwnLogin")}</Pill>
                     ) : null}
                     <Pressable
                       onPress={(e) => {
@@ -273,18 +279,22 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
               ))}
             </View>
           )}
-          <CardAction icon={UserPlus} label="Add family member" onPress={() => setAddingDependent(true)} />
+          <CardAction icon={UserPlus} label={t("ops.clientDetail.addFamilyMember")} onPress={() => setAddingDependent(true)} />
         </SectionCard>
 
         <SectionCard
           icon={CalendarCheck}
-          title="Appointment history"
-          subtitle={focusedDependent ? `${subjectBookings.length} for ${focusedDependent.full_name}` : `${subjectBookings.length} in total`}
+          title={t("ops.clientDetail.appointmentHistoryTitle")}
+          subtitle={
+            focusedDependent
+              ? t("ops.clientDetail.appointmentHistoryForDependent", { count: subjectBookings.length, name: focusedDependent.full_name })
+              : t("ops.clientDetail.appointmentHistoryTotal", { count: subjectBookings.length })
+          }
         >
           {bookingsLoading && subjectBookings.length === 0 ? (
-            <LoadingState message="Loading appointments…" />
+            <LoadingState message={t("ops.clientDetail.loadingAppointments")} />
           ) : subjectBookings.length === 0 ? (
-            <Text className="text-sm text-gray-500 dark:text-gray-400">No appointments booked yet.</Text>
+            <Text className="text-sm text-gray-500 dark:text-gray-400">{t("ops.clientDetail.noAppointments")}</Text>
           ) : (
             <View className="gap-3">
               {subjectBookings.map((b) => {
@@ -292,7 +302,7 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
                 return (
                   <View key={b.id} className="flex-row items-start justify-between gap-3">
                     <View className="flex-1">
-                      <Text className="text-sm font-medium text-gray-900 dark:text-white">{b.service_name}</Text>
+                      <Text className="text-sm font-medium text-gray-900 dark:text-white">{translateServiceName(t, b.service_name)}</Text>
                       <Text className="text-xs text-gray-500 dark:text-gray-400">
                         {b.subject_name ?? "—"} · {formatDate(b.start_date)} · {formatSlot(b.time_slot)}
                       </Text>
@@ -306,9 +316,9 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
           )}
         </SectionCard>
 
-        <SectionCard icon={FileText} title="Reports" subtitle={`${subjectReports.length} uploaded`}>
+        <SectionCard icon={FileText} title={t("ops.clientDetail.reportsTitle")} subtitle={t("ops.clientDetail.reportsSubtitle", { count: subjectReports.length })}>
           {subjectReports.length === 0 ? (
-            <EmptyState icon={FileText} title="No reports yet" description="Uploads appear here once a visit is done." />
+            <EmptyState icon={FileText} title={t("ops.clientDetail.noReports.title")} description={t("ops.clientDetail.noReports.description")} />
           ) : (
             <View className="gap-4">
               {reportGroups.map((g) => (
@@ -361,9 +371,12 @@ function EditProfileModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useLanguage();
+  const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }));
   const updateProfile = useUpdateProfile();
   const [form, setForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", address: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
@@ -379,7 +392,7 @@ function EditProfileModal({
     }
   }, [open, profile]);
 
-  const submit = () => {
+  const submit = async () => {
     setErrors({});
     const parsed = profileSchema.safeParse(form);
     if (!parsed.success) {
@@ -388,14 +401,20 @@ function EditProfileModal({
       setErrors(errs);
       return;
     }
+    setSubmitting(true);
+    const [full_name, address] = await Promise.all([
+      translateTamilToEnglish(parsed.data.full_name),
+      parsed.data.address ? translateTamilToEnglish(parsed.data.address) : Promise.resolve(parsed.data.address),
+    ]);
+    setSubmitting(false);
     updateProfile.mutate(
       {
         id: profile.id,
-        full_name: parsed.data.full_name,
+        full_name,
         age: parsed.data.age,
         date_of_birth: parsed.data.date_of_birth || null,
         gender: parsed.data.gender || null,
-        address: parsed.data.address || null,
+        address: address || null,
       },
       {
         onSuccess: () => {
@@ -413,22 +432,22 @@ function EditProfileModal({
           <Pressable style={{ maxHeight: "85%" }} className="w-full max-w-md rounded-2xl border border-gray-100 bg-white" onPress={() => {}}>
             <ScrollView contentContainerClassName="p-5" keyboardShouldPersistTaps="handled">
               <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-lg font-bold text-gray-900">Edit details</Text>
+                <Text className="text-lg font-bold text-gray-900">{t("ops.clientDetail.editModal.title")}</Text>
                 <Pressable onPress={onClose} hitSlop={8}>
                   <X size={18} color="#9ca3af" />
                 </Pressable>
               </View>
               <View className="gap-4">
-                <FormInput label="Full Name" value={form.full_name} onChangeText={set("full_name")} error={errors.full_name} autoCapitalize="words" required />
-                <FormInput label="Age (optional)" value={form.age} onChangeText={set("age")} placeholder="Age" keyboardType="number-pad" error={errors.age} />
-                <DateField label="Date of birth (optional)" value={form.date_of_birth} onChange={set("date_of_birth")} />
-                <ChoiceChips label="Gender" value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} />
-                <TextareaInput label="Address" value={form.address} onChangeText={set("address")} placeholder="House/street, city, pincode…" rows={2} maxLength={500} />
+                <FormInput label={t("ops.clientDetail.editModal.fullName")} value={form.full_name} onChangeText={set("full_name")} error={errors.full_name} autoCapitalize="words" required />
+                <FormInput label={t("ops.clientDetail.editModal.age")} value={form.age} onChangeText={set("age")} placeholder={t("ops.clientDetail.age")} keyboardType="number-pad" error={errors.age} />
+                <DateField label={t("ops.clientDetail.editModal.dob")} value={form.date_of_birth} onChange={set("date_of_birth")} />
+                <ChoiceChips label={t("ops.clientDetail.editModal.gender")} value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} />
+                <TextareaInput label={t("ops.clientDetail.editModal.address")} value={form.address} onChangeText={set("address")} placeholder={t("ops.clientDetail.editModal.addressPlaceholder")} rows={2} maxLength={500} />
               </View>
               <View className="mt-6 flex-row justify-end gap-2">
-                <OutlineButton onPress={onClose}>Cancel</OutlineButton>
-                <PrimaryButton loading={updateProfile.isPending} onPress={submit}>
-                  Save
+                <OutlineButton onPress={onClose}>{t("ops.cancel")}</OutlineButton>
+                <PrimaryButton loading={submitting || updateProfile.isPending} onPress={submit}>
+                  {t("ops.save")}
                 </PrimaryButton>
               </View>
             </ScrollView>
@@ -441,6 +460,7 @@ function EditProfileModal({
 
 /** One report line with its own signed URL — a hook per row, so each is its own component. */
 function ReportRow({ report }: { report: ReportUpload }) {
+  const { t } = useLanguage();
   const { data: url } = useSignedUrl(MEDICAL_REPORT_BUCKET, report.storage_path);
   return (
     <Card className="flex-row items-center gap-3 p-3">
@@ -454,9 +474,9 @@ function ReportRow({ report }: { report: ReportUpload }) {
         </Text>
       </View>
       {report.reviewed ? (
-        <Pill bgClass="bg-emerald-50 dark:bg-emerald-400/10" textClass="text-emerald-700 dark:text-emerald-400">Released</Pill>
+        <Pill bgClass="bg-emerald-50 dark:bg-emerald-400/10" textClass="text-emerald-700 dark:text-emerald-400">{t("ops.released")}</Pill>
       ) : (
-        <Pill bgClass="bg-amber-50 dark:bg-amber-400/10" textClass="text-amber-700 dark:text-amber-400">Awaiting review</Pill>
+        <Pill bgClass="bg-amber-50 dark:bg-amber-400/10" textClass="text-amber-700 dark:text-amber-400">{t("ops.awaitingReview")}</Pill>
       )}
       {url ? (
         <Pressable onPress={() => openUrl(url)} hitSlop={8} className="p-1 active:opacity-70">

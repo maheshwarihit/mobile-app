@@ -4,11 +4,12 @@ import { toast } from "sonner-native";
 import { CalendarClock, Upload, AlertTriangle } from "lucide-react-native";
 import { Pill, DangerButton, ConfirmModal, Card } from "@/components/ui";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import {
   useCancelBooking,
   useReuploadProof,
-  money,
   paymentStatusMeta,
   bookingStatusMeta,
   formatDate,
@@ -27,6 +28,7 @@ export function PatientBookingCard({
   subjectName: string;
   userId: string;
 }) {
+  const { t } = useLanguage();
   const cancel = useCancelBooking();
   const reupload = useReuploadProof();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -41,16 +43,16 @@ export function PatientBookingCard({
       const img = await pickImageAsset();
       if (!img) return;
       if (!(ALLOWED_IMAGE_MIME as readonly string[]).includes(img.mimeType)) {
-        toast.error("Please upload a PNG, JPG, or WEBP image.");
+        toast.error(t("bookingCard.error.imageType"));
         return;
       }
       if (img.fileSize > MAX_UPLOAD_BYTES) {
-        toast.error("File exceeds the 5 MB limit.");
+        toast.error(t("bookingCard.error.fileSize"));
         return;
       }
       reupload.mutate({ bookingId: booking.id, userId, source: assetToProofSource(img) });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not open the picker.");
+      toast.error(e instanceof Error ? e.message : t("bookingCard.error.pickerFailed"));
     }
   };
 
@@ -62,22 +64,19 @@ export function PatientBookingCard({
             <CalendarClock size={18} color={BRAND} />
           </View>
           <View className="flex-1">
-            <Text className="text-base font-semibold text-gray-900">{booking.service_name}</Text>
+            <Text className="text-base font-semibold text-gray-900">{translateServiceName(t, booking.service_name)}</Text>
             <Text className="text-xs text-gray-500">
-              Client <Text className="font-medium text-purple-600">{subjectName}</Text>
+              {t("bookingCard.client")} <Text className="font-medium text-purple-600">{subjectName}</Text>
             </Text>
             <Text className="mt-1 text-sm text-gray-600">
-              {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)} · {booking.num_days} day
-              {booking.num_days > 1 ? "s" : ""}
+              {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)} · {booking.num_days}{" "}
+              {t("bookingCard.days", { plural: booking.num_days > 1 ? "s" : "" })}
             </Text>
           </View>
         </View>
-        <View className="items-end">
-          <Text className="text-base font-bold text-gray-900">{money(booking.total_amount)}</Text>
-          <View className="mt-1 items-end gap-1">
-            <Pill bgClass={pay.bg} textClass={pay.text}>{pay.label}</Pill>
-            <Pill bgClass={status.bg} textClass={status.text}>{status.label}</Pill>
-          </View>
+        <View className="items-end gap-1">
+          <Pill bgClass={pay.bg} textClass={pay.text}>{pay.label}</Pill>
+          <Pill bgClass={status.bg} textClass={status.text}>{status.label}</Pill>
         </View>
       </View>
 
@@ -85,7 +84,7 @@ export function PatientBookingCard({
         <View className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <View className="flex-row items-center gap-1.5">
             <AlertTriangle size={14} color="#92400e" />
-            <Text className="text-xs font-medium text-amber-800">Payment proof was rejected</Text>
+            <Text className="text-xs font-medium text-amber-800">{t("bookingCard.paymentRejected")}</Text>
           </View>
           {booking.payment_note ? <Text className="mt-1 text-xs text-amber-700">{booking.payment_note}</Text> : null}
           <Pressable
@@ -94,31 +93,33 @@ export function PatientBookingCard({
             className="mt-2 flex-row items-center gap-1.5 self-start rounded-lg bg-purple-600 px-3 py-1.5 active:bg-purple-700"
           >
             <Upload size={13} color="#fff" />
-            <Text className="text-xs font-medium text-white">{reupload.isPending ? "Uploading…" : "Re-upload proof"}</Text>
+            <Text className="text-xs font-medium text-white">
+              {reupload.isPending ? t("bookingCard.uploading") : t("bookingCard.reuploadProof")}
+            </Text>
           </Pressable>
         </View>
       ) : null}
 
       {booking.booking_status === "requested" || booking.booking_status === "approved" ? (
         <View className="mt-3 flex-row justify-end">
-          <DangerButton onPress={() => setConfirmOpen(true)}>Cancel</DangerButton>
+          <DangerButton onPress={() => setConfirmOpen(true)}>{t("bookingCard.cancel")}</DangerButton>
         </View>
       ) : null}
 
       <ConfirmModal
         open={confirmOpen}
-        title="Cancel appointment?"
+        title={t("bookingCard.confirmCancel.title")}
         onClose={() => setConfirmOpen(false)}
         onConfirm={() => {
           cancel.mutate(booking.id);
           setConfirmOpen(false);
         }}
-        confirmLabel="Yes, cancel"
-        cancelLabel="Keep it"
+        confirmLabel={t("bookingCard.confirmCancel.confirm")}
+        cancelLabel={t("bookingCard.confirmCancel.cancel")}
         confirmDanger
       >
         <Text className="text-sm text-gray-600">
-          This will cancel your {booking.service_name} appointment on {formatDate(booking.start_date)}.
+          {t("bookingCard.confirmCancel.body", { service: translateServiceName(t, booking.service_name), date: formatDate(booking.start_date) })}
         </Text>
       </ConfirmModal>
     </Card>

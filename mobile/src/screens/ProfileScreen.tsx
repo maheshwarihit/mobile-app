@@ -26,6 +26,10 @@ import { useAuth } from "@/providers/AuthProvider";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { supabase } from "@/lib/supabase";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
+import { translateTamilToEnglish } from "@/lib/translateText";
+import { useLanguage, type Language } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import {
   useFamilyMembers,
@@ -42,7 +46,6 @@ import {
   localPhone,
   profileSchema,
   GENDERS,
-  GENDER_LABELS,
   REPORT_TYPE_LABELS,
   MEDICAL_REPORT_BUCKET,
   PROFILE_PHOTO_BUCKET,
@@ -58,15 +61,16 @@ import {
   type Booking,
 } from "@vagewell/shared";
 
-const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }));
-
 // SCREEN_ID: PROFILE
 export function ProfileScreen() {
+  const { t, language, setLanguage } = useLanguage();
+  const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }));
   const { profile, user, loading, signOut, refreshProfile } = useAuth();
   const { data: dependents, isLoading: depsLoading } = useFamilyMembers();
   const del = useDeleteDependent();
   const updateProfile = useUpdateProfile();
   const uploadPhoto = useUploadProfilePhoto();
+  const [savingBio, setSavingBio] = useState(false);
 
   const [depModalOpen, setDepModalOpen] = useState(false);
   const [editingDep, setEditingDep] = useState<FamilyMember | null>(null);
@@ -89,7 +93,7 @@ export function ProfileScreen() {
     setEditingBio(true);
   };
 
-  const saveBio = () => {
+  const saveBio = async () => {
     setBioErrors({});
     const parsed = profileSchema.safeParse(bioForm);
     if (!parsed.success) {
@@ -99,14 +103,24 @@ export function ProfileScreen() {
       return;
     }
     if (!profile) return;
+    // Free-text fields are stored in English regardless of what script the
+    // person typed in — a best-effort auto-translate (see translateText.ts),
+    // not applied to Gender/Date of birth, which already store a fixed
+    // English code/ISO date no matter the UI language.
+    setSavingBio(true);
+    const [full_name, address] = await Promise.all([
+      translateTamilToEnglish(parsed.data.full_name),
+      parsed.data.address ? translateTamilToEnglish(parsed.data.address) : Promise.resolve(parsed.data.address),
+    ]);
+    setSavingBio(false);
     updateProfile.mutate(
       {
         id: profile.id,
-        full_name: parsed.data.full_name,
+        full_name,
         age: parsed.data.age,
         date_of_birth: parsed.data.date_of_birth || null,
         gender: parsed.data.gender || null,
-        address: parsed.data.address || null,
+        address: address || null,
       },
       {
         onSuccess: async () => {
@@ -127,23 +141,23 @@ export function ProfileScreen() {
       const img = await pickImageAsset();
       if (!img) return;
       if (!(ALLOWED_IMAGE_MIME as readonly string[]).includes(img.mimeType)) {
-        toast.error("Please upload a PNG, JPG, or WEBP image.");
+        toast.error(t("profile.error.imageType"));
         return;
       }
       if (img.fileSize > MAX_UPLOAD_BYTES) {
-        toast.error("File exceeds the 5 MB limit.");
+        toast.error(t("profile.error.fileSize"));
         return;
       }
       uploadPhoto.mutate({ userId: user.id, source: assetToProofSource(img) }, { onSuccess: () => refreshProfile() });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not open the picker.");
+      toast.error(e instanceof Error ? e.message : t("profile.error.pickerFailed"));
     }
   };
 
   const [subject, setSubject] = useState("self");
 
   const subjectOptions = [
-    { value: "self", label: "Myself" },
+    { value: "self", label: t("appointment.myself") },
     ...(dependents ?? []).map((d) => ({ value: d.id, label: d.full_name })),
   ];
   const subjectQuery = useMemo(
@@ -200,7 +214,7 @@ export function ProfileScreen() {
       .from(MEDICAL_REPORT_BUCKET)
       .createSignedUrl(r.storage_path, SIGNED_URL_TTL_SECONDS);
     if (signErr || !data?.signedUrl) {
-      toast.error("Could not open this report. Please try again.");
+      toast.error(t("profile.error.reportOpenFailed"));
       return;
     }
     Linking.openURL(data.signedUrl);
@@ -214,7 +228,7 @@ export function ProfileScreen() {
       .from(MEDICAL_REPORT_BUCKET)
       .createSignedUrl(r.storage_path, SIGNED_URL_TTL_SECONDS, { download: true });
     if (signErr || !data?.signedUrl) {
-      toast.error("Could not download this report. Please try again.");
+      toast.error(t("profile.error.reportDownloadFailed"));
       return;
     }
     if (Platform.OS === "web") {
@@ -228,22 +242,22 @@ export function ProfileScreen() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri);
       } else {
-        toast.error("Sharing isn't available on this device.");
+        toast.error(t("profile.error.sharingUnavailable"));
       }
     } catch {
-      toast.error("Could not download this report. Please try again.");
+      toast.error(t("profile.error.reportDownloadFailed"));
     }
   };
 
-  if (loading) return <LoadingState message="Loading profile…" />;
+  if (loading) return <LoadingState message={t("profile.loading")} />;
 
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <ScrollView contentContainerClassName="px-5 pt-4 pb-10" keyboardShouldPersistTaps="handled">
-        <PageHeader title="Profile" subtitle="Your details, dependents, and health record." />
+        <PageHeader title={t("profile.title")} subtitle={t("profile.subtitle")} />
 
         {/* ── Bio (self-editable) ─────────────────────────── */}
-        <SectionCard icon={UserCircle} title="Your details">
+        <SectionCard icon={UserCircle} title={t("profile.yourDetails")}>
           <View className="mb-4 items-center">
             <Pressable onPress={pickPhoto} disabled={uploadPhoto.isPending} className="relative h-24 w-24 active:opacity-70">
               {avatarUrl ? (
@@ -261,20 +275,20 @@ export function ProfileScreen() {
 
           {editingBio ? (
             <View className="gap-4">
-              <FormInput label="Full Name" value={bioForm.full_name} onChangeText={setBio("full_name")} error={bioErrors.full_name} autoCapitalize="words" required />
-              <FormInput label="Age (optional)" value={bioForm.age} onChangeText={setBio("age")} placeholder="Age" keyboardType="number-pad" error={bioErrors.age} />
-              <DateField label="Date of birth (optional)" value={bioForm.date_of_birth} onChange={setBio("date_of_birth")} />
-              <ChoiceChips label="Gender" value={bioForm.gender} onChange={setBio("gender")} options={GENDER_OPTIONS} />
-              <TextareaInput label="Address" value={bioForm.address} onChangeText={setBio("address")} placeholder="House/street, city, pincode…" rows={2} maxLength={500} />
+              <FormInput label={t("profile.fullName")} value={bioForm.full_name} onChangeText={setBio("full_name")} error={bioErrors.full_name} autoCapitalize="words" required />
+              <FormInput label={t("profile.age")} value={bioForm.age} onChangeText={setBio("age")} placeholder={t("profile.row.age")} keyboardType="number-pad" error={bioErrors.age} />
+              <DateField label={t("profile.dob")} value={bioForm.date_of_birth} onChange={setBio("date_of_birth")} />
+              <ChoiceChips label={t("profile.gender")} value={bioForm.gender} onChange={setBio("gender")} options={GENDER_OPTIONS} />
+              <TextareaInput label={t("profile.address")} value={bioForm.address} onChangeText={setBio("address")} placeholder={t("profile.addressPlaceholder")} rows={2} maxLength={500} />
               <View className="flex-row gap-3">
                 <View className="flex-1">
                   <OutlineButton fullWidth onPress={() => setEditingBio(false)}>
-                    Cancel
+                    {t("profile.cancel")}
                   </OutlineButton>
                 </View>
                 <View className="flex-1">
-                  <PrimaryButton fullWidth loading={updateProfile.isPending} onPress={saveBio}>
-                    Save
+                  <PrimaryButton fullWidth loading={savingBio || updateProfile.isPending} onPress={saveBio}>
+                    {t("profile.save")}
                   </PrimaryButton>
                 </View>
               </View>
@@ -282,36 +296,52 @@ export function ProfileScreen() {
           ) : (
             <>
               <View className="gap-2">
-                <Row label="Name" value={profile?.full_name ?? "—"} />
-                <Row label="Mobile" value={localPhone(profile?.phone) || "—"} />
-                <Row label="Age" value={profile?.age?.toString() ?? "—"} />
-                <Row label="Date of birth" value={profile?.date_of_birth ? formatDate(profile.date_of_birth) : "—"} />
-                <Row label="Gender" value={profile?.gender ? GENDER_LABELS[profile.gender] : "—"} />
-                <Row label="Address" value={profile?.address ?? "—"} />
+                <Row label={t("profile.row.name")} value={profile?.full_name ?? "—"} />
+                <Row label={t("profile.row.mobile")} value={localPhone(profile?.phone) || "—"} />
+                <Row label={t("profile.row.age")} value={profile?.age?.toString() ?? "—"} />
+                <Row label={t("profile.row.dob")} value={profile?.date_of_birth ? formatDate(profile.date_of_birth) : "—"} />
+                <Row label={t("profile.row.gender")} value={profile?.gender ? genderLabel(t, profile.gender) : "—"} />
+                <Row label={t("profile.row.address")} value={profile?.address ?? "—"} />
               </View>
               <View className="mt-3">
                 <OutlineButton icon={Pencil} onPress={startEditBio}>
-                  Edit details
+                  {t("profile.editDetails")}
                 </OutlineButton>
               </View>
             </>
           )}
         </SectionCard>
 
+        {/* ── Language ─────────────────────────────────────── */}
+        <SectionCard icon={UserCircle} title={t("profile.language.title")} subtitle={t("profile.language.subtitle")}>
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <OutlineButton fullWidth onPress={() => setLanguage("en" as Language)}>
+                {`${(language ?? "en") === "en" ? "✓ " : ""}${t("chooseLanguage.english")}`}
+              </OutlineButton>
+            </View>
+            <View className="flex-1">
+              <OutlineButton fullWidth onPress={() => setLanguage("ta" as Language)}>
+                {`${language === "ta" ? "✓ " : ""}${t("chooseLanguage.tamil")}`}
+              </OutlineButton>
+            </View>
+          </View>
+        </SectionCard>
+
         {/* ── Dependents ──────────────────────────────────── */}
         <SectionCard
           icon={Users}
-          title="Dependents"
-          subtitle="Family members you can book care for. They can register with the same phone number to get their own login."
+          title={t("profile.dependents.title")}
+          subtitle={t("profile.dependents.subtitle")}
         >
           {depsLoading ? (
-            <LoadingState message="Loading dependents…" />
+            <LoadingState message={t("profile.dependents.loading")} />
           ) : (dependents?.length ?? 0) === 0 ? (
             <EmptyState
               icon={Users}
-              title="No dependents yet"
-              description="Add a family member to book care for them."
-              actionLabel="Add dependent"
+              title={t("profile.dependents.empty.title")}
+              description={t("profile.dependents.empty.description")}
+              actionLabel={t("profile.dependents.addAction")}
               onAction={() => {
                 setEditingDep(null);
                 setDepModalOpen(true);
@@ -325,12 +355,12 @@ export function ProfileScreen() {
                     <View className="flex-row items-center gap-1.5">
                       <Text className="text-sm font-medium text-gray-900">{d.full_name}</Text>
                       <Pill bgClass={d.linked_profile_id ? "bg-emerald-50" : "bg-gray-100"} textClass={d.linked_profile_id ? "text-emerald-700" : "text-gray-500"}>
-                        {d.linked_profile_id ? "Has own login" : "Not registered yet"}
+                        {d.linked_profile_id ? t("profile.dependents.hasLogin") : t("profile.dependents.notRegistered")}
                       </Pill>
                     </View>
-                    <Text className="text-xs capitalize text-gray-500">
-                      {d.relationship}
-                      {d.age != null ? ` · ${d.age} yrs` : ""}
+                    <Text className="text-xs text-gray-500">
+                      {relationshipLabel(t, d.relationship)}
+                      {d.age != null ? ` · ${d.age} ${t("profile.dependents.yrs")}` : ""}
                       {d.contact_phone ? ` · ${localPhone(d.contact_phone)}` : ""}
                     </Text>
                   </View>
@@ -345,29 +375,29 @@ export function ProfileScreen() {
           {(dependents?.length ?? 0) > 0 ? (
             <View className="mt-4">
               <OutlineButton icon={Plus} onPress={() => { setEditingDep(null); setDepModalOpen(true); }}>
-                Add dependent
+                {t("profile.dependents.addAction")}
               </OutlineButton>
             </View>
           ) : null}
         </SectionCard>
 
         {/* ── Health record (read-only) ───────────────────── */}
-        <SectionCard icon={Activity} title="Health record" subtitle="Vitals recorded by care staff.">
+        <SectionCard icon={Activity} title={t("profile.healthRecord.title")} subtitle={t("profile.healthRecord.subtitle")}>
           <View className="mb-4 flex-row items-center gap-2">
             <Lock size={13} color="#9ca3af" />
-            <Text className="flex-1 text-xs text-gray-400">Read-only — updated by VAgeWell staff during visits.</Text>
+            <Text className="flex-1 text-xs text-gray-400">{t("profile.healthRecord.readOnly")}</Text>
           </View>
           <View className="mb-4">
-            <SelectSheet label="View record for" value={subject} onValueChange={setSubject} options={subjectOptions} />
+            <SelectSheet label={t("profile.healthRecord.viewRecordFor")} value={subject} onValueChange={setSubject} options={subjectOptions} />
           </View>
-          {vitalsLoading ? <LoadingState message="Loading vitals…" /> : <VitalsView records={records ?? []} />}
+          {vitalsLoading ? <LoadingState message={t("profile.healthRecord.loadingVitals")} /> : <VitalsView records={records ?? []} />}
 
           <View className="mt-4 border-t border-gray-100 pt-4">
-            <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Reports</Text>
+            <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{t("profile.reports.title")}</Text>
             {reportsLoading ? (
-              <LoadingState message="Loading reports…" />
+              <LoadingState message={t("profile.reports.loading")} />
             ) : reportsForSubject.length === 0 ? (
-              <Text className="text-xs text-gray-400">No reports released yet for this person.</Text>
+              <Text className="text-xs text-gray-400">{t("profile.reports.empty")}</Text>
             ) : (
               <View className="gap-4">
                 {groupByLocalDate(reportsForSubject).map((group) => (
@@ -400,9 +430,9 @@ export function ProfileScreen() {
           </View>
 
           <View className="mt-4 border-t border-gray-100 pt-4">
-            <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Checkup history</Text>
+            <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{t("profile.checkupHistory.title")}</Text>
             {checkupHistory.length === 0 ? (
-              <Text className="text-xs text-gray-400">No past checkups yet for this person.</Text>
+              <Text className="text-xs text-gray-400">{t("profile.checkupHistory.empty")}</Text>
             ) : (
               <View className="gap-2">
                 {checkupHistory.map((b) => (
@@ -414,7 +444,7 @@ export function ProfileScreen() {
         </SectionCard>
 
         <OutlineButton icon={LogOut} fullWidth onPress={signOut}>
-          Sign out
+          {t("profile.signOut")}
         </OutlineButton>
       </ScrollView>
 
@@ -427,17 +457,19 @@ export function ProfileScreen() {
 
       <ConfirmModal
         open={!!deleteDep}
-        title="Remove dependent?"
+        title={t("profile.removeDependent.title")}
         onClose={() => setDeleteDep(null)}
         onConfirm={() => {
           if (deleteDep) del.mutate(deleteDep.id);
           setDeleteDep(null);
         }}
-        confirmLabel="Remove"
-        cancelLabel="Keep"
+        confirmLabel={t("profile.removeDependent.confirm")}
+        cancelLabel={t("profile.removeDependent.cancel")}
         confirmDanger
       >
-        <Text className="text-sm text-gray-600">Remove {deleteDep?.full_name} from your dependents?</Text>
+        <Text className="text-sm text-gray-600">
+          {t("profile.removeDependent.body", { name: deleteDep?.full_name ?? "" })}
+        </Text>
       </ConfirmModal>
     </SafeAreaView>
   );
@@ -453,9 +485,10 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function CheckupRow({ booking: b }: { booking: Booking }) {
+  const { t } = useLanguage();
   const missed = isBookingMissed(b.booking_status, b.start_date, b.time_slot);
   const status = missed
-    ? { label: "Missed", bg: "bg-red-100", text: "text-red-700" }
+    ? { label: t("profile.checkupHistory.missed"), bg: "bg-red-100", text: "text-red-700" }
     : bookingStatusMeta(b.booking_status);
   return (
     <View className="flex-row items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
@@ -463,7 +496,7 @@ function CheckupRow({ booking: b }: { booking: Booking }) {
         <ClipboardList size={15} color="#6b7280" />
       </View>
       <View className="flex-1">
-        <Text className="text-xs font-medium text-gray-900">{b.service_name}</Text>
+        <Text className="text-xs font-medium text-gray-900">{translateServiceName(t, b.service_name)}</Text>
         <Text className="text-[11px] text-gray-500">{formatDate(b.start_date)}</Text>
       </View>
       <Pill bgClass={status.bg} textClass={status.text}>
@@ -474,6 +507,7 @@ function CheckupRow({ booking: b }: { booking: Booking }) {
 }
 
 function VitalsView({ records }: { records: ClinicalRecord[] }) {
+  const { t } = useLanguage();
   // Patient panel shows only Sugar (blood glucose) + Blood Group.
   // `records` is ordered recorded_at desc and each visit is saved as its own
   // dated row carrying only the fields staff filled in — so read the most recent
@@ -487,28 +521,32 @@ function VitalsView({ records }: { records: ClinicalRecord[] }) {
     return (
       <EmptyState
         icon={Activity}
-        title="No records yet"
-        description="Care staff will record your sugar and blood group during a visit."
+        title={t("profile.healthRecord.noRecords.title")}
+        description={t("profile.healthRecord.noRecords.description")}
       />
     );
   }
   const latestDate = [sugarRecord?.recorded_at, bloodGroupRecord?.recorded_at].filter(Boolean).sort().at(-1);
   const tiles = [
-    { label: "Sugar", value: sugar?.toString() ?? "—", unit: "mg/dL" },
-    { label: "Blood Group", value: bloodGroup ?? "—", unit: "" },
+    { label: t("profile.healthRecord.sugar"), value: sugar?.toString() ?? "—", unit: "mg/dL" },
+    { label: t("profile.healthRecord.bloodGroup"), value: bloodGroup ?? "—", unit: "" },
   ];
   return (
     <View>
       <View className="flex-row flex-wrap gap-3">
-        {tiles.map((t) => (
-          <View key={t.label} className="min-w-[45%] flex-1 items-center rounded-xl border border-gray-100 bg-white p-3">
-            <Text className="text-lg font-bold text-gray-900">{t.value}</Text>
-            <Text className="text-[10px] text-gray-400">{t.unit}</Text>
-            <Text className="mt-1 text-[11px] font-medium text-gray-500">{t.label}</Text>
+        {tiles.map((tile) => (
+          <View key={tile.label} className="min-w-[45%] flex-1 items-center rounded-xl border border-gray-100 bg-white p-3">
+            <Text className="text-lg font-bold text-gray-900">{tile.value}</Text>
+            <Text className="text-[10px] text-gray-400">{tile.unit}</Text>
+            <Text className="mt-1 text-[11px] font-medium text-gray-500">{tile.label}</Text>
           </View>
         ))}
       </View>
-      {latestDate ? <Text className="mt-2 text-[11px] text-gray-400">As of {formatLocalDateTime(latestDate)}</Text> : null}
+      {latestDate ? (
+        <Text className="mt-2 text-[11px] text-gray-400">
+          {t("profile.healthRecord.asOf", { date: formatLocalDateTime(latestDate) })}
+        </Text>
+      ) : null}
     </View>
   );
 }

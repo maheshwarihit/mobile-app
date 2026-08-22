@@ -1,0 +1,31 @@
+export const en = {
+  "modal.vitals.title": "Record Vitals",
+  "modal.vitals.for": "For {name}",
+  "modal.vitals.systolic": "Systolic (mmHg)",
+  "modal.vitals.diastolic": "Diastolic (mmHg)",
+  "modal.vitals.glucose": "Glucose (mg/dL)",
+  "modal.vitals.spo2": "SpO2 (%)",
+  "modal.vitals.bloodGroup": "Blood group",
+  "modal.vitals.medicalConditions": "Medical conditions",
+  "modal.vitals.medicalConditionsPlaceholder": "e.g. Type 2 diabetes, hypertension",
+  "modal.vitals.note": "Note",
+  "modal.vitals.notePlaceholder": "Visit note (optional)",
+  "modal.vitals.cancel": "Cancel",
+  "modal.vitals.save": "Save Vitals",
+} as const;
+
+export const ta: Record<keyof typeof en, string> = {
+  "modal.vitals.title": "உயிர்முக்கிய அளவீடுகளைப் பதிவு செய்",
+  "modal.vitals.for": "{name}-க்காக",
+  "modal.vitals.systolic": "சிஸ்டாலிக் (mmHg)",
+  "modal.vitals.diastolic": "டயஸ்டாலிக் (mmHg)",
+  "modal.vitals.glucose": "குளுக்கோஸ் (mg/dL)",
+  "modal.vitals.spo2": "SpO2 (%)",
+  "modal.vitals.bloodGroup": "ரத்தப் பிரிவு",
+  "modal.vitals.medicalConditions": "மருத்துவ நிலைமைகள்",
+  "modal.vitals.medicalConditionsPlaceholder": "எ.கா. வகை 2 நீரிழிவு, உயர் இரத்த அழுத்தம்",
+  "modal.vitals.note": "குறிப்பு",
+  "modal.vitals.notePlaceholder": "வருகைக் குறிப்பு (விருப்பத்தேர்வு)",
+  "modal.vitals.cancel": "ரத்து செய்",
+  "modal.vitals.save": "அளவீடுகளைச் சேமி",
+};

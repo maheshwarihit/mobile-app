@@ -7,6 +7,8 @@ import { ArrowRight } from "lucide-react-native";
 import { BrandLogo, GradientButton, TranslucentButton } from "@/components/ui";
 import { AuthModal } from "@/components/feature/AuthModal";
 import { VisitAsModal, type VisitAs } from "@/components/feature/VisitAsModal";
+import { LanguageToggle } from "@/components/feature/LanguageToggle";
+import { useLanguage } from "@/lib/i18n";
 
 const landingPhoto = require("../../assets/onboarding/image5.png.png");
 
@@ -48,6 +50,7 @@ const landingPhoto = require("../../assets/onboarding/image5.png.png");
  * on the account's real `profiles.role`, not on which button was tapped.
  */
 export function LandingScreen({ onGuest }: { onGuest: () => void }) {
+  const { t } = useLanguage();
   const [visitAsOpen, setVisitAsOpen] = useState(false);
   // What "Care Seeker" should open as once picked — register from Get
   // Started, login from Log In. Caregiver·Admin ignores this entirely.
@@ -96,30 +99,33 @@ export function LandingScreen({ onGuest }: { onGuest: () => void }) {
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
-        <View className="flex-row items-center gap-2 px-6 pt-2">
-          <BrandLogo size={36} transparent />
-          <Text className="text-base font-bold text-white">VAgeWell Care</Text>
+        <View className="flex-row items-center justify-between px-6 pt-2">
+          <View className="flex-row items-center gap-3">
+            <BrandLogo size={52} transparent />
+            <Text className="text-xl font-extrabold tracking-tight text-white">{t("landing.brand")}</Text>
+          </View>
+          <LanguageToggle dark />
         </View>
 
         <View className="flex-1 justify-end px-8 pb-4">
           <Text className="text-3xl font-bold leading-tight text-white">
-            Quality care, <Text className="text-teal-300">right at home</Text>
+            {t("landing.titleBefore")}
+            <Text className="text-teal-300">{t("landing.titleHighlight")}</Text>
           </Text>
-          <Text className="mt-3 text-base text-gray-300">
-            Verified Care Assistants and health professionals, ready to visit whenever you need them.
-          </Text>
+          <Text className="mt-3 text-base text-gray-300">{t("landing.subtitle")}</Text>
         </View>
 
         <View className="gap-3 px-6 pb-8">
           <GradientButton fullWidth icon={ArrowRight} onPress={() => openVisitAs("register")}>
-            Get Started
+            {t("landing.getStarted")}
           </GradientButton>
           <TranslucentButton fullWidth onPress={onGuest}>
-            View as Guest
+            {t("landing.viewAsGuest")}
           </TranslucentButton>
           <Pressable onPress={() => openVisitAs("login")} hitSlop={8} className="items-center pt-2 active:opacity-70">
             <Text className="text-sm text-gray-300">
-              Already have account? <Text className="font-semibold text-teal-300">Log In</Text>
+              {t("landing.alreadyHaveAccount")}
+              <Text className="font-semibold text-teal-300">{t("landing.logIn")}</Text>
             </Text>
           </Pressable>
         </View>
@@ -140,7 +146,7 @@ export function LandingScreen({ onGuest }: { onGuest: () => void }) {
         initialMode={staffAuthMode}
         allowModeSwitch
         rolePicker
-        title={staffAuthMode === "login" ? "Staff / Admin sign in" : "Staff / Admin sign up"}
+        title={staffAuthMode === "login" ? t("auth.staffSignIn") : t("auth.staffSignUp")}
       />
     </View>
   );

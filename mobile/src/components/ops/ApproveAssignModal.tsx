@@ -11,6 +11,8 @@ import {
 import { AppModal, SelectSheet, PrimaryButton, OutlineButton, WarningBanner } from "@/components/ui";
 import { assignmentMessage } from "@/lib/whatsapp";
 import { openUrl } from "@/lib/signedUrl";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 
 /**
  * Admin assigns a leaf_node member to a `requested` booking. The 'staff' role
@@ -29,6 +31,7 @@ export function ApproveAssignModal({
   booking: BookingWithNames | null;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const [assignee, setAssignee] = useState("");
   const { data: profiles } = useAllProfiles(!!booking);
   const assign = useAssignBooking();
@@ -64,47 +67,45 @@ export function ApproveAssignModal({
   if (assignedTo) {
     const link = waLink(assignedTo.phone, assignmentMessage(booking));
     return (
-      <AppModal visible onClose={close} title={`Assigned to ${assignedTo.full_name ?? "—"}`}>
-        <Text className="mb-4 text-sm text-gray-500">
-          Let them know right away — opens WhatsApp with the details pre-filled.
-        </Text>
+      <AppModal visible onClose={close} title={t("modal.approveAssign.assignedTitle", { name: assignedTo.full_name ?? "—" })}>
+        <Text className="mb-4 text-sm text-gray-500">{t("modal.approveAssign.messageNow")}</Text>
         {link ? (
           <PrimaryButton fullWidth icon={MessageCircle} onPress={() => openUrl(link)}>
-            Message on WhatsApp
+            {t("modal.approveAssign.messageOnWhatsapp")}
           </PrimaryButton>
         ) : (
-          <WarningBanner message="This member has no phone number on file — can't open WhatsApp for them." />
+          <WarningBanner message={t("modal.approveAssign.noPhone")} />
         )}
         <View className="mt-4 flex-row justify-end">
-          <OutlineButton onPress={close}>Done</OutlineButton>
+          <OutlineButton onPress={close}>{t("modal.approveAssign.done")}</OutlineButton>
         </View>
       </AppModal>
     );
   }
 
   return (
-    <AppModal visible onClose={close} title="Approve & Assign">
+    <AppModal visible onClose={close} title={t("modal.approveAssign.title")}>
       <Text className="mb-4 text-sm text-gray-500">
-        {booking.service_name} for <Text className="font-medium text-gray-700">{booking.subject_name}</Text>
+        {t("modal.approveAssign.serviceFor", { service: translateServiceName(t, booking.service_name), name: booking.subject_name ?? "" })}
       </Text>
 
       <SelectSheet
-        label="Assign leaf node member"
+        label={t("modal.approveAssign.assignLabel")}
         value={assignee}
         onValueChange={setAssignee}
         options={options}
-        placeholder="Choose a member…"
+        placeholder={t("modal.approveAssign.choosePlaceholder")}
       />
       {candidates.length === 0 ? (
         <View className="mt-3">
-          <WarningBanner message="No leaf node accounts yet — promote one from the Team tab first." />
+          <WarningBanner message={t("modal.approveAssign.noCandidates")} />
         </View>
       ) : null}
 
       <View className="mt-6 flex-row justify-end gap-3">
-        <OutlineButton onPress={close}>Cancel</OutlineButton>
+        <OutlineButton onPress={close}>{t("modal.approveAssign.cancel")}</OutlineButton>
         <PrimaryButton disabled={!assignee} loading={assign.isPending} onPress={confirm}>
-          Confirm
+          {t("modal.approveAssign.confirm")}
         </PrimaryButton>
       </View>
     </AppModal>

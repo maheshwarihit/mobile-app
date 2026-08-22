@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSupabase } from "./runtime";
 import { qk } from "./queryClient";
+import { SERVICE_DISPLAY_ORDER } from "./constants";
 import type {
   Service,
   Booking,
@@ -19,11 +20,19 @@ export function useServices(includeInactive = false) {
     queryKey: [...qk.services, includeInactive],
     queryFn: async (): Promise<Service[]> => {
       const sb = getSupabase();
-      let q = sb.from("services").select("*").order("price_per_day", { ascending: true });
+      let q = sb.from("services").select("*");
       if (!includeInactive) q = q.eq("active", true);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as Service[];
+      // Fixed display order (SERVICE_DISPLAY_ORDER), not price — two services
+      // can share a price tier, and the DB gives no guaranteed tie-break order.
+      // A name not in the list (shouldn't happen with this fixed catalog) sorts
+      // to the end rather than throwing.
+      return ((data ?? []) as Service[]).slice().sort((a, b) => {
+        const ai = SERVICE_DISPLAY_ORDER.indexOf(a.name as (typeof SERVICE_DISPLAY_ORDER)[number]);
+        const bi = SERVICE_DISPLAY_ORDER.indexOf(b.name as (typeof SERVICE_DISPLAY_ORDER)[number]);
+        return (ai === -1 ? Infinity : ai) - (bi === -1 ? Infinity : bi);
+      });
     },
   });
 }

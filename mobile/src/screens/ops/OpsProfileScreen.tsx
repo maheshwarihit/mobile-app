@@ -27,6 +27,8 @@ import {
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
 import { useAuth } from "@/providers/AuthProvider";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
+import { translateTamilToEnglish } from "@/lib/translateText";
+import { useLanguage } from "@/lib/i18n";
 
 /**
  * SCREEN_ID: OPS_PROFILE — the signed-in caregiver/admin's own account.
@@ -37,6 +39,7 @@ import { pickImageAsset, assetToProofSource } from "@/lib/upload";
  * number, which is the auth identifier itself.
  */
 export function OpsProfileScreen() {
+  const { t } = useLanguage();
   const { profile, user, role, refreshProfile, signOut } = useAuth();
   const update = useUpdateProfile();
   const uploadPhoto = useUploadProfilePhoto();
@@ -46,6 +49,7 @@ export function OpsProfileScreen() {
   const [address, setAddress] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const startEdit = () => {
     setFullName(profile?.full_name ?? "");
@@ -55,23 +59,29 @@ export function OpsProfileScreen() {
     setEditing(true);
   };
 
-  const save = () => {
+  const save = async () => {
     if (!profile) return;
     if (fullName.trim().length < 2) {
-      setErrors({ full_name: "Enter your full name" });
+      setErrors({ full_name: t("ops.profile.error.enterName") });
       return;
     }
     setErrors({});
+    setSaving(true);
+    const [translatedName, translatedAddress] = await Promise.all([
+      translateTamilToEnglish(fullName.trim()),
+      address.trim() ? translateTamilToEnglish(address.trim()) : Promise.resolve(""),
+    ]);
+    setSaving(false);
     update.mutate(
       {
         id: profile.id,
-        full_name: fullName.trim(),
+        full_name: translatedName,
         // Untouched by this form, but useUpdateProfile takes the whole bio —
         // pass the current values through so saving a name can't blank them.
         age: profile.age,
         date_of_birth: profile.date_of_birth,
         gender: profile.gender,
-        address: address.trim() || null,
+        address: translatedAddress || null,
         emp_id: empId.trim() || null,
       },
       {
@@ -89,11 +99,11 @@ export function OpsProfileScreen() {
       const img = await pickImageAsset();
       if (!img) return;
       if (!(ALLOWED_IMAGE_MIME as readonly string[]).includes(img.mimeType)) {
-        toast.error("Please upload a PNG, JPG, or WEBP image.");
+        toast.error(t("ops.profile.error.imageType"));
         return;
       }
       if (img.fileSize > MAX_UPLOAD_BYTES) {
-        toast.error("File exceeds the 5 MB limit.");
+        toast.error(t("ops.profile.error.fileSize"));
         return;
       }
       uploadPhoto.mutate(
@@ -101,19 +111,19 @@ export function OpsProfileScreen() {
         { onSuccess: () => void refreshProfile() }
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not open the image picker.");
+      toast.error(e instanceof Error ? e.message : t("ops.profile.error.pickerFailed"));
     }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900" edges={["top"]}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <PageHeader title="My profile" subtitle={role ? ROLE_LABELS[role] : undefined} />
+        <PageHeader title={t("ops.profile.title")} subtitle={role ? ROLE_LABELS[role] : undefined} />
 
         <SectionCard
           icon={User}
-          title="Your details"
-          subtitle={editing ? undefined : "Tap Edit to update your name or employee ID."}
+          title={t("ops.profile.detailsTitle")}
+          subtitle={editing ? undefined : t("ops.profile.detailsHint")}
         >
           <View className="mb-5 flex-row items-center gap-4">
             <Pressable onPress={pickPhoto} disabled={uploadPhoto.isPending} className="active:opacity-80">
@@ -135,57 +145,55 @@ export function OpsProfileScreen() {
           {editing ? (
             <View className="gap-4">
               <FormInput
-                label="Full name"
+                label={t("ops.profile.fullName")}
                 value={fullName}
                 onChangeText={setFullName}
                 error={errors.full_name}
                 autoCapitalize="words"
                 required
               />
-              <FormInput label="Employee ID" value={empId} onChangeText={setEmpId} placeholder="Optional" />
-              <FormInput label="Address" value={address} onChangeText={setAddress} placeholder="Optional" />
+              <FormInput label={t("ops.profile.employeeId")} value={empId} onChangeText={setEmpId} placeholder={t("ops.profile.employeeIdPlaceholder")} />
+              <FormInput label={t("ops.profile.address")} value={address} onChangeText={setAddress} placeholder={t("ops.profile.addressPlaceholder")} />
               <View className="flex-row justify-end gap-3">
-                <OutlineButton onPress={() => setEditing(false)}>Cancel</OutlineButton>
-                <PrimaryButton loading={update.isPending} onPress={save}>
-                  Save
+                <OutlineButton onPress={() => setEditing(false)}>{t("ops.cancel")}</OutlineButton>
+                <PrimaryButton loading={saving || update.isPending} onPress={save}>
+                  {t("ops.save")}
                 </PrimaryButton>
               </View>
             </View>
           ) : (
             <View className="gap-3">
-              <Row label="Mobile" value={localPhone(profile?.phone) || "—"} />
-              <Row label="Employee ID" value={profile?.emp_id || "—"} />
-              <Row label="Address" value={profile?.address || "—"} />
-              <Row label="Joined" value={profile ? formatDate(profile.created_at) : "—"} />
+              <Row label={t("ops.profile.mobile")} value={localPhone(profile?.phone) || "—"} />
+              <Row label={t("ops.profile.employeeId")} value={profile?.emp_id || "—"} />
+              <Row label={t("ops.profile.address")} value={profile?.address || "—"} />
+              <Row label={t("ops.profile.joined")} value={profile ? formatDate(profile.created_at) : "—"} />
               <View className="mt-1 flex-row justify-end">
-                <SmallPrimaryButton onPress={startEdit}>Edit details</SmallPrimaryButton>
+                <SmallPrimaryButton onPress={startEdit}>{t("ops.profile.editDetails")}</SmallPrimaryButton>
               </View>
             </View>
           )}
         </SectionCard>
 
-        <SectionCard icon={LogOut} title="Session">
-          <Text className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-            Signing out ends this session on this device. You'll need a new OTP to sign back in.
-          </Text>
+        <SectionCard icon={LogOut} title={t("ops.profile.sessionTitle")}>
+          <Text className="mb-4 text-sm text-gray-500 dark:text-gray-400">{t("ops.profile.sessionHint")}</Text>
           <DangerButton fullWidth onPress={() => setConfirmSignOut(true)}>
-            Sign out
+            {t("ops.profile.signOut")}
           </DangerButton>
         </SectionCard>
       </ScrollView>
 
       <ConfirmModal
         open={confirmSignOut}
-        title="Sign out?"
+        title={t("ops.profile.confirmSignOut.title")}
         onClose={() => setConfirmSignOut(false)}
         onConfirm={() => {
           setConfirmSignOut(false);
           void signOut();
         }}
-        confirmLabel="Sign out"
+        confirmLabel={t("ops.profile.signOut")}
         confirmDanger
       >
-        <Text className="text-sm text-gray-600">You'll be returned to the welcome screen.</Text>
+        <Text className="text-sm text-gray-600">{t("ops.profile.confirmSignOut.body")}</Text>
       </ConfirmModal>
     </SafeAreaView>
   );
