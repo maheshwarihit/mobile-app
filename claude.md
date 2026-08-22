@@ -3030,3 +3030,23 @@ itself.
   call made; typing the correct name (`VAgeWell_Care_ln`) passed the check cleanly and proceeded to the
   next real step (hit "number already has an account" only because the test number used was already
   registered — expected, unrelated to this fix). Zero console errors throughout.
+
+## Change round — pushed + redeployed the name gate; added a repeatable deploy script (user, 2026-08-22)
+User tested the still-not-yet-deployed name gate on the live Vercel link and (correctly) saw it not
+applied yet. Committed + pushed the AuthModal change (commit `d5bb796`), then redeployed.
+
+- [x] **New `scripts/deploy-vercel.sh`** — automates what was done by hand for the first deploy: build the
+      web export, copy it outside the repo (so Vercel CLI can't walk up and find the root's stale `"web"`
+      project link), rename `assets/node_modules` → `assets/vendor-fonts` and patch every file referencing
+      the old path (the Vercel `node_modules`-folder upload exclusion from the previous round), then
+      deploy. **Explicitly writes a `.vercel/project.json` pointing at the known `vagewell-web-deploy`
+      project ID** (`prj_DTYvXANLfN1IW9slum9wBksr8x8E`) into the temp deploy directory before deploying —
+      needed because each run's `mktemp` directory has a different random name, and Vercel's CLI matches
+      an unlinked directory to a project *by directory name* on first deploy; without the explicit link, every
+      run would have created a brand new project instead of updating this one.
+- Verified: ran the new script for real, redeployed to the same `https://vagewell-web-deploy.vercel.app`
+  URL (confirmed same project, not a new one). Live-verified with Playwright against the actual production
+  URL: typing "Suji" as Care Assistant now shows "The name doesn't match the registered name for this
+  role." — screenshotted. Zero console errors.
+- **For the user:** future redeploys are just `bash scripts/deploy-vercel.sh` from the repo root — no more
+  manual copy/rename/patch steps.
