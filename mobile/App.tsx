@@ -15,7 +15,9 @@ import { makeQueryClient, configureCore } from "@vagewell/shared";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/lib/toast";
 import { AuthProvider } from "@/providers/AuthProvider";
+import { LanguageProvider } from "@/lib/i18n";
 import { RootNavigator } from "@/navigation/RootNavigator";
+import { useThemePreference } from "@/hooks/useThemePreference";
 import "./global.css";
 
 // Inject the mobile platform implementations into the shared data layer (once).
@@ -32,6 +34,16 @@ export default function App() {
     NunitoSans_600SemiBold,
     NunitoSans_700Bold,
   });
+  // Forces NativeWind's colorScheme to "light" by default (persisted
+  // preference wins if the admin sidebar's toggle was ever used) — without
+  // this running somewhere every screen actually mounts through, a device
+  // with system dark mode on silently falls back to it, and every `dark:`
+  // Tailwind variant across the app (never designed for the customer-facing
+  // screens) bleeds through unintentionally. Previously only called inside
+  // AdminSidebar, so it never ran at all for anyone who never opened that
+  // screen — every patient, and every ops user before their first visit
+  // there.
+  useThemePreference();
 
   if (!fontsLoaded) return null;
 
@@ -39,25 +51,27 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            {/*
-              documentTitle (web only): react-navigation's default formatter is
-              `options?.title ?? route?.name`, which writes the literal string
-              "undefined" into the browser tab whenever no navigator is mounted
-              (cold-start splash, sign-out). Falling back to the app name also
-              keeps internal route ids like "AdminMemberEdit" out of the tab.
-            */}
-            <NavigationContainer
-              documentTitle={{ formatter: (options) => options?.title ?? "VAgeWell Care" }}
-            >
-              <RootNavigator />
-            </NavigationContainer>
-            {/* closeButton: a manual X on every toast — belt-and-braces so an
-                error is always dismissible by hand, not just by its 4s
-                auto-close timer. */}
-            <Toaster closeButton />
-            <StatusBar style="dark" />
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              {/*
+                documentTitle (web only): react-navigation's default formatter is
+                `options?.title ?? route?.name`, which writes the literal string
+                "undefined" into the browser tab whenever no navigator is mounted
+                (cold-start splash, sign-out). Falling back to the app name also
+                keeps internal route ids like "AdminMemberEdit" out of the tab.
+              */}
+              <NavigationContainer
+                documentTitle={{ formatter: (options) => options?.title ?? "VAgeWell Care" }}
+              >
+                <RootNavigator />
+              </NavigationContainer>
+              {/* closeButton: a manual X on every toast — belt-and-braces so an
+                  error is always dismissible by hand, not just by its 4s
+                  auto-close timer. */}
+              <Toaster closeButton />
+              <StatusBar style="dark" />
+            </AuthProvider>
+          </LanguageProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

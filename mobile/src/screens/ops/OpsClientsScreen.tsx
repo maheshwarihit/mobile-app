@@ -13,6 +13,7 @@ import {
 } from "@vagewell/shared";
 import { PageHeader, Card, Pill, FormInput, LoadingState, EmptyState, ProfileCompletionRing } from "@/components/ui";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
+import { useLanguage } from "@/lib/i18n";
 import type { ClientsStackScreenProps } from "@/navigation/types";
 
 /**
@@ -40,6 +41,7 @@ type ClientRow =
     };
 
 export function OpsClientsScreen({ navigation }: ClientsStackScreenProps<"ClientsList">) {
+  const { t } = useLanguage();
   const { data: profiles, isLoading: profilesLoading } = useAllProfiles(true);
   const { data: dependents, isLoading: depsLoading } = useAllFamilyMembers(true);
   const [query, setQuery] = useState("");
@@ -89,25 +91,25 @@ export function OpsClientsScreen({ navigation }: ClientsStackScreenProps<"Client
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
           <View>
-            <PageHeader title="Clients" subtitle="Account holders and their family members." />
+            <PageHeader title={t("ops.clients.title")} subtitle={t("ops.clients.subtitle")} />
             <View className="mb-4">
               <FormInput
-                label="Search client"
+                label={t("ops.clients.searchLabel")}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Name or phone…"
+                placeholder={t("ops.clients.searchPlaceholder")}
               />
             </View>
           </View>
         }
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading clients…" />
+            <LoadingState message={t("ops.clients.loading")} />
           ) : (
             <EmptyState
               icon={Users}
-              title="No clients"
-              description="Registered clients and family members appear here."
+              title={t("ops.clients.empty.title")}
+              description={t("ops.clients.empty.description")}
             />
           )
         }
@@ -130,7 +132,7 @@ export function OpsClientsScreen({ navigation }: ClientsStackScreenProps<"Client
                 <View className="flex-row items-center gap-2">
                   <Text className="text-base font-semibold text-gray-900 dark:text-white">{item.name}</Text>
                   {item.kind === "dependent" ? (
-                    <Pill bgClass="bg-purple-50 dark:bg-purple-400/10" textClass="text-purple-700 dark:text-purple-300">Family member</Pill>
+                    <Pill bgClass="bg-purple-50 dark:bg-purple-400/10" textClass="text-purple-700 dark:text-purple-300">{t("ops.clients.familyMember")}</Pill>
                   ) : null}
                 </View>
                 <Text className="text-xs text-gray-500 dark:text-gray-400">{item.detail}</Text>

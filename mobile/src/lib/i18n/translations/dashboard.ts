@@ -1,0 +1,33 @@
+export const en = {
+  "dashboard.title": "My Appointments",
+  "dashboard.subtitle": "Your Bookings",
+  "dashboard.loadError": "Could not load your appointments.",
+  "dashboard.loading": "Loading appointments…",
+  "dashboard.recentlyMissed": "Recently missed",
+  "dashboard.empty.upcoming.title": "No upcoming appointments",
+  "dashboard.empty.upcoming.description": "Book a service to schedule your next visit.",
+  "dashboard.empty.none.title": "No appointments yet",
+  "dashboard.empty.none.description": "Book a service to see it here.",
+  "dashboard.lastCheckupCompleted": "Last checkup completed",
+  "dashboard.client": "Client",
+  "dashboard.youMissedIt": "You missed it",
+  "dashboard.reschedule": "Reschedule",
+  "dashboard.dependent": "Dependent",
+} as const;
+
+export const ta: Record<keyof typeof en, string> = {
+  "dashboard.title": "எனது சந்திப்புகள்",
+  "dashboard.subtitle": "உங்கள் முன்பதிவுகள்",
+  "dashboard.loadError": "உங்கள் சந்திப்புகளை ஏற்ற முடியவில்லை.",
+  "dashboard.loading": "சந்திப்புகள் ஏற்றப்படுகிறது…",
+  "dashboard.recentlyMissed": "சமீபத்தில் தவறவிட்டது",
+  "dashboard.empty.upcoming.title": "வரவிருக்கும் சந்திப்புகள் இல்லை",
+  "dashboard.empty.upcoming.description": "உங்கள் அடுத்த வருகையை திட்டமிட ஒரு சேவையை முன்பதிவு செய்யுங்கள்.",
+  "dashboard.empty.none.title": "இதுவரை சந்திப்புகள் இல்லை",
+  "dashboard.empty.none.description": "இங்கே பார்க்க ஒரு சேவையை முன்பதிவு செய்யுங்கள்.",
+  "dashboard.lastCheckupCompleted": "கடைசி பரிசோதனை முடிந்தது",
+  "dashboard.client": "வாடிக்கையாளர்",
+  "dashboard.youMissedIt": "நீங்கள் தவறவிட்டீர்கள்",
+  "dashboard.reschedule": "மறு அட்டவணை",
+  "dashboard.dependent": "சார்ந்தவர்",
+};

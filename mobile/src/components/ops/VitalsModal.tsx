@@ -9,6 +9,8 @@ import {
   PrimaryButton,
   OutlineButton,
 } from "@/components/ui";
+import { useLanguage } from "@/lib/i18n";
+import { translateTamilToEnglish } from "@/lib/translateText";
 
 export interface VitalsSubject {
   profileId?: string;
@@ -43,13 +45,15 @@ export function VitalsModal({
   subject: VitalsSubject | null;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const add = useAddClinical();
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const submit = () => {
+  const submit = async () => {
     setErrors({});
     const parsed = clinicalSchema.safeParse(form);
     if (!parsed.success) {
@@ -58,14 +62,20 @@ export function VitalsModal({
       setErrors(errs);
       return;
     }
+    setSubmitting(true);
+    const [medicalConditions, note] = await Promise.all([
+      parsed.data.medical_conditions ? translateTamilToEnglish(parsed.data.medical_conditions) : Promise.resolve(null),
+      parsed.data.note ? translateTamilToEnglish(parsed.data.note) : Promise.resolve(null),
+    ]);
+    setSubmitting(false);
     const payload: Record<string, unknown> = {
       systolic: parsed.data.systolic,
       diastolic: parsed.data.diastolic,
       blood_glucose: parsed.data.blood_glucose,
       spo2: parsed.data.spo2,
       blood_group: parsed.data.blood_group || null,
-      medical_conditions: parsed.data.medical_conditions || null,
-      note: parsed.data.note || null,
+      medical_conditions: medicalConditions,
+      note: note,
     };
     if (subject?.profileId) payload.profile_id = subject.profileId;
     else if (subject?.familyMemberId) payload.family_member_id = subject.familyMemberId;
@@ -75,15 +85,15 @@ export function VitalsModal({
   if (!subject) return null;
 
   return (
-    <AppModal visible={open} onClose={onClose} title="Record Vitals">
-      <Text className="mb-4 text-sm text-gray-500">For {subject.name}</Text>
+    <AppModal visible={open} onClose={onClose} title={t("modal.vitals.title")}>
+      <Text className="mb-4 text-sm text-gray-500">{t("modal.vitals.for", { name: subject.name })}</Text>
 
       <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
         <View className="gap-4 pb-1">
           <View className="flex-row gap-3">
             <View className="flex-1">
               <FormInput
-                label="Systolic (mmHg)"
+                label={t("modal.vitals.systolic")}
                 value={form.systolic}
                 onChangeText={set("systolic")}
                 error={errors.systolic}
@@ -92,7 +102,7 @@ export function VitalsModal({
             </View>
             <View className="flex-1">
               <FormInput
-                label="Diastolic (mmHg)"
+                label={t("modal.vitals.diastolic")}
                 value={form.diastolic}
                 onChangeText={set("diastolic")}
                 error={errors.diastolic}
@@ -103,7 +113,7 @@ export function VitalsModal({
           <View className="flex-row gap-3">
             <View className="flex-1">
               <FormInput
-                label="Glucose (mg/dL)"
+                label={t("modal.vitals.glucose")}
                 value={form.blood_glucose}
                 onChangeText={set("blood_glucose")}
                 error={errors.blood_glucose}
@@ -112,7 +122,7 @@ export function VitalsModal({
             </View>
             <View className="flex-1">
               <FormInput
-                label="SpO2 (%)"
+                label={t("modal.vitals.spo2")}
                 value={form.spo2}
                 onChangeText={set("spo2")}
                 error={errors.spo2}
@@ -121,24 +131,24 @@ export function VitalsModal({
             </View>
           </View>
           <SelectSheet
-            label="Blood group"
+            label={t("modal.vitals.bloodGroup")}
             value={form.blood_group}
             onValueChange={set("blood_group")}
             options={BLOOD_GROUP_OPTIONS}
           />
           <TextareaInput
-            label="Medical conditions"
+            label={t("modal.vitals.medicalConditions")}
             value={form.medical_conditions}
             onChangeText={set("medical_conditions")}
-            placeholder="e.g. Type 2 diabetes, hypertension"
+            placeholder={t("modal.vitals.medicalConditionsPlaceholder")}
             rows={2}
             maxLength={2000}
           />
           <TextareaInput
-            label="Note"
+            label={t("modal.vitals.note")}
             value={form.note}
             onChangeText={set("note")}
-            placeholder="Visit note (optional)"
+            placeholder={t("modal.vitals.notePlaceholder")}
             rows={2}
             maxLength={1000}
           />
@@ -146,9 +156,9 @@ export function VitalsModal({
       </ScrollView>
 
       <View className="mt-5 flex-row justify-end gap-3">
-        <OutlineButton onPress={onClose}>Cancel</OutlineButton>
-        <PrimaryButton loading={add.isPending} onPress={submit}>
-          Save Vitals
+        <OutlineButton onPress={onClose}>{t("modal.vitals.cancel")}</OutlineButton>
+        <PrimaryButton loading={submitting || add.isPending} onPress={submit}>
+          {t("modal.vitals.save")}
         </PrimaryButton>
       </View>
     </AppModal>

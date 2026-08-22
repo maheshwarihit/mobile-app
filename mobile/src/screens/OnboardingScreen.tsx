@@ -25,17 +25,19 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { BrandLogo } from "@/components/ui";
+import { LanguageToggle } from "@/components/feature/LanguageToggle";
+import { useLanguage } from "@/lib/i18n";
 
-type Slide = {
+type SlideDef = {
   icon: LucideIcon;
   image: ImageSourcePropType;
-  // Poster-style stacked all-caps headline (slide 1 only, see 2026-08-11
-  // round) — takes over from titleBefore/titleHighlight/titleAfter when set.
-  stackedTitle?: string[];
-  titleBefore?: string;
-  titleHighlight?: string;
-  titleAfter?: string;
-  description: string;
+  // Keys into the onboarding.slideN.* namespace — resolved inside the
+  // component (via t()), since a hook can't be called in this static array.
+  stackedTitle?: ["onboarding.slide1.line1", "onboarding.slide1.line2", "onboarding.slide1.line3"];
+  before?: "onboarding.slide2.before" | "onboarding.slide3.before" | "onboarding.slide4.before";
+  highlight: "onboarding.slide1.line1" | "onboarding.slide2.highlight" | "onboarding.slide3.highlight" | "onboarding.slide4.highlight";
+  after?: "onboarding.slide2.after" | "onboarding.slide3.after" | "onboarding.slide4.after";
+  description: "onboarding.slide1.description" | "onboarding.slide2.description" | "onboarding.slide3.description" | "onboarding.slide4.description";
 };
 
 /**
@@ -45,9 +47,9 @@ type Slide = {
  * and family — admin isn't named by a slide of its own (unchanged from the
  * prior round's decision); admin functionality itself is untouched
  * (RootNavigator still routes an admin account to its own shell), this is
- * wording/photo selection only.
+ * wording/photo selection only. Text itself lives in translations/onboarding.ts.
  */
-const SLIDES: Slide[] = [
+const SLIDE_DEFS: SlideDef[] = [
   {
     icon: HeartHandshake,
     image: require("../../assets/onboarding/image1.png.png"),
@@ -56,29 +58,33 @@ const SLIDES: Slide[] = [
     // own teal brand with a real care-in-progress photo standing in for that
     // ad's own photo/logo/red scheme, which belongs to a different, real
     // hospital group.
-    stackedTitle: ["CARE.", "COMFORT.", "HOME."],
-    description: "Healthy choices today, a healthier tomorrow.",
+    stackedTitle: ["onboarding.slide1.line1", "onboarding.slide1.line2", "onboarding.slide1.line3"],
+    highlight: "onboarding.slide1.line1",
+    description: "onboarding.slide1.description",
   },
   {
     icon: Activity,
     image: require("../../assets/onboarding/image2.png"),
-    titleHighlight: "Physiotherapy",
-    titleAfter: " sessions at home",
-    description: "Guided exercises and mobility support from a trained professional, right in your living room.",
+    before: "onboarding.slide2.before",
+    highlight: "onboarding.slide2.highlight",
+    after: "onboarding.slide2.after",
+    description: "onboarding.slide2.description",
   },
   {
     icon: Utensils,
     image: require("../../assets/onboarding/image3.png"),
-    titleHighlight: "Nutrition & wellness",
-    titleAfter: ", tailored to you",
-    description: "Personalized meal and wellness plans designed around each person's needs.",
+    before: "onboarding.slide3.before",
+    highlight: "onboarding.slide3.highlight",
+    after: "onboarding.slide3.after",
+    description: "onboarding.slide3.description",
   },
   {
     icon: Users,
     image: require("../../assets/onboarding/image4.png"),
-    titleBefore: "Book for the ",
-    titleHighlight: "whole family",
-    description: "Add parents, kids, or anyone you care for as dependents and manage every visit from one account.",
+    before: "onboarding.slide4.before",
+    highlight: "onboarding.slide4.highlight",
+    after: "onboarding.slide4.after",
+    description: "onboarding.slide4.description",
   },
 ];
 
@@ -88,6 +94,16 @@ const TRANSITION_LOCK_MS = 400;
 
 export function OnboardingScreen({ onDone }: { onDone: () => void }) {
   const { width } = useWindowDimensions();
+  const { t } = useLanguage();
+  const SLIDES = SLIDE_DEFS.map((s) => ({
+    icon: s.icon,
+    image: s.image,
+    stackedTitle: s.stackedTitle ? s.stackedTitle.map((k) => t(k)) : undefined,
+    titleBefore: s.before ? t(s.before) : "",
+    titleHighlight: t(s.highlight),
+    titleAfter: s.after ? t(s.after) : "",
+    description: t(s.description),
+  }));
   const scrollRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
   // Locks the buttons for the duration of an in-flight scroll animation — a
@@ -167,9 +183,12 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
-        <View className="flex-row items-center gap-2 px-6 pt-2">
-          <BrandLogo size={36} transparent />
-          <Text className="text-base font-bold text-white">VAgeWell Care</Text>
+        <View className="flex-row items-center justify-between px-6 pt-2">
+          <View className="flex-row items-center gap-3">
+            <BrandLogo size={52} transparent />
+            <Text className="text-xl font-extrabold tracking-tight text-white">{t("onboarding.brand")}</Text>
+          </View>
+          <LanguageToggle dark />
         </View>
 
         <ScrollView
@@ -189,7 +208,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
                 <View className="mb-1">
                   {s.stackedTitle.map((word, i) => (
                     <Text
-                      key={word}
+                      key={i}
                       className={`text-4xl font-extrabold leading-tight ${
                         i === s.stackedTitle!.length - 1 ? "text-white" : "text-teal-300"
                       }`}
@@ -226,7 +245,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
         */}
         <View className="flex-row items-center justify-between px-10 pb-8 pt-4">
           <Pressable onPress={finish} hitSlop={12} className="active:opacity-70">
-            <Text className="text-sm font-semibold text-teal-300">Skip</Text>
+            <Text className="text-sm font-semibold text-teal-300">{t("common.skip")}</Text>
           </Pressable>
 
           <View className="flex-row items-center gap-2">

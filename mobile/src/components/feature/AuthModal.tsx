@@ -12,21 +12,16 @@ import {
   TextButton,
   ErrorBanner,
   GoogleIcon,
-  AppleIcon,
 } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { signInWithProvider, type OAuthProvider } from "@/lib/oauth";
 import { useResendTimer } from "@/hooks/useResendTimer";
+import { useLanguage } from "@/lib/i18n";
 import { normalizePhone, OTP_LENGTH } from "@vagewell/shared";
 
 type Mode = "login" | "register";
 type Step = "details" | "otp";
 type OpsRole = "admin" | "leaf_node";
-
-const ROLE_OPTIONS: { value: OpsRole; label: string }[] = [
-  { value: "leaf_node", label: "Care Assistant" },
-  { value: "admin", label: "Admin" },
-];
 
 /**
  * Centered sign-in/sign-up popup, opened from the Landing and Home screens.
@@ -70,6 +65,11 @@ export function AuthModal({
   title?: string;
   rolePicker?: boolean;
 }) {
+  const { t } = useLanguage();
+  const ROLE_OPTIONS: { value: OpsRole; label: string }[] = [
+    { value: "leaf_node", label: t("auth.role.careAssistant") },
+    { value: "admin", label: t("auth.role.admin") },
+  ];
   const [mode, setMode] = useState<Mode>(initialMode);
   const [step, setStep] = useState<Step>("details");
   const [fullName, setFullName] = useState("");
@@ -84,10 +84,13 @@ export function AuthModal({
   const [oauthBusy, setOauthBusy] = useState<OAuthProvider | null>(null);
   const resend = useResendTimer(60);
 
-  // Google/Apple never hand back a phone number — this app's identity model
-  // (RLS, family-member auto-link, staff calling a patient) is built around
-  // one, so an OAuth account will read "—" wherever a phone would show until
-  // it's added by hand later. Flagged, not silently patched around here.
+  // Google never hands back a phone number — this app's identity model (RLS,
+  // family-member auto-link, staff calling a patient) is built around one, so
+  // signing in with Google alone isn't enough to use the app: RootNavigator
+  // gates any account with no profile.phone behind VerifyPhoneScreen, which
+  // collects + OTP-verifies a real number before letting the session through
+  // to the normal shell. Google is a convenience on top of that gate, never a
+  // way around it.
   const oauthSignIn = async (provider: OAuthProvider) => {
     setErr(null);
     setOauthBusy(provider);
@@ -119,7 +122,7 @@ export function AuthModal({
       if (error) {
         const m = error.message?.toLowerCase() ?? "";
         if (m.includes("signup") || m.includes("not allowed") || m.includes("not found") || m.includes("exist")) {
-          setErr("No account found for this number. Try Sign up instead.");
+          setErr(t("auth.error.noAccount"));
         } else {
           setErr(error.message);
         }
@@ -141,12 +144,12 @@ export function AuthModal({
   const sendOtp = async () => {
     setErr(null);
     if (mode === "register" && fullName.trim().length < 2) {
-      setErr("Enter your full name.");
+      setErr(t("auth.error.enterName"));
       return;
     }
     const normalized = normalizePhone(phoneRaw);
     if (!normalized) {
-      setErr("Enter a valid 10-digit mobile number.");
+      setErr(t("auth.error.invalidPhone"));
       return;
     }
     setBusy(true);
@@ -158,7 +161,7 @@ export function AuthModal({
       // sign-up outright — fall through and let the normal OTP flow proceed.
       if (!checkErr && alreadyRegistered) {
         setBusy(false);
-        setErr("This number already has an account. Please use Login instead.");
+        setErr(t("auth.error.alreadyRegistered"));
         return;
       }
     }
@@ -167,20 +170,20 @@ export function AuthModal({
     if (!ok) return;
     setE164(normalized);
     setStep("otp");
-    toast.success(`Verification code sent to ${normalized}`);
+    toast.success(t("auth.toast.codeSent", { phone: normalized }));
   };
 
   const resendCode = async () => {
     setErr(null);
     setOtp("");
     const ok = await requestCode(e164);
-    if (ok) toast.success("Code re-sent");
+    if (ok) toast.success(t("auth.toast.codeResent"));
   };
 
   const verify = async () => {
     setErr(null);
     if (otp.length !== OTP_LENGTH) {
-      setErr(`Enter the ${OTP_LENGTH}-digit code.`);
+      setErr(t("auth.error.enterCode", { length: OTP_LENGTH }));
       return;
     }
     setBusy(true);
@@ -190,7 +193,7 @@ export function AuthModal({
       setErr(error.message);
       return;
     }
-    toast.success(mode === "login" ? "Signed in" : "Account created — welcome to VAgeWell!");
+    toast.success(mode === "login" ? t("auth.toast.signedIn") : t("auth.toast.accountCreated"));
     reset();
     onClose();
   };
@@ -202,15 +205,15 @@ export function AuthModal({
         reset();
         onClose();
       }}
-      title={title ?? (mode === "login" ? "Welcome back" : "Create your account")}
+      title={title ?? (mode === "login" ? t("auth.welcomeBack") : t("auth.createAccount"))}
     >
       {allowModeSwitch ? (
         <View className="mb-4 flex-row rounded-lg bg-gray-100 p-1">
           <Pressable onPress={() => switchMode("login")} className={`flex-1 items-center rounded-md py-2 ${mode === "login" ? "bg-white" : ""}`}>
-            <Text className={`text-sm font-semibold ${mode === "login" ? "text-purple-700" : "text-gray-500"}`}>Login</Text>
+            <Text className={`text-sm font-semibold ${mode === "login" ? "text-purple-700" : "text-gray-500"}`}>{t("auth.login")}</Text>
           </Pressable>
           <Pressable onPress={() => switchMode("register")} className={`flex-1 items-center rounded-md py-2 ${mode === "register" ? "bg-white" : ""}`}>
-            <Text className={`text-sm font-semibold ${mode === "register" ? "text-purple-700" : "text-gray-500"}`}>Sign up</Text>
+            <Text className={`text-sm font-semibold ${mode === "register" ? "text-purple-700" : "text-gray-500"}`}>{t("auth.signUp")}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -223,54 +226,52 @@ export function AuthModal({
 
       {step === "details" ? (
         <View className="gap-4">
-          <View className="gap-2.5">
-            <OutlineButtonWithNode
-              icon={<GoogleIcon size={16} />}
-              loading={oauthBusy === "google"}
-              disabled={oauthBusy !== null}
-              onPress={() => oauthSignIn("google")}
-            >
-              Continue with Google
-            </OutlineButtonWithNode>
-            <OutlineButtonWithNode
-              icon={<AppleIcon size={16} />}
-              loading={oauthBusy === "apple"}
-              disabled={oauthBusy !== null}
-              onPress={() => oauthSignIn("apple")}
-            >
-              Continue with Apple
-            </OutlineButtonWithNode>
-          </View>
+          {/* Google/Apple sign-in is a client-only convenience — an OAuth
+              account has no phone number, and the Care Assistant/Admin door
+              (rolePicker) is a promotable ops identity that needs one for
+              RLS/household matching, so this door is OTP-only. */}
+          {!rolePicker ? (
+            <>
+              <View className="gap-2.5">
+                <OutlineButtonWithNode
+                  icon={<GoogleIcon size={16} />}
+                  loading={oauthBusy === "google"}
+                  disabled={oauthBusy !== null}
+                  onPress={() => oauthSignIn("google")}
+                >
+                  {t("auth.continueWithGoogle")}
+                </OutlineButtonWithNode>
+              </View>
 
-          <View className="flex-row items-center gap-3">
-            <View className="h-px flex-1 bg-gray-200" />
-            <Text className="text-xs text-gray-400">Or</Text>
-            <View className="h-px flex-1 bg-gray-200" />
-          </View>
+              <View className="flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-gray-200" />
+                <Text className="text-xs text-gray-400">{t("auth.or")}</Text>
+                <View className="h-px flex-1 bg-gray-200" />
+              </View>
+            </>
+          ) : null}
 
           {mode === "register" ? (
-            <FormInput label="Full Name" value={fullName} onChangeText={setFullName} placeholder="Name" autoCapitalize="words" required />
+            <FormInput label={t("auth.fullName")} value={fullName} onChangeText={setFullName} placeholder={t("auth.namePlaceholder")} autoCapitalize="words" required />
           ) : null}
           {mode === "register" && rolePicker ? (
-            <ChoiceChips label="Registering as" value={role} onChange={(v) => setRole(v as OpsRole)} options={ROLE_OPTIONS} required />
+            <ChoiceChips label={t("auth.registeringAs")} value={role} onChange={(v) => setRole(v as OpsRole)} options={ROLE_OPTIONS} required />
           ) : null}
           <FormInput
-            label="Mobile Number"
+            label={t("auth.mobileNumber")}
             value={phoneRaw}
             onChangeText={setPhoneRaw}
-            placeholder="10-digit mobile number"
+            placeholder={t("auth.mobilePlaceholder")}
             keyboardType="phone-pad"
             required
           />
           <PrimaryButton fullWidth loading={busy} onPress={sendOtp}>
-            Send OTP
+            {t("auth.sendOtp")}
           </PrimaryButton>
         </View>
       ) : (
         <View className="gap-4">
-          <Text className="text-sm text-gray-600">
-            Enter the {OTP_LENGTH}-digit code sent to <Text className="font-semibold">{e164}</Text>.
-          </Text>
+          <Text className="text-sm text-gray-600">{t("auth.enterCode", { length: OTP_LENGTH, phone: e164 })}</Text>
           <OtpInput value={otp} onChange={setOtp} autoFocus />
           <View className="flex-row items-center justify-between">
             <TextButton
@@ -281,16 +282,16 @@ export function AuthModal({
                 setErr(null);
               }}
             >
-              Change number
+              {t("auth.changeNumber")}
             </TextButton>
             {resend.canResend ? (
-              <TextButton onPress={resendCode}>Resend OTP</TextButton>
+              <TextButton onPress={resendCode}>{t("auth.resendOtp")}</TextButton>
             ) : (
-              <Text className="text-xs text-gray-500">Resend in {resend.secondsLeft}s</Text>
+              <Text className="text-xs text-gray-500">{t("auth.resendIn", { seconds: resend.secondsLeft })}</Text>
             )}
           </View>
           <PrimaryButton fullWidth loading={busy} onPress={verify}>
-            Verify & Continue
+            {t("auth.verifyAndContinue")}
           </PrimaryButton>
         </View>
       )}

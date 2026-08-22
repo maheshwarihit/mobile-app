@@ -4,23 +4,24 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Stethoscope, PhoneCall, ArrowRight } from "lucide-react-native";
 import { PrimaryButton, OutlineButton, GradientButton, Card } from "@/components/ui";
 import { AuthModal } from "@/components/feature/AuthModal";
-import { PremiumPackagesSection } from "@/components/feature/PremiumPackagesSection";
+import { LanguageToggle } from "@/components/feature/LanguageToggle";
+import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
+import { ServiceDescription } from "@/components/feature/ServiceDescription";
+import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import { SEED_SERVICES, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
 
 /**
- * Unauthenticated home page: a short services/package teaser (static
- * `SEED_SERVICES` copy, not a live query — the `services` table isn't
- * grantable to an unauthenticated request, and this content doesn't need to
- * be live-updated before someone even has an account) plus the shared
- * `PremiumPackagesSection` (marketing-only, not yet a real bookable product
- * — see `lib/packages.ts`'s own TODO; also shown on the post-login Services
- * screen so the two never disagree). Signing in/up happens in a centered
+ * Unauthenticated home page: a short services teaser (static `SEED_SERVICES`
+ * copy, not a live query — the `services` table isn't grantable to an
+ * unauthenticated request, and this content doesn't need to be live-updated
+ * before someone even has an account). Signing in/up happens in a centered
  * popup over this page rather than a separate screen; once authenticated,
  * RootNavigator swaps straight to the normal tabs, where the live Services
  * screen (already tap-to-book) is the real booking entry point.
  */
 export function HomeScreen() {
+  const { t } = useLanguage();
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
 
@@ -32,20 +33,22 @@ export function HomeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <ScrollView contentContainerClassName="px-6 pb-8 pt-4">
+        <View className="mb-4 flex-row justify-end">
+          <LanguageToggle />
+        </View>
+
         <Card className="mb-6 p-6">
-          <Text className="text-2xl font-bold text-gray-900">Create an account</Text>
-          <Text className="mt-2 text-base text-gray-500">
-            Book care and connect with our trusted Care Assistants today.
-          </Text>
+          <Text className="text-2xl font-bold text-gray-900">{t("home.createAccount.title")}</Text>
+          <Text className="mt-2 text-base text-gray-500">{t("home.createAccount.subtitle")}</Text>
           <View className="mt-5">
             <GradientButton fullWidth onPress={() => open("register")}>
-              Sign Up Now
+              {t("home.createAccount.cta")}
             </GradientButton>
           </View>
         </Card>
 
         <View className="mb-4 flex-row items-center justify-between">
-          <Text className="text-lg font-bold text-gray-900">Our services</Text>
+          <Text className="text-lg font-bold text-gray-900">{t("home.ourServices")}</Text>
           <Pressable
             onPress={() => Linking.openURL(`tel:${HOSPITAL_CONTACT_PHONE}`)}
             className="h-10 w-10 items-center justify-center rounded-full bg-purple-50 active:opacity-70"
@@ -63,12 +66,8 @@ export function HomeScreen() {
                     <Stethoscope size={18} color={BRAND} />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900">{s.name}</Text>
-                    <Text className="mt-1 text-sm font-semibold text-purple-700">
-                      {s.pricing_model === "flat_advance"
-                        ? `Advance ${money(s.price_per_day)} (monthly package)`
-                        : `${money(s.price_per_day)}/day`}
-                    </Text>
+                    <Text className="text-base font-semibold text-gray-900">{translateServiceName(t, s.name)}</Text>
+                    <ServiceDescription text={translateServiceDescription(t, s.description)} />
                   </View>
                 </View>
               </Card>
@@ -76,16 +75,18 @@ export function HomeScreen() {
           ))}
         </View>
 
-        <View className="mt-8">
-          <PremiumPackagesSection onPressPackage={() => open("register")} />
+        <View className="mt-3 rounded-xl bg-[#63A147] p-4">
+          <Text className="text-center text-sm font-bold text-white">
+            {t("services.pricesFromNote", { price: money(Math.min(...SEED_SERVICES.map((s) => s.price_per_day))) })}
+          </Text>
         </View>
 
         <View className="mt-6 gap-3">
           <PrimaryButton fullWidth icon={ArrowRight} onPress={() => open("register")}>
-            Get Started — Book Care
+            {t("home.getStartedBookCare")}
           </PrimaryButton>
           <OutlineButton fullWidth onPress={() => open("login")}>
-            Existing user — Login
+            {t("home.existingUserLogin")}
           </OutlineButton>
         </View>
       </ScrollView>

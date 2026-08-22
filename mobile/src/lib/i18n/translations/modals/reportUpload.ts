@@ -1,0 +1,31 @@
+export const en = {
+  "modal.reportUpload.title": "Upload Report",
+  "modal.reportUpload.serviceFor": "{service} for {name}",
+  "modal.reportUpload.reportType": "Report type",
+  "modal.reportUpload.file": "File",
+  "modal.reportUpload.choosePlaceholder": "Choose a PNG, JPG, WEBP, or PDF file",
+  "modal.reportUpload.note": "Note (optional)",
+  "modal.reportUpload.notePlaceholder": "Any context for this report…",
+  "modal.reportUpload.cancel": "Cancel",
+  "modal.reportUpload.upload": "Upload",
+  "modal.reportUpload.error.fileType": "Please upload a PNG, JPG, WEBP, or PDF file.",
+  "modal.reportUpload.error.fileSize": "File exceeds the 10 MB limit.",
+  "modal.reportUpload.error.pickerFailed": "Could not open the file picker.",
+  "modal.reportUpload.error.chooseFile": "Choose a file first.",
+} as const;
+
+export const ta: Record<keyof typeof en, string> = {
+  "modal.reportUpload.title": "அறிக்கையைப் பதிவேற்று",
+  "modal.reportUpload.serviceFor": "{name}-க்கு {service}",
+  "modal.reportUpload.reportType": "அறிக்கை வகை",
+  "modal.reportUpload.file": "கோப்பு",
+  "modal.reportUpload.choosePlaceholder": "PNG, JPG, WEBP அல்லது PDF கோப்பைத் தேர்வு செய்யவும்",
+  "modal.reportUpload.note": "குறிப்பு (விருப்பத்தேர்வு)",
+  "modal.reportUpload.notePlaceholder": "இந்த அறிக்கைக்கான ஏதேனும் விவரம்…",
+  "modal.reportUpload.cancel": "ரத்து செய்",
+  "modal.reportUpload.upload": "பதிவேற்று",
+  "modal.reportUpload.error.fileType": "PNG, JPG, WEBP அல்லது PDF கோப்பைப் பதிவேற்றவும்.",
+  "modal.reportUpload.error.fileSize": "கோப்பு 10 MB வரம்பை மீறுகிறது.",
+  "modal.reportUpload.error.pickerFailed": "கோப்புத் தேர்வியைத் திறக்க முடியவில்லை.",
+  "modal.reportUpload.error.chooseFile": "முதலில் ஒரு கோப்பைத் தேர்வு செய்யவும்.",
+};

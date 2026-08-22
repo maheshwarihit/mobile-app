@@ -17,6 +17,8 @@ import {
 } from "@vagewell/shared";
 import { PageHeader, Card, Pill, FormInput, SelectSheet, LoadingState, EmptyState } from "@/components/ui";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 
 const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
@@ -34,6 +36,7 @@ const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 type Section = { title: string; data: Profile[] };
 
 export function AdminTeamScreen({ onOpenClient }: { onOpenClient?: (accountId: string) => void }) {
+  const { t } = useLanguage();
   const { data: profiles, isLoading } = useAllProfiles(true);
   const setRole = useSetUserRole();
   const [query, setQuery] = useState("");
@@ -52,10 +55,10 @@ export function AdminTeamScreen({ onOpenClient }: { onOpenClient?: (accountId: s
     const ops = matched.filter((p) => p.role !== "patient");
     const clients = matched.filter((p) => p.role === "patient");
     const out: Section[] = [];
-    if (ops.length) out.push({ title: "Team", data: ops });
-    if (clients.length) out.push({ title: "Clients (not yet on the team)", data: clients });
+    if (ops.length) out.push({ title: t("ops.team.groupTeam"), data: ops });
+    if (clients.length) out.push({ title: t("ops.team.groupClients"), data: clients });
     return out;
-  }, [profiles, q]);
+  }, [profiles, q, t]);
 
   // Flattened to a single list so one FlatList renders both sections.
   type Row = { kind: "header"; title: string } | { kind: "member"; profile: Profile };
@@ -80,29 +83,25 @@ export function AdminTeamScreen({ onOpenClient }: { onOpenClient?: (accountId: s
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
           <View>
-            <PageHeader title="Care team" subtitle="Care Assistants who can be assigned home visits." />
+            <PageHeader title={t("ops.team.title")} subtitle={t("ops.team.subtitle")} />
             <View className="mb-4">
               <FormInput
-                label="Search by name or phone"
+                label={t("ops.team.searchLabel")}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Search anyone to promote them…"
+                placeholder={t("ops.team.searchPlaceholder")}
               />
             </View>
           </View>
         }
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading…" />
+            <LoadingState message={t("ops.team.loading")} />
           ) : (
             <EmptyState
               icon={ClipboardList}
-              title={q ? "No match" : "No Care Assistants yet"}
-              description={
-                q
-                  ? "No account matches that name or phone."
-                  : "Search above by name or phone to find a registered account and make them a Care Assistant."
-              }
+              title={q ? t("ops.team.empty.noMatch") : t("ops.team.empty.none")}
+              description={q ? t("ops.team.empty.noMatchDescription") : t("ops.team.empty.noneDescription")}
             />
           )
         }
@@ -131,6 +130,7 @@ function MemberRow({
   onSetRole: (role: Role) => void;
   onPress?: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <Card className="p-4">
       <Pressable onPress={onPress} disabled={!onPress} hitSlop={4} className="flex-row items-center gap-3 active:opacity-70">
@@ -140,13 +140,13 @@ function MemberRow({
             {p.full_name ?? "—"}
           </Text>
           <Text className="text-xs text-gray-500 dark:text-gray-400">
-            {localPhone(p.phone) || "—"} · Joined {formatDate(p.created_at)}
+            {t("ops.team.detail", { phone: localPhone(p.phone) || "—", date: formatDate(p.created_at) })}
           </Text>
         </View>
         {onPress ? <ChevronRight size={18} color="#9ca3af" /> : null}
       </Pressable>
       <View className="mt-3">
-        <SelectSheet label="Role" value={p.role} onValueChange={(r) => onSetRole(r as Role)} options={ROLE_OPTIONS} />
+        <SelectSheet label={t("ops.team.role")} value={p.role} onValueChange={(r) => onSetRole(r as Role)} options={ROLE_OPTIONS} />
       </View>
     </Card>
   );
@@ -167,6 +167,7 @@ function TeamMemberDetail({
   onBack: () => void;
   onOpenClient?: (accountId: string) => void;
 }) {
+  const { t } = useLanguage();
   const { data: bookings, isLoading } = useAllBookings(true);
   const assigned = useMemo(
     () =>
@@ -187,7 +188,7 @@ function TeamMemberDetail({
           <View>
             <Pressable onPress={onBack} hitSlop={8} className="mb-4 flex-row items-center gap-1 active:opacity-70">
               <ChevronLeft size={18} color="#6b7280" />
-              <Text className="text-sm font-medium text-gray-600 dark:text-gray-300">Care team</Text>
+              <Text className="text-sm font-medium text-gray-600 dark:text-gray-300">{t("ops.team.title")}</Text>
             </Pressable>
             <Card className="mb-4 p-4">
               <View className="flex-row items-center gap-3">
@@ -195,24 +196,28 @@ function TeamMemberDetail({
                 <View className="flex-1">
                   <Text className="text-lg font-bold text-gray-900 dark:text-white">{member.full_name ?? "—"}</Text>
                   <Text className="text-xs text-gray-500 dark:text-gray-400">
-                    {ROLE_LABELS[member.role]} · {localPhone(member.phone) || "—"} · Joined {formatDate(member.created_at)}
+                    {t("ops.team.detailHeader", {
+                      role: ROLE_LABELS[member.role],
+                      phone: localPhone(member.phone) || "—",
+                      date: formatDate(member.created_at),
+                    })}
                   </Text>
                 </View>
               </View>
             </Card>
             <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-              Clients & visit history
+              {t("ops.team.clientsAndHistory")}
             </Text>
           </View>
         }
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading…" />
+            <LoadingState message={t("ops.team.loading")} />
           ) : (
             <EmptyState
               icon={CalendarCheck}
-              title="No visits yet"
-              description="Bookings assigned to this Care Assistant will appear here."
+              title={t("ops.team.empty.noVisits.title")}
+              description={t("ops.team.empty.noVisits.description")}
             />
           )
         }
@@ -222,7 +227,7 @@ function TeamMemberDetail({
             <Card className="p-4">
               <View className="flex-row items-start justify-between gap-3">
                 <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900 dark:text-white">{b.service_name}</Text>
+                  <Text className="text-sm font-semibold text-gray-900 dark:text-white">{translateServiceName(t, b.service_name)}</Text>
                   <Pressable
                     onPress={onOpenClient ? () => onOpenClient(b.account_id) : undefined}
                     disabled={!onOpenClient}
@@ -230,7 +235,7 @@ function TeamMemberDetail({
                     className="mt-0.5 self-start active:opacity-70"
                   >
                     <Text className="text-xs text-gray-500 dark:text-gray-400">
-                      Client{" "}
+                      {t("ops.client")}{" "}
                       <Text className={`font-medium text-purple-600 dark:text-purple-300 ${onOpenClient ? "underline" : ""}`}>
                         {b.subject_name ?? "—"}
                       </Text>

@@ -104,10 +104,9 @@ export const REPORT_TYPE_LABELS: Record<(typeof REPORT_TYPES)[number], string> =
 
 export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
-// ── Scheduling (GR-4): record-only, 15-min slots, no availability check ──
+// ── Scheduling (GR-4): record-only, 15-min slots, no availability check,
+// no business-hours restriction (any time of day is bookable) ──
 export const SLOT_MINUTES = 15;
-export const BOOKING_START_HOUR = 6; // 06:00
-export const BOOKING_END_HOUR = 21; // 21:00 (last selectable slot start)
 export const MIN_BOOKING_DAYS = 1;
 export const MAX_BOOKING_DAYS = 60;
 export const MULTI_DAY_MODE = "consecutive" as const; // GO-6
@@ -140,12 +139,64 @@ export const MAX_REPORT_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 export const ALLOWED_REPORT_MIME = ["image/png", "image/jpeg", "image/webp", "application/pdf"] as const;
 
 // ── Seed catalog — confirmed 4-service catalog (mirror of supabase/seed.sql + install_all.sql) ──
+// `description`'s first line is the short summary; the "• " lines after it are
+// the feature bullets (migration 0030) — rendered as a bullet list in the app,
+// same \n-joined string other display code (translateServiceDescription) splits on.
+// Array order = display order (Para-Medical, Mental Wellbeing, Nutrition, Physio
+// Therapy) — matched by SERVICE_DISPLAY_ORDER below, which useServices() sorts
+// the live DB result by, so the guest Home screen (reads this array directly)
+// and the authenticated Services screen (reads the live query) never disagree.
 export const SEED_SERVICES = [
-  { name: "Nutrition", price_per_day: 2000, pricing_model: "flat_advance", description: "Diet adherence (supported by strategic meal provider partnerships)." },
-  { name: "Physio Therapy", price_per_day: 2000, pricing_model: "flat_advance", description: "Exercise completion, mobility scores." },
-  { name: "Para-Medical", price_per_day: 800, pricing_model: "per_day", description: "Vitals tracking (BP, Sugar, SpO2) and medication compliance." },
-  { name: "Mental Wellbeing", price_per_day: 800, pricing_model: "per_day", description: "Mood scores and social engagement tracking." },
+  {
+    name: "Para-Medical",
+    price_per_day: 800,
+    pricing_model: "per_day",
+    description:
+      "Vitals Monitoring and medication compliance.\n" +
+      "• Vitals Monitoring (BP, Sugar, O2)\n" +
+      "• Elderly & geriatric care\n" +
+      "• Bedridden patient care\n" +
+      "• Wound & dressing care\n" +
+      "• Post-hospitalization care\n" +
+      "• 24/7 home nursing care",
+  },
+  {
+    name: "Mental Wellbeing",
+    price_per_day: 800,
+    pricing_model: "per_day",
+    description:
+      "Mood scores and social engagement tracking.\n" +
+      "• Elderly wellbeing support\n" +
+      "• Psychological support\n" +
+      "• Spiritual care\n" +
+      "• Rehabilitation / relaxation care",
+  },
+  {
+    name: "Nutrition",
+    price_per_day: 2000,
+    pricing_model: "flat_advance",
+    description:
+      "Diet adherence (supported by strategic meal provider partnerships).\n" +
+      "• Individualized diet planning & support\n" +
+      "• Ryles tube feeding guidance\n" +
+      "• Dietitian consultation",
+  },
+  {
+    name: "Physio Therapy",
+    price_per_day: 2000,
+    pricing_model: "flat_advance",
+    description:
+      "Exercise completion, mobility scores.\n" +
+      "• Mobility training\n" +
+      "• Post-surgery physio care\n" +
+      "• Therapeutic exercise",
+  },
 ] as const;
+
+// Fixed display order for the service list, independent of price — the
+// authenticated Services screen's live query sorts by this (see useServices()
+// in hooks.ts) so it always matches SEED_SERVICES' order above.
+export const SERVICE_DISPLAY_ORDER = ["Para-Medical", "Mental Wellbeing", "Nutrition", "Physio Therapy"] as const;
 
 // Service whose booking unlocks staff vitals entry (patient-facing panel shows Sugar + Blood Group).
 export const PARA_MEDICAL_SERVICE = "Para-Medical";

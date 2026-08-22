@@ -2547,3 +2547,432 @@ door from there.
   present; separately, Log In → Caregiver / Admin → Continue → opens the same login-only staff modal as
   before, Sign-up tab confirmed absent. Screenshotted the login-mode modal to confirm visually. Zero
   console errors.
+
+## Change round — booking flow: end date instead of day count, no payment-method step, no amount shown (user, 2026-08-21)
+User: "the price line should be bold and then add start date and end date from the customer itself remove
+number of date and remove the calculation fo the amount after the treatment the care assistant or admin
+share the price amount then the cusotmer have to pay it." Confirmed via two clarifying questions: the
+"Payment method" step (Online UPI/QR/screenshot vs Pay at Visit) is removed entirely — booking is just
+confirmed after picking service + dates ("Remove it — booking is just confirmed"); and the
+`pricing_model` (per_day/flat_advance) distinction no longer branches any booking-flow UI — all 4 services
+become plain start/end-date bookings ("No — drop it").
+
+**No DB migration this round** — `bookings.num_days` (existing column, bounded 1–60) is still what's
+persisted; the new End date field is purely a friendlier client-side input that gets converted to
+`num_days` before submit (`daysBetween(start, end)`, new in `shared/src/dates.ts`), so the existing
+`tg_booking_snapshot()` trigger and its `total_amount` computation are untouched. Scoped deliberately:
+this round removes the amount/payment-method step from what the **customer** sees at booking time: the
+DB's own `total_amount` bookkeeping and every admin-side amount display (dashboard cards, live sheet,
+WhatsApp assignment message) are left as they are — a real DB/admin-workflow change wasn't asked for and
+wasn't in scope of "remove the calculation of the amount" in the context this was raised (the customer's
+booking screens).
+
+- [x] **`mobile/src/screens/AppointmentScreen.tsx`**: the "Number of days"/"Number of months" `FormInput`
+      replaced with an "End date" `DateField` (picking a later start date now bumps a stale end date
+      forward automatically). The whole pricing-summary purple box (advance/per-day math, total) is gone,
+      replaced by a plain note: "No payment is collected now. Our care assistant or admin will share the
+      charges after your visit." The Service dropdown's options now show just the service name — no
+      price/pricing-model suffix. `submit()` validates `end_date >= start_date` and the resulting range
+      is within `MAX_BOOKING_DAYS` (60, unchanged DB bound) before deriving `num_days` and continuing.
+- [x] **`mobile/src/screens/PaymentScreen.tsx` rewritten into a plain review-and-confirm step** (kept the
+      same route name/position in the stack — still Appointment → Payment — since a review step before
+      the actual insert is still good UX, just with no payment-method choice on it anymore). Removed
+      entirely: the Online UPI / Pay at Visit `MethodCard` pair, the QR code display + screenshot
+      `ImagePickerField` + upload logic, and the "Total payable" row. `confirm()` now inserts the booking
+      directly with a fixed `payment_method: "direct"` (no method was ever chosen) and no proof-upload
+      step. The success screen's body message was reworded to say the team will share charges after the
+      visit and payment happens directly with the care staff then.
+- [x] **`mobile/src/components/ops/NewAppointmentModal.tsx`** (admin/leaf_node booking on a caller's
+      behalf) — same treatment: day-count field → End date `DateField`, service dropdown loses its price
+      suffix, the "Pay at Visit ₹<total>" footer row lost its computed amount (kept as a plain "no
+      payment collected now" note) since there's no longer a total to show at this step either.
+- [x] **`mobile/src/navigation/types.ts`**: `BookingDraft` dropped `price_per_day`/`pricing_model`
+      (nothing needs them anymore) and gained `end_date: string` (the raw customer-entered value, shown
+      as-is on the confirm screen and the success summary — it's always internally consistent with
+      `num_days` since the latter is derived from it via `daysBetween`, never entered independently).
+- [x] **New `daysBetween(startISO, endISO)`** (`shared/src/dates.ts`) — inclusive day count between two
+      "YYYY-MM-DD" strings, parsed as local dates (not `new Date(iso)`, which parses as UTC and can land
+      on the wrong calendar day once shifted to the device's zone — the same class of bug this project's
+      `formatDate`/`addDays` already guard against). Both `AppointmentScreen.tsx` and
+      `NewAppointmentModal.tsx` gained a small local `parseISODate()` for the same reason, used only for
+      the End date field's `minimumDate`.
+- Verified: `mobile` `tsc --noEmit` clean (0 errors); `expo export --platform web` bundle green (2923
+  modules). Live-verified the unauthenticated path (onboarding → Landing → Guest → Home) with Playwright,
+  zero console errors — confirms the bundle itself is healthy after these changes. **Not click-tested**
+  past sign-in: `AppointmentScreen`/`PaymentScreen`/`NewAppointmentModal` all require a real OTP login
+  against the live Supabase project to exercise the actual booking submit, which this environment can't
+  drive — worth a real click-through (pick service → set start/end date → confirm → check the booking
+  lands with the right `num_days` and no payment fields) on the user's own device/build before relying on
+  this in production.
+
+## Change round — drop Apple sign-in; Google sign-in now still requires phone+OTP (user, 2026-08-21)
+User asked to remove "Continue with Apple" (Google alone is enough). Since "Continue with Google"
+currently signs someone in completely on its own — no phone, no OTP at all — asked a clarifying question
+about what should happen to that gap; user chose the higher-commitment option: **Google can still create
+the account immediately, but the account is then blocked behind a mandatory phone+OTP verification gate**
+before it can use the rest of the app (mirrors the existing `CompleteProfileScreen` gate pattern for
+web-registered ops accounts). This restores this project's original "phone+OTP is required, no exceptions"
+principle even for the one auth path that had quietly bypassed it.
+
+- [x] **New migration `0031_phone_verification_sync.sql`** (mirrored into `install_all.sql`, header
+      bumped to "0001–0031"): a Google identity never has a phone (`auth.users.phone` stays null), and
+      `handle_new_user()` only fires on account **creation** — nothing kept `profiles.phone` (client-
+      unwritable by design, same as at signup) in sync with a *later* phone-change, and nothing ran the
+      `family_members`/`patient_leads` auto-link matching for that case either. New `security definer`
+      trigger `handle_user_phone_verified()` (`after update of phone on auth.users`, fires only
+      `old.phone is null and new.phone is not null`) mirrors `handle_new_user()`'s own logic exactly:
+      sets `profiles.phone`, then runs the same "first unclaimed match wins" household/lead linking.
+- [x] **New `mobile/src/screens/VerifyPhoneScreen.tsx`** — phone + OTP, two-step (mirrors `AuthModal`'s
+      own details→otp shape), but uses Supabase's **phone-change** flow since the account is already
+      authenticated: `auth.updateUser({ phone })` (sends the OTP) then
+      `auth.verifyOtp({ phone, token, type: "phone_change" })` (confirms it) — not the sign-up OTP flow.
+      On success, `refreshProfile()` re-fetches the row the 0031 trigger just updated, which is what lets
+      the gate below clear. Includes a **Sign out** escape hatch (same reasoning as
+      `CompleteProfileScreen`'s) since this is a hard block.
+- [x] **`RootNavigator.tsx`**: new `if (profile && !profile.phone) return <VerifyPhoneScreen />;`,
+      checked right after the `!user` branch and before role-based shell routing — applies to *any*
+      account with no phone (today, only ever reachable via Google), not just a specific role.
+- [x] **`AuthModal.tsx`**: removed the "Continue with Apple" button entirely (kept "Continue with
+      Google"); doc comments updated to state the new gate explicitly — Google is "a convenience on top
+      of [phone verification], never a way around it." **`lib/oauth.ts`**: `OAuthProvider` narrowed from
+      `"google" | "apple"` to just `"google"`. `AppleIcon` (`components/ui/SocialIcons.tsx`) is now
+      unreferenced but left in place, same precedent as this project's other dormant-but-harmless
+      leftovers — cheap to bring back if Apple sign-in is ever wanted again. Removed the now-unused
+      `auth.continueWithApple` translation key.
+- [x] **New `verifyPhone.*` translation namespace** (`translations/verifyPhone.ts`, registered in
+      `translations/index.ts`) — the screen also reuses several existing `auth.*` keys directly
+      (mobile number label/placeholder, OTP entry copy, resend timer, change-number link) rather than
+      duplicating them.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. Live-verified with
+  Playwright: the Sign-up modal now shows only "Continue with Google" (Apple confirmed absent, 0 matches),
+  full name/mobile-number fields and Send OTP unaffected, zero console errors. **Not click-tested end to
+  end** — actually completing a Google OAuth sign-in and landing on `VerifyPhoneScreen` needs a real
+  Google account + a live redirect round-trip, which this environment can't drive; the gate's *logic* was
+  verified by reading the code path (RootNavigator's new check, the DB trigger's exact mirror of
+  `handle_new_user()`), not by an actual click-through.
+- **Needs the user's machine, same as every prior migration:** `0031_phone_verification_sync.sql` (or the
+  refreshed `install_all.sql`) has not run against the live Supabase project from this environment — until
+  it does, `profiles.phone` won't sync after a phone-change verification, and `VerifyPhoneScreen` would
+  loop (the gate would never clear even after a successful OTP verify).
+- **Confirmed working, same day:** user finished the Google Cloud OAuth Client setup (Branding, Clients,
+  redirect URI) and pasted the Client ID/Secret into Supabase's Google provider. Hit two more config gaps
+  along the way, both fixed on the Supabase Dashboard side, not in code: (1) `redirect_uri_mismatch` —
+  the registered Google redirect URI didn't byte-for-byte match Supabase's callback URL; fixed by copying
+  it directly from Supabase's Google provider panel instead of retyping; (2) after picking a Google
+  account, the app looped back to the language-picker screen — root cause was Supabase's own
+  **Authentication → URL Configuration → Redirect URLs** allowlist being completely empty, so Supabase
+  silently dropped the session instead of attaching it to the return redirect (a separate setting from
+  Google's own redirect URI, easy to miss). Fixed by adding both `http://localhost:8081/*` and the bare
+  `http://localhost:8081` (covers Supabase's exact-origin redirect request, which the wildcard alone may
+  not match) to Redirect URLs, and setting Site URL to match. Google sign-in confirmed working end to end
+  after this — first real click-through confirmation of the whole `AuthModal`/`VerifyPhoneScreen` chain
+  this session.
+
+## Change round — business-hours restriction removed from appointment time picking (user, 2026-08-21)
+User saw the "Pick a time between 06:00 AM and 09:00 PM" red warning on the Appointment form (picking
+05:00 AM triggered it) and asked for it gone. Confirmed via a clarifying question this meant removing the
+restriction entirely (any time of day bookable), not just tightening the picker to only offer valid hours.
+
+- [x] **New migration `0032_remove_time_slot_business_hours.sql`** (mirrored into `install_all.sql`,
+      header bumped to "0001–0032", plus the fresh-install `CREATE TABLE` inline CHECK updated too):
+      `bookings.time_slot`'s CHECK constraint dropped the `time_slot between '06:00' and '21:00'` clause
+      entirely. Kept the 15-minute-boundary requirement (`extract(minute from time_slot) in
+      (0,15,30,45)`) — the picker itself only ever offers `:00/:15/:30/:45` minutes, so that part was
+      never really a "business hours" restriction, just a scheduling granularity one.
+- [x] **`shared/src/format.ts`**: `timeSlots()` now generates all 24 hours (was `BOOKING_START_HOUR`
+      through `BOOKING_END_HOUR`, i.e. 06:00–21:00). **`shared/src/constants.ts`**: `BOOKING_START_HOUR`/
+      `BOOKING_END_HOUR` deleted (no longer meaningful — nothing else referenced them, confirmed via
+      `tsc`).
+- [x] **`mobile/src/components/ui/TimeField.tsx`**: removed the `validSet`/business-hours check entirely
+      — the hour/minute/AM-PM picker now always calls `onChange` with whatever combination is selected,
+      no red "Pick a time between…" warning possible anymore (the `useMemo`/`timeSlots()` import that
+      built that validation set is gone too). The field's `error` prop (parent-supplied, e.g. a required-
+      field message) is untouched — this only removed the component's own internal range check.
+- Verified: `mobile` `tsc --noEmit` clean (0 errors, confirms no other file referenced the deleted
+  constants); `expo export --platform web` bundle green. **Not click-tested** — exercising the Appointment
+  form's time picker needs a signed-in session (now working, per the Google sign-in confirmation above,
+  but not re-tested for this specific change) — worth picking an early-morning or late-night time on the
+  user's own device to confirm no red warning appears and the booking submits successfully.
+- **Needs the user's machine, same as every prior migration:** `0032_remove_time_slot_business_hours.sql`
+  (or the refreshed `install_all.sql`) has not run against the live Supabase project from this
+  environment — until it does, the database will still reject a booking outside 06:00–21:00 even though
+  the app no longer blocks picking one, producing a confusing insert-time error instead of the removed
+  inline warning.
+
+## Confirmed — Google sign-in works end to end; VerifyPhoneScreen gains a Name field (user, 2026-08-21)
+User finished the Google OAuth setup for real this time: the root cause of the persistent "Unable to
+exchange external code" error (`unexpected_failure` on the redirect) turned out to be a **disabled**
+Client Secret still sitting in Supabase's Google provider settings — the Google Cloud client had two
+secrets, the original (created 2026-08-18) had gone `Disabled` at some point, and Supabase was still
+configured with that one. Root-caused by walking through Google Cloud Console's Client detail page
+(Client secrets section shows Status per secret) rather than guessing further at redirect-URI theories.
+Generating a fresh secret and pasting the **full** value (only ever shown once, at creation) into
+Supabase fixed it — confirmed by an actual successful sign-in landing on `VerifyPhoneScreen`, verifying a
+real phone, and reaching the normal Profile tab with the Google-derived name ("Maheshwari Suresh")
+already populated.
+
+- [x] **`mobile/src/screens/VerifyPhoneScreen.tsx`** gained a **Full Name** field, shown above Mobile
+      Number on the same step — pre-filled from `profile.full_name` (whatever Google's OAuth response
+      populated it with, via `handle_new_user()`'s existing `raw_user_meta_data->>'full_name'` read, no
+      DB change needed since Google already supplies this claim). Editable before continuing, since a
+      Google-derived name isn't always what someone wants to go by. Saved via the existing
+      `useUpdateProfile()` mutation the moment "Send OTP" is tapped (only if actually changed from what's
+      already stored) — independent of whether the phone/OTP step itself succeeds, so a retried phone
+      verification doesn't discard an edited name. Reused `auth.fullName`/`auth.namePlaceholder`/
+      `auth.error.enterName` translation keys already defined for `AuthModal`'s own name field, rather
+      than duplicating them under `verifyPhone.*`.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. **Confirmed working
+  by the user directly** (not just this session's own testing) — first real end-to-end click-through of
+  the whole Google sign-in → phone verification → normal shell chain, screenshotted from the actual
+  Profile tab showing the verified phone number and Google-derived name.
+
+## Change round — service card polish: green box sizing, Physio icon, Para-Medical wording (user, 2026-08-22)
+Three small visual/content fixes off a screenshot.
+
+- [x] **Green "starts from ₹X" box now matches the service cards' padding** — was `px-4 py-2.5` (shorter
+      than the white cards above it), now plain `p-4` (same as `Card`'s own padding), in both
+      `HomeScreen.tsx` and `ServicesScreen.tsx`.
+- [x] **Physio Therapy's icon changed** from `Dumbbell` to `Activity` (a pulse/heartbeat-style icon) in
+      `mobile/src/lib/serviceIcon.ts`'s `iconForService()` lookup — this only affects the **signed-in**
+      Services tab (`ServicesScreen.tsx`); the guest Home screen has always shown a fixed `Stethoscope`
+      for every card regardless of service, unrelated to this lookup, so it wasn't touched.
+- [x] **Para-Medical's first bullet reworded** from generic "Vital monitoring" to "Vital tracking (BP,
+      Sugar, SpO2)" — mirrors the summary line's own parenthetical detail, matching what the user called
+      "point 1." Updated everywhere the exact string must match byte-for-byte: `SEED_SERVICES`
+      (`shared/src/constants.ts`), `services.ts` translations (en + ta), `serviceI18n.ts`'s
+      `DESCRIPTION_KEYS` lookup, and both `supabase/seed.sql` and `install_all.sql`'s seed INSERT. New
+      migration `0033_para_medical_bullet_wording.sql` (mirrored into `install_all.sql`, header bumped to
+      "0001–0033") updates the live row directly via `UPDATE ... WHERE name = 'Para-Medical'` — separate
+      from the seed INSERT's own `ON CONFLICT DO UPDATE`, which would also fix it on a full re-run, but a
+      standalone migration matches this project's established one-change-one-migration precedent.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green; live-verified the
+  guest Home screen with Playwright — Para-Medical's bullet list confirmed reading "Vital tracking (BP,
+  Sugar, SpO2)" first, green box screenshotted at the new taller padding, zero console errors. **Physio
+  icon not visually verified** — needs the signed-in Services tab, which requires a real login this
+  environment can't perform.
+- **Needs the user's machine, same as every prior migration:** `0033_para_medical_bullet_wording.sql` (or
+  the refreshed `install_all.sql`) has not run against the live Supabase project from this environment —
+  until it does, the live database still shows the old "Vital monitoring" wording even though the app's
+  own bundled fallback text (used before a fresh fetch, and on the guest Home screen) already reads the
+  new wording.
+
+## Change round — single-box time picker, dropped the slots note, Para-Medical SpO2 → O2 (user, 2026-08-22)
+Three more small fixes off a screenshot of the Appointment form.
+
+- [x] **`mobile/src/components/ui/TimeField.tsx` collapsed to one dropdown.** Was a hour `SelectSheet` +
+      minute `SelectSheet` + AM/PM `ChoiceChips` (three separate controls reading, per the user, like
+      "two timings"); now a single `SelectSheet` populated straight from `timeSlots()` (e.g. "06:00 AM"
+      as one option) — same 15-minute-across-the-full-day list already used elsewhere, still always emits
+      a valid `"HH:MM"`. Delegates its `label`/`error` rendering to `SelectSheet` itself rather than
+      duplicating that markup, so the component shrank to a thin wrapper.
+- [x] **Removed the "Slots are recorded as requested; availability is confirmed by our team." note**
+      (with its `Info` icon) from the bottom of `AppointmentScreen.tsx` — dropped the now-unused `Info`
+      import and the `appointment.slotsNote` translation key (English + Tamil), confirmed unused
+      elsewhere first.
+- [x] **Para-Medical's "SpO2" simplified to "O2"** in both the summary line and the first bullet ("Vital
+      tracking (BP, Sugar, O2)") — updated everywhere the exact string must match byte-for-byte:
+      `SEED_SERVICES` (`shared/src/constants.ts`), `services.ts` translations (en + ta, including the
+      Tamil parenthetical which keeps this abbreviation untranslated same as before), `serviceI18n.ts`'s
+      `DESCRIPTION_KEYS` lookup, and both `supabase/seed.sql` and `install_all.sql`'s seed INSERT.
+      **Deliberately left untouched:** `modals/vitals.ts`'s own "SpO2" — that's the staff-facing vitals-
+      entry form's field label for a real clinical measurement, a different concept from this marketing
+      description text, not something this request was about.
+- [x] **New migration `0034_para_medical_o2_wording.sql`** (mirrored into `install_all.sql`, header
+      bumped to "0001–0034") — same `UPDATE ... WHERE name = 'Para-Medical'` pattern as 0033, applied on
+      top of it (0033's "Vital tracking (BP, Sugar, SpO2)" wording → this round's "...O2)").
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green; live-verified with
+  Playwright — guest Home screen confirmed showing "Vital tracking (BP, Sugar, O2)" with zero remaining
+  "SpO2" anywhere on the page, zero console errors. **Not visually verified:** the single-box time picker
+  and the removed slots note both live on `AppointmentScreen.tsx`, which needs a signed-in session this
+  environment can't reach — worth a quick look on the user's device.
+- **Needs the user's machine, same as every prior migration:** `0034_para_medical_o2_wording.sql` (or the
+  refreshed `install_all.sql`) has not run against the live Supabase project from this environment.
+
+## Bugfix — removed a price leak the "no payment at booking" round missed on My Appointments (user, 2026-08-22)
+User's own screenshot of "My Appointments" showed a computed `₹800` still displayed on a missed booking
+card, contradicting the whole "no payment shown/collected at booking time — the care assistant/admin
+shares it after the visit" change from earlier this session. Root cause: that round only scoped the fix to
+the **booking-time** screens (`AppointmentScreen`/`PaymentScreen`), deliberately leaving `total_amount`
+displays alone on the theory they were admin bookkeeping — but `PatientBookingCard.tsx` and
+`DashboardScreen.tsx`'s `MissedAppointment`/`LastCompletedCheckup` cards are the **patient's own**
+"My Appointments" list, not an admin screen. The DB trigger still computes `total_amount` server-side
+(unchanged, still useful for the genuinely admin-facing ops screens), but showing that number back to the
+patient before any admin has actually communicated it is exactly the leak the user is pointing at.
+
+- [x] **Removed the `money(booking.total_amount)` line** from `PatientBookingCard.tsx` (every active
+      booking card) and from `DashboardScreen.tsx`'s `LastCompletedCheckup` and `MissedAppointment` cards
+      — all three now show just the status pill(s) (Pay at Visit / Requested / You missed it / etc.), no
+      amount. Dropped the now-unused `money` import from both files.
+- [x] **Confirmed via a repo-wide grep that every remaining `total_amount`/`money()` reference lives under
+      `mobile/src/screens/ops/*` or `mobile/src/components/ops/*`** — the genuinely admin/leaf_node-facing
+      screens, which were always the intended scope for keeping amount tracking. `ProfileScreen.tsx`'s
+      Checkup history also checked clean (never showed an amount).
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. **Not visually
+  verified** — both affected components only render on the signed-in Appointments tab, which needs a real
+  login this environment can't reach; the fix is a straightforward line removal confirmed by the clean
+  typecheck. Worth a look on the user's device to confirm the missed/upcoming/completed cards no longer
+  show any ₹ amount.
+
+## Bugfix — "My Appointments" upcoming list wasn't in date order after a reschedule (user, 2026-08-22)
+User's screenshot: after rescheduling, a booking dated Aug 28 showed above one dated Aug 24 — not
+chronological. Root cause: `useMyBookings()` (`shared/src/hooks.ts`) orders its query by `created_at desc`
+(newest-*booked*-first) — the right order for the "recently missed"/"last completed" nudges, which already
+had their own explicit `start_date`-descending `.sort()` on top of it, but `DashboardScreen.tsx`'s
+`active` (upcoming) list had **no sort of its own at all** — it just inherited the raw creation-time
+order. A reschedule creates its replacement booking *after* the original, so the newer booking (whatever
+date it's actually scheduled for) always sorted above an older-created one, even when the older one's
+appointment date was sooner.
+
+- [x] **`DashboardScreen.tsx`**: the `active` list now sorts by `start_date` ascending (soonest
+      appointment first), with `time_slot` ascending as a tiebreaker for same-day bookings — computed
+      once inside the existing `useMemo`, right alongside the `missed`/`completed` sorts that were already
+      there.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. **Not visually
+  verified** — needs a signed-in session with multiple real bookings to see the reordering, which this
+  environment can't set up; the fix is a straightforward added `.sort()` confirmed by the clean typecheck.
+
+## Change round — Para-Medical: "tracking" → "Monitoring" (user, 2026-08-22)
+User's screenshot still showed the pre-migration wording ("SpO2"/"Vital monitoring") — confirmed via grep
+that every app-code and current-SQL-seed file already had the 0033/0034 wording; the screenshot was simply
+the still-not-yet-migrated live database (expected, flagged each round). Alongside that, a genuinely new
+wording change: "tracking" → "Monitoring" in both the summary line and the first bullet.
+
+- [x] Summary line: "Vitals tracking (BP, Sugar, O2)" → **"Vitals Monitoring (BP, Sugar, O2)"**. First
+      bullet: "Vital tracking (BP, Sugar, O2)" → **"Vital Monitoring (BP, Sugar, O2)"**. Updated everywhere
+      the exact string must match byte-for-byte: `SEED_SERVICES` (`shared/src/constants.ts`),
+      `services.ts` translations (English only — the existing Tamil already used "கண்காணிப்பு", which
+      already means "monitoring," so no Tamil wording actually changed), `serviceI18n.ts`'s
+      `DESCRIPTION_KEYS` lookup, and both `supabase/seed.sql` and `install_all.sql`'s seed INSERT.
+- [x] **New migration `0035_para_medical_monitoring_wording.sql`** (mirrored into `install_all.sql`,
+      header bumped to "0001–0035") — same `UPDATE ... WHERE name = 'Para-Medical'` pattern as 0033/0034,
+      applied on top of both.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green; live-verified with
+  Playwright — guest Home screen confirmed showing both "Vitals Monitoring (BP, Sugar, O2)" and "Vital
+  Monitoring (BP, Sugar, O2)", zero remaining "SpO2" or old-cased "Vital monitoring" anywhere on the page,
+  zero console errors.
+- **Needs the user's machine, same as every prior migration:** `0035_para_medical_monitoring_wording.sql`
+  (or the refreshed `install_all.sql`) has not run against the live Supabase project from this
+  environment — until it (and the still-outstanding 0033/0034 before it) runs, the live database keeps
+  showing the pre-this-session wording the user's screenshot captured.
+
+## Change round — Para-Medical: split "(BP, Sugar, O2)" off the summary line onto the bullet only (user, 2026-08-22)
+Follow-up: the parenthetical detail was duplicated across both the summary and the first bullet. User
+asked for the summary line plain, and the detail to live only on the bullet.
+
+- [x] Summary: "Vitals Monitoring (BP, Sugar, O2) and medication compliance." → **"Vitals Monitoring and
+      medication compliance."** (parenthetical dropped). First bullet: **"Vitals Monitoring (BP, Sugar,
+      O2)"** (was "Vital Monitoring (BP, Sugar, O2)" — plural "Vitals" now used consistently with the
+      summary, matching the user's own phrasing). Updated everywhere the exact string must match
+      byte-for-byte: `SEED_SERVICES` (`shared/src/constants.ts`), `services.ts` translations (English +
+      Tamil — Tamil's summary also dropped its own parenthetical, keeping it only on the bullet),
+      `serviceI18n.ts`'s `DESCRIPTION_KEYS` lookup, and both `supabase/seed.sql` and `install_all.sql`'s
+      seed INSERT.
+- [x] **New migration `0036_para_medical_split_bp_sugar_o2.sql`** (mirrored into `install_all.sql`,
+      header bumped to "0001–0036") — same `UPDATE ... WHERE name = 'Para-Medical'` pattern as 0033–0035,
+      applied on top of all three.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green; live-verified with
+  Playwright (screenshotted) — guest Home screen confirmed showing "Vitals Monitoring and medication
+  compliance." as the plain summary and "Vitals Monitoring (BP, Sugar, O2)" as the first bullet, zero
+  console errors.
+- **Needs the user's machine, same as every prior migration:** `0036_para_medical_split_bp_sugar_o2.sql`
+  (or the refreshed `install_all.sql`) has not run against the live Supabase project from this
+  environment — same still-outstanding 0033–0035 gap as every round before it.
+
+## Change round — `bookings_full`: one flat GET returning patient + dependent + service + caregiver together (user, 2026-08-22)
+Follow-up to the backend-demo work: user pasted a generic "how REST APIs work" explainer (from elsewhere)
+and asked for the "one GET containing everything" idea it described (point 5 — a combined view/RPC instead
+of one call per table) built for real. Since PostgREST only serves plain `GET` for tables/views (an RPC
+needs `POST`), built it as a **view**, not a function, so it stays a genuine one-line `GET` with no extra
+steps.
+
+- [x] **New migration `0037_bookings_full_view.sql`** (mirrored into `install_all.sql`, header bumped to
+      "0001–0037", inserted right after the RLS policy block so the view's `left join`s can reference
+      already-defined tables/policies): `public.bookings_full` — one row per booking, joined with the
+      account holder's name/phone/age, the dependent's name/relationship/age/contact (if the booking is
+      for one), and the assigned caregiver's name/phone. Mirrors `shared/src/hooks.ts`'s existing
+      `BOOKING_WITH_NAMES_SELECT` nested-select shape exactly, just reachable as a plain `GET
+      /rest/v1/bookings_full` instead of a client-constructed nested query.
+- [x] **`with (security_invoker = true)`** on the view — the one detail that makes this safe rather than a
+      hole: without it, a Postgres view runs with its *creator's* privileges and would silently bypass
+      RLS entirely (every booking, every patient, exposed to anyone with the anon key). With it (Postgres
+      15+, which Supabase provisions), the view enforces RLS as the *calling* user — so it inherits
+      `bk_select`'s existing household/staff scoping automatically. The view adds zero new access; it's
+      strictly a more convenient shape for data the caller could already see one join at a time.
+      `grant select ... to authenticated` — no `anon` grant, same boundary as every real table.
+- [x] **`scripts/demo-backend.js`** gained a 9th search option — "Appointments, combined (patient +
+      dependent + service + caregiver in one row)" — pointed at the new view, so it's directly explorable
+      through the same login → search loop as the other 8 tables.
+- Verified: `node --check scripts/demo-backend.js` clean. **Not run against a live database** — this
+  environment has no Docker/Postgres, same standing limitation as every migration in this project; the
+  view definition was checked by hand against the existing `BOOKING_WITH_NAMES_SELECT` shape and the
+  established `bookings`/`profiles`/`family_members` schema/RLS rather than executed.
+- **Needs the user's machine, same as every prior migration:** `0037_bookings_full_view.sql` (or the
+  refreshed `install_all.sql`) has not run against the live Supabase project — until it does,
+  `GET /rest/v1/bookings_full` doesn't exist there yet (404/"relation does not exist").
+
+## Change round — self-selected Admin/Leaf Node roles now gated by a fixed team name (user, 2026-08-22)
+User already had a dedicated Admin account (`VAgeWell_Care_qcrah`, from an earlier round) and asked for
+the same for Care Assistant (`VAgeWell_Care_ln`) — then clarified via a follow-up that "except this
+username no one should login" meant a real restriction: the self-select-role signup door (0013 —
+Caregiver/Admin → Sign up, picks a role, granted instantly) should stop letting *anyone* claim Admin or
+Leaf Node; only these two specific identities should ever be able to.
+
+- [x] **New migration `0038_gate_self_selected_roles_by_name.sql`** (mirrored into `install_all.sql`,
+      header bumped to "0001–0038"): `handle_new_user()`'s role-selection check now requires the signed-up
+      `full_name` to exactly match a fixed pair — `'VAgeWell_Care_qcrah'` for `requested_role = 'admin'`,
+      `'VAgeWell_Care_ln'` for `requested_role = 'leaf_node'`. Any other name (or no name) requesting
+      either role falls through to `'patient'`, the same fallback an unrecognized role value already had
+      — no new failure mode, just a stricter match. `full_name` is now read once into a local
+      `v_full_name` variable and reused for both the check and the INSERT, instead of re-reading
+      `raw_user_meta_data` a second time.
+- **Stated plainly, not glossed over:** this is a **coordination gate, not real authentication** — the
+  name is visible in the UI and guessable, not a secret credential. It stops a random stranger from
+  picking "Admin" on the signup form and getting it instantly (which the door allowed unconditionally
+  since 0013), but anyone who happens to know or guess the exact name string can still self-elevate. If
+  stronger protection is ever wanted, the next step up would be a real invite-code/token check instead of
+  a fixed name string — flagged here, not built, since it wasn't asked for.
+- **Not changed:** `set_user_role()` (the existing admin-only promotion RPC) — already properly gated to
+  admin callers, untouched; this round only affects the *self-service* signup path. Mobile app code is
+  also untouched — `AuthModal`'s existing "Registering as" picker still sends `requested_role` exactly as
+  before, the gate is entirely server-side.
+- **Needs the user's machine, same as every prior migration:** `0038_gate_self_selected_roles_by_name.sql`
+  (or the refreshed `install_all.sql`) has not run against the live Supabase project from this environment
+  — until it does, the self-select door still grants Admin/Leaf Node to any name, same as before this
+  round.
+
+## Change round — reverted the single-dropdown time picker back to Hour/Minute/AM-PM (user, 2026-08-22)
+User asked, via a clarifying question, to revert the single combined "06:00 AM"-style dropdown (built two
+rounds ago) back to the original three-control layout — a 96-entry list turned out to be more tedious to
+scroll through than three small pickers, even though the three-control layout is visually less "one box."
+
+- [x] **`mobile/src/components/ui/TimeField.tsx`** restored to the Hour `SelectSheet` (12 options) +
+      Minute `SelectSheet` (4 options: 00/15/30/45) + AM/PM `ChoiceChips` layout — the exact shape it had
+      before being collapsed into one `timeSlots()`-backed dropdown. Still no business-hours restriction
+      (that removal stands, unrelated to this layout choice) — `combineTime()` always emits a valid
+      15-minute-boundary `"HH:MM"` regardless of which of the three controls changed.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. **Not visually
+  verified** — the Appointment form's time picker needs a signed-in session this environment can't reach;
+  the revert is a straightforward file restore to a previously-verified-working version.
+
+## Bugfix — system dark mode was leaking into every customer-facing screen (user, 2026-08-22)
+User's real-device screenshot showed the guest Home screen's service cards rendering with a dark-navy
+background and low-contrast text — screens that were never designed for dark mode at all (cream
+`bg-authbg` background, purple/teal branding). Root cause: `useThemePreference()` — the hook that forces
+NativeWind's `colorScheme` to `"light"` by default (persisted admin preference wins if the sidebar's
+toggle was ever used) — was only ever called from inside `AdminSidebar.tsx`. It never ran at all for
+anyone who hadn't opened that specific admin screen: every patient, and every ops user before their first
+visit there. With nothing ever explicitly setting the scheme, NativeWind silently fell back to the
+device's own system dark-mode setting, and every `dark:` Tailwind variant across the app (added for the
+admin/ops toggle specifically) bled through onto screens that had no matching light-mode-only design intent.
+
+- [x] **`mobile/App.tsx`**: `useThemePreference()` is now called once at the app root, alongside the font
+      loading — runs for every screen, every role, the instant the app mounts, not just after navigating
+      into the admin sidebar. `AdminSidebar.tsx`'s own call is unchanged (it still needs the returned
+      `colorScheme`/`toggle` for its own UI); calling the hook from two places is harmless — NativeWind's
+      `useColorScheme()` is shared/global state, not per-instance, so both calls read and drive the same
+      underlying value.
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. **Live-verified with
+  Playwright using a `colorScheme: 'dark'` emulated browser context** (the closest simulation available in
+  this environment to a real phone with system dark mode on) — confirmed the service card's background
+  computed to `rgb(255, 255, 255)` (white) even under emulated OS dark mode, screenshotted showing the
+  correct light appearance throughout. Zero console errors.

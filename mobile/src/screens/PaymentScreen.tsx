@@ -1,161 +1,78 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable, Image } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { Wallet, Banknote, Upload, ShieldCheck, CheckCircle2, type LucideIcon } from "lucide-react-native";
-import {
-  PageHeader,
-  SectionCard,
-  PrimaryButton,
-  ErrorBanner,
-  ImagePickerField,
-  type PickedImage,
-} from "@/components/ui";
+import { CalendarCheck, ShieldCheck, CheckCircle2 } from "lucide-react-native";
+import { PageHeader, SectionCard, PrimaryButton, ErrorBanner } from "@/components/ui";
 import { BRAND } from "@/theme";
 import { useAuth } from "@/providers/AuthProvider";
+import { useLanguage } from "@/lib/i18n";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { translateTamilToEnglish } from "@/lib/translateText";
 import { supabase } from "@/lib/supabase";
-import { imageUriToBytes } from "@/lib/fileBytes";
-import upiQr from "../../assets/upi-qr.png";
-import {
-  ALLOWED_IMAGE_MIME,
-  MAX_UPLOAD_BYTES,
-  PAYMENT_PROOF_BUCKET,
-  PAYMENT_QR_BUCKET,
-  PAYMENT_QR_OBJECT,
-  money,
-  formatSlot,
-  formatDate,
-  qk,
-} from "@vagewell/shared";
+import { formatSlot, formatDate, qk } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
-type Method = "online" | "direct" | "";
-
 // SCREEN_ID: PAYMENT
+// No payment method or amount is collected here — the care assistant/admin
+// shares the charges with the customer after the visit, and the customer
+// pays that told amount outside this booking flow. This screen is now a
+// plain review-and-confirm step for the booking itself.
 export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"Payment">) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const qc = useQueryClient();
   const { draft } = route.params;
-  const [method, setMethod] = useState<Method>("");
-  const [image, setImage] = useState<PickedImage | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [createdId, setCreatedId] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [qrFailed, setQrFailed] = useState(false);
-  const qrUrl = supabase.storage.from(PAYMENT_QR_BUCKET).getPublicUrl(PAYMENT_QR_OBJECT).data.publicUrl;
-
-  const onPickImage = (img: PickedImage | null) => {
-    setErr(null);
-    if (!img) {
-      setImage(null);
-      return;
-    }
-    if (!ALLOWED_IMAGE_MIME.includes(img.mimeType as (typeof ALLOWED_IMAGE_MIME)[number])) {
-      setErr("Please upload a PNG, JPG, or WEBP image.");
-      return;
-    }
-    if (img.fileSize > MAX_UPLOAD_BYTES) {
-      setErr("File exceeds the 5 MB limit.");
-      return;
-    }
-    setImage(img);
-  };
 
   const confirm = async () => {
     if (!user) return;
     setErr(null);
-    if (!method) {
-      setErr("Choose a payment method.");
-      return;
-    }
-    if (method === "online" && !image) {
-      setErr("Upload your UPI payment screenshot to continue.");
-      return;
-    }
     setBusy(true);
 
-    // Insert the booking once (server-authored pricing/status via triggers).
-    let bookingId = createdId;
-    if (!bookingId) {
-      const { data, error } = await supabase
-        .from("bookings")
-        .insert({
-          service_id: draft.service_id,
-          family_member_id: draft.family_member_id,
-          service_mode: draft.service_mode,
-          num_days: draft.num_days,
-          start_date: draft.start_date,
-          time_slot: draft.time_slot,
-          symptom_brief: draft.symptom_brief || null,
-          payment_method: method,
-        })
-        .select("id")
-        .single();
-      if (error || !data) {
-        setBusy(false);
-        setErr(error?.message ?? "Could not create the booking. Please try again.");
-        return;
-      }
-      bookingId = data.id as string;
-      setCreatedId(bookingId);
-      // This insert bypasses the shared mutation hooks (server-authored fields
-      // like total_amount only exist after the trigger runs), so nothing else
-      // invalidates the cache — without this, My Appointments keeps showing
-      // stale data until its 60s staleTime lapses on its own.
-      void qc.invalidateQueries({ queryKey: qk.bookings("mine") });
-    }
-
-    if (method === "online" && image) {
-      try {
-        const bytes = await imageUriToBytes(image.uri);
-        const ext = image.mimeType === "image/png" ? "png" : image.mimeType === "image/webp" ? "webp" : "jpg";
-        const path = `${user.id}/${bookingId}/${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from(PAYMENT_PROOF_BUCKET)
-          .upload(path, bytes, { contentType: image.mimeType, upsert: true });
-        if (upErr) throw upErr;
-        const { error: updErr } = await supabase.from("bookings").update({ payment_proof_path: path }).eq("id", bookingId);
-        if (updErr) throw updErr;
-        void qc.invalidateQueries({ queryKey: qk.bookings("mine") });
-      } catch {
-        setBusy(false);
-        setErr("Your booking was created but the screenshot upload failed. You can re-upload it from your dashboard.");
-        return;
-      }
-    }
-
+    // Free text is stored in English regardless of what script the customer
+    // typed in — best-effort auto-translate (translateText.ts), so a Tamil
+    // symptom brief still reads clearly to ops staff.
+    const symptomBrief = draft.symptom_brief ? await translateTamilToEnglish(draft.symptom_brief) : null;
+    const { error } = await supabase.from("bookings").insert({
+      service_id: draft.service_id,
+      family_member_id: draft.family_member_id,
+      service_mode: draft.service_mode,
+      num_days: draft.num_days,
+      start_date: draft.start_date,
+      time_slot: draft.time_slot,
+      symptom_brief: symptomBrief,
+      payment_method: "direct",
+    });
     setBusy(false);
-    toast.success(
-      method === "direct" ? "Booking confirmed — pay at the visit." : "Booking submitted — awaiting payment verification."
-    );
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    void qc.invalidateQueries({ queryKey: qk.bookings("mine") });
+    toast.success(t("payment.toast.confirmed"));
     setDone(true);
   };
-
-  const isFlatAdvance = draft.pricing_model === "flat_advance";
-  const total = isFlatAdvance ? draft.price_per_day : draft.num_days * draft.price_per_day;
 
   if (done) {
     return (
       <SafeAreaView className="flex-1 bg-authbg">
         <View className="flex-1 items-center justify-center px-8">
           <CheckCircle2 size={64} color={BRAND} />
-          <Text className="mt-4 text-xl font-bold text-gray-900">Appointment booked</Text>
-          <Text className="mt-2 text-center text-sm text-gray-600">
-            {method === "direct"
-              ? "Pay the care staff directly at your visit. Our team will confirm the schedule."
-              : "Your payment is pending verification — an admin will review your screenshot shortly."}
-          </Text>
+          <Text className="mt-4 text-xl font-bold text-gray-900">{t("payment.booked.title")}</Text>
+          <Text className="mt-2 text-center text-sm text-gray-600">{t("payment.booked.direct")}</Text>
           <View className="mt-4 w-full rounded-xl border border-gray-100 bg-white p-4">
-            <Row label="Service" value={draft.service_name} />
-            <Row label="Care for" value={draft.subject_name} />
-            <Row label="When" value={`${formatDate(draft.start_date)} · ${formatSlot(draft.time_slot)}`} />
-            <Row label="Total" value={money(total)} />
+            <Row label={t("payment.row.service")} value={translateServiceName(t, draft.service_name)} />
+            <Row label={t("payment.row.careFor")} value={draft.subject_name} />
+            <Row label={t("payment.row.when")} value={`${formatDate(draft.start_date)} · ${formatSlot(draft.time_slot)}`} />
+            <Row label={t("payment.row.endDate")} value={formatDate(draft.end_date)} />
           </View>
           <View className="mt-6 w-full">
             <PrimaryButton fullWidth onPress={() => navigation.navigate("AppointmentsTab")}>
-              View my appointments
+              {t("payment.viewAppointments")}
             </PrimaryButton>
           </View>
         </View>
@@ -166,83 +83,35 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <ScrollView contentContainerClassName="px-5 pt-4 pb-8" keyboardShouldPersistTaps="handled">
-        {/* Back to the appointment form — but only while nothing has been written.
-            Once the insert has succeeded (createdId set, e.g. the proof upload
-            then failed) a second pass through this screen would duplicate the
-            booking, so the way out is the dashboard, not Back. */}
-        <PageHeader
-          title="Payment"
-          subtitle="Confirm your booking and payment method."
-          onBack={busy || createdId ? undefined : () => navigation.goBack()}
-        />
+        {/* Back to the appointment form — but only while nothing has been
+            written. Once the insert has succeeded a second pass through this
+            screen would duplicate the booking, so the way out is the
+            dashboard, not Back. */}
+        <PageHeader title={t("payment.title")} subtitle={t("payment.subtitle")} onBack={busy ? undefined : () => navigation.goBack()} />
 
-        <SectionCard icon={Wallet} title="Booking summary">
+        <SectionCard icon={CalendarCheck} title={t("payment.summary.title")}>
           <View className="gap-2">
-            <Row label="Service" value={draft.service_name} />
-            <Row label="Care for" value={draft.subject_name} />
-            <Row label="Start date" value={formatDate(draft.start_date)} />
-            <Row label="Time" value={formatSlot(draft.time_slot)} />
-            <Row label={isFlatAdvance ? "Months" : "Days"} value={String(draft.num_days)} />
-            <Row label={isFlatAdvance ? "Advance amount" : "Price / day"} value={money(draft.price_per_day)} />
-            <View className="mt-2 flex-row items-center justify-between border-t border-gray-100 pt-3">
-              <Text className="text-sm font-semibold text-gray-900">Total payable</Text>
-              <Text className="text-lg font-bold text-purple-700">{money(total)}</Text>
-            </View>
+            <Row label={t("payment.row.service")} value={translateServiceName(t, draft.service_name)} />
+            <Row label={t("payment.row.careFor")} value={draft.subject_name} />
+            <Row label={t("payment.row.startDate")} value={formatDate(draft.start_date)} />
+            <Row label={t("payment.row.endDate")} value={formatDate(draft.end_date)} />
+            <Row label={t("payment.row.time")} value={formatSlot(draft.time_slot)} />
           </View>
         </SectionCard>
 
-        <SectionCard icon={Banknote} title="Payment method">
-          <View className="gap-3">
-            <MethodCard
-              active={method === "online"}
-              onPress={() => setMethod("online")}
-              icon={Upload}
-              title="Online UPI"
-              desc="Pay now & upload a screenshot for verification."
-            />
-            <MethodCard
-              active={method === "direct"}
-              onPress={() => setMethod("direct")}
-              icon={Banknote}
-              title="Pay at Visit"
-              desc="Settle in person when the nurse arrives."
-            />
-          </View>
-
-          {method === "online" ? (
-            <View className="mt-4 gap-3">
-              <View className="items-center rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <Text className="mb-2 text-sm font-semibold text-gray-700">Scan & pay {money(total)}</Text>
-                {qrFailed ? (
-                  <Image source={upiQr} className="h-44 w-44 rounded-lg bg-white" resizeMode="contain" />
-                ) : (
-                  <Image
-                    source={{ uri: qrUrl }}
-                    onError={() => setQrFailed(true)}
-                    className="h-44 w-44 rounded-lg bg-white"
-                    resizeMode="contain"
-                  />
-                )}
-                <Text className="mt-2 text-center text-xs text-gray-500">
-                  Scan this QR with any UPI app, pay the total, then upload the payment screenshot below.
-                </Text>
-              </View>
-              <ImagePickerField label="UPI payment screenshot" value={image} onChange={onPickImage} onError={setErr} />
-            </View>
-          ) : null}
-        </SectionCard>
+        <View className="mb-5 mt-4 rounded-xl border border-purple-100 bg-purple-50 p-4">
+          <Text className="text-sm text-gray-600">{t("payment.priceAfterVisitNote")}</Text>
+        </View>
 
         {err ? <ErrorBanner message={err} /> : null}
 
         <View className="mb-3 mt-2 flex-row items-center gap-2">
           <ShieldCheck size={14} color="#9ca3af" />
-          <Text className="flex-1 text-xs text-gray-400">
-            Your details are protected and visible only to VAgeWell staff.
-          </Text>
+          <Text className="flex-1 text-xs text-gray-400">{t("payment.privacyNote")}</Text>
         </View>
 
-        <PrimaryButton fullWidth loading={busy} disabled={!method} onPress={confirm}>
-          Confirm Booking
+        <PrimaryButton fullWidth loading={busy} onPress={confirm}>
+          {t("payment.confirmBooking")}
         </PrimaryButton>
       </ScrollView>
     </SafeAreaView>
@@ -255,30 +124,5 @@ function Row({ label, value }: { label: string; value: string }) {
       <Text className="text-sm text-gray-500">{label}</Text>
       <Text className="text-sm font-medium text-gray-900">{value}</Text>
     </View>
-  );
-}
-
-function MethodCard({
-  active,
-  onPress,
-  icon: Icon,
-  title,
-  desc,
-}: {
-  active: boolean;
-  onPress: () => void;
-  icon: LucideIcon;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      className={`rounded-xl border p-4 ${active ? "border-purple-500 bg-purple-50" : "border-gray-200 bg-white"}`}
-    >
-      <Icon size={20} color={active ? BRAND : "#9ca3af"} />
-      <Text className="mt-2 text-sm font-semibold text-gray-900">{title}</Text>
-      <Text className="mt-0.5 text-xs text-gray-500">{desc}</Text>
-    </Pressable>
   );
 }

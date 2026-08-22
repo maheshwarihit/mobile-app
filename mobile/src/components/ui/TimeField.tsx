@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { View, Text } from "react-native";
 import { SelectSheet } from "./SelectSheet";
 import { ChoiceChips } from "./ChoiceChips";
-import { combineTime, timeSlots } from "@vagewell/shared";
+import { combineTime } from "@vagewell/shared";
 
 const HOURS = Array.from({ length: 12 }, (_, i) => {
   const v = String(i + 1).padStart(2, "0");
@@ -30,30 +30,23 @@ type Props = {
 };
 
 /**
- * Hour + minute + AM/PM picker that always emits a valid 24h "HH:MM" on a 15-min
- * boundary within business hours (06:00–21:00), so it satisfies both
- * appointmentSchema and the bookings.time_slot DB CHECK. Out-of-window combos are
- * rejected with a friendly message rather than being emitted.
+ * Hour + minute + AM/PM picker that always emits a valid 24h "HH:MM" on a
+ * 15-min boundary — any time of day, no business-hours restriction. Reverted
+ * from a single combined dropdown (96 entries to scroll through) back to
+ * three small controls, which is faster to actually use even though it's
+ * visually three pieces rather than one.
  */
 export function TimeField({ value, onChange, label, error }: Props) {
-  const validSet = useMemo(() => new Set(timeSlots().map((s) => s.value)), []);
   const init = parse(value);
   const [hour, setHour] = useState(init.hour);
   const [minute, setMinute] = useState(init.minute);
   const [meridiem, setMeridiem] = useState<"AM" | "PM">(init.meridiem);
-  const [localErr, setLocalErr] = useState<string | undefined>();
 
   const apply = (h: string, m: string, mer: "AM" | "PM") => {
     setHour(h);
     setMinute(m);
     setMeridiem(mer);
-    const slot = combineTime(Number(h), Number(m), mer);
-    if (validSet.has(slot)) {
-      setLocalErr(undefined);
-      onChange(slot);
-    } else {
-      setLocalErr("Pick a time between 06:00 AM and 09:00 PM.");
-    }
+    onChange(combineTime(Number(h), Number(m), mer));
   };
 
   return (
@@ -70,7 +63,7 @@ export function TimeField({ value, onChange, label, error }: Props) {
       <View className="mt-2">
         <ChoiceChips value={meridiem} onChange={(v) => apply(hour, minute, v as "AM" | "PM")} options={MERIDIEM} />
       </View>
-      {localErr || error ? <Text className="mt-1 text-xs text-red-500">{localErr || error}</Text> : null}
+      {error ? <Text className="mt-1 text-xs text-red-500">{error}</Text> : null}
     </View>
   );
 }

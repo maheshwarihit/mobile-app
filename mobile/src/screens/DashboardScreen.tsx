@@ -7,11 +7,12 @@ import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@
 import { useAuth } from "@/providers/AuthProvider";
 import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
 import { loadDismissedMissedIds, dismissMissedBooking } from "@/lib/dismissedMissed";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 import {
   useMyBookings,
   useFamilyMembers,
   useCancelBooking,
-  money,
   formatDate,
   formatSlot,
   isBookingTerminal,
@@ -24,6 +25,7 @@ import type { AppTabScreenProps } from "@/navigation/types";
 // SCREEN_ID: DASHBOARD — patient "My Appointments" (AppointmentsTab).
 // Staff/admin use the separate web portal (web/), not this app.
 export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsTab">) {
+  const { t } = useLanguage();
   const { profile, user } = useAuth();
   const { data: bookings, isLoading, error, refetch } = useMyBookings();
   const { data: deps } = useFamilyMembers();
@@ -43,7 +45,7 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
     }, [refetch])
   );
 
-  const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? "Dependent" : profileName);
+  const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? t("dashboard.dependent") : profileName);
 
   const cancel = useCancelBooking();
 
@@ -86,8 +88,15 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
     const completedSorted = all
       .filter((b) => b.booking_status === "completed")
       .sort((a, b) => b.start_date.localeCompare(a.start_date));
+    // Soonest appointment first — the underlying query orders by created_at
+    // (newest booking first), which is the right order for "recently missed"/
+    // "last completed" above but not for what's still upcoming: a booking
+    // made later that happens to be scheduled sooner should still show first.
+    const activeSorted = notTerminal
+      .filter((b) => !isBookingMissed(b.booking_status, b.start_date, b.time_slot))
+      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.time_slot.localeCompare(b.time_slot));
     return {
-      active: notTerminal.filter((b) => !isBookingMissed(b.booking_status, b.start_date, b.time_slot)),
+      active: activeSorted,
       recentMissed: missedSorted[0] ?? null,
       lastCompleted: completedSorted[0] ?? null,
       hasAny: all.length > 0,
@@ -97,18 +106,20 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <View className="flex-1 px-5 pt-4">
-        <PageHeader title="My Appointments" subtitle="Your Bookings" />
+        <PageHeader title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
         <FlatList
           data={active}
           keyExtractor={(b) => b.id}
           contentContainerClassName="gap-3 pb-6"
           ListHeaderComponent={
             <View>
-              {error ? <ErrorBanner message="Could not load your appointments." /> : null}
-              {isLoading ? <LoadingState message="Loading appointments…" /> : null}
+              {error ? <ErrorBanner message={t("dashboard.loadError")} /> : null}
+              {isLoading ? <LoadingState message={t("dashboard.loading")} /> : null}
               {recentMissed ? (
                 <View className="mb-4 gap-2">
-                  <Text className="text-xs font-semibold uppercase tracking-wide text-red-500">Recently missed</Text>
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-red-500">
+                    {t("dashboard.recentlyMissed")}
+                  </Text>
                   <MissedAppointment
                     booking={recentMissed}
                     subjectName={nameFor(recentMissed)}
@@ -125,8 +136,8 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
               // "none yet" would be wrong for anyone who has ever booked.
               <EmptyState
                 icon={CalendarCheck}
-                title={hasAny ? "No upcoming appointments" : "No appointments yet"}
-                description={hasAny ? "Book a service to schedule your next visit." : "Book a service to see it here."}
+                title={hasAny ? t("dashboard.empty.upcoming.title") : t("dashboard.empty.none.title")}
+                description={hasAny ? t("dashboard.empty.upcoming.description") : t("dashboard.empty.none.description")}
               />
             ) : null
           }
@@ -150,10 +161,13 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
  * this is just an at-a-glance pointer to the latest one.
  */
 function LastCompletedCheckup({ booking, subjectName }: { booking: Booking; subjectName: string }) {
+  const { t } = useLanguage();
   const status = bookingStatusMeta(booking.booking_status);
   return (
     <View className="mt-5">
-      <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Last checkup completed</Text>
+      <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        {t("dashboard.lastCheckupCompleted")}
+      </Text>
       <Card className="bg-gray-50 p-4">
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 flex-row items-start gap-3">
@@ -161,9 +175,9 @@ function LastCompletedCheckup({ booking, subjectName }: { booking: Booking; subj
               <CalendarClock size={18} color="#6b7280" />
             </View>
             <View className="flex-1">
-              <Text className="text-base font-semibold text-gray-700">{booking.service_name}</Text>
+              <Text className="text-base font-semibold text-gray-700">{translateServiceName(t, booking.service_name)}</Text>
               <Text className="text-xs text-gray-500">
-                Client <Text className="font-medium text-purple-600">{subjectName}</Text>
+                {t("dashboard.client")} <Text className="font-medium text-purple-600">{subjectName}</Text>
               </Text>
               <Text className="mt-1 text-sm text-gray-600">
                 {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
@@ -171,12 +185,9 @@ function LastCompletedCheckup({ booking, subjectName }: { booking: Booking; subj
             </View>
           </View>
           <View className="items-end">
-            <Text className="text-base font-bold text-gray-700">{money(booking.total_amount)}</Text>
-            <View className="mt-1">
-              <Pill bgClass={status.bg} textClass={status.text}>
-                {status.label}
-              </Pill>
-            </View>
+            <Pill bgClass={status.bg} textClass={status.text}>
+              {status.label}
+            </Pill>
           </View>
         </View>
       </Card>
@@ -196,6 +207,7 @@ function MissedAppointment({
   onReschedule: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <Card className="border border-red-100 bg-red-50/40 p-4">
       <View className="flex-row items-start justify-between gap-3">
@@ -204,9 +216,9 @@ function MissedAppointment({
             <AlertTriangle size={18} color="#b91c1c" />
           </View>
           <View className="flex-1">
-            <Text className="text-base font-semibold text-gray-900">{booking.service_name}</Text>
+            <Text className="text-base font-semibold text-gray-900">{translateServiceName(t, booking.service_name)}</Text>
             <Text className="text-xs text-gray-500">
-              Client <Text className="font-medium text-purple-600">{subjectName}</Text>
+              {t("dashboard.client")} <Text className="font-medium text-purple-600">{subjectName}</Text>
             </Text>
             <Text className="mt-1 text-sm text-gray-600">
               {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
@@ -217,9 +229,8 @@ function MissedAppointment({
           <Pressable onPress={onDismiss} hitSlop={8} className="p-1 active:opacity-60">
             <X size={16} color="#9ca3af" />
           </Pressable>
-          <Text className="text-base font-bold text-gray-900">{money(booking.total_amount)}</Text>
           <Pill bgClass="bg-red-100" textClass="text-red-700">
-            You missed it
+            {t("dashboard.youMissedIt")}
           </Pill>
         </View>
       </View>
@@ -228,7 +239,7 @@ function MissedAppointment({
         className="mt-3 flex-row items-center justify-center gap-1.5 self-end rounded-lg bg-red-600 px-3 py-1.5 active:bg-red-700"
       >
         <RotateCcw size={13} color="#fff" />
-        <Text className="text-xs font-medium text-white">Reschedule</Text>
+        <Text className="text-xs font-medium text-white">{t("dashboard.reschedule")}</Text>
       </Pressable>
     </Card>
   );

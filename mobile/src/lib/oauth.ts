@@ -3,12 +3,15 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { supabase } from "./supabase";
 
-export type OAuthProvider = "google" | "apple";
+export type OAuthProvider = "google";
 
 /**
- * Google/Apple sign-in via Supabase's hosted OAuth flow — no native SDK
- * (no `@react-native-google-signin/google-signin`, no
- * `expo-apple-authentication`), same one mechanism on both web and native.
+ * Google sign-in via Supabase's hosted OAuth flow — no native SDK
+ * (no `@react-native-google-signin/google-signin`), same one mechanism on
+ * both web and native. (Apple was removed — Google alone covers the
+ * "sign in with an email account" convenience this app wants; every account,
+ * however it started, still ends up phone-verified — see
+ * VerifyPhoneScreen.tsx.)
  *
  * Requires the provider to actually be configured in the Supabase dashboard
  * (Authentication → Providers) with real credentials from Google Cloud

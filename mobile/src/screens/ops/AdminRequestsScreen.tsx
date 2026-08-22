@@ -13,6 +13,7 @@ import {
 import { PageHeader, Card, Pill, LoadingState, EmptyState, SmallPrimaryButton } from "@/components/ui";
 import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
 import { openUrl } from "@/lib/signedUrl";
+import { useLanguage } from "@/lib/i18n";
 
 /**
  * SCREEN_ID: BOOKING_REQUESTS — the "Request for Booking" quick-contact inbox.
@@ -22,6 +23,7 @@ import { openUrl } from "@/lib/signedUrl";
  * it isn't in their tab bar.
  */
 export function AdminRequestsScreen() {
+  const { t } = useLanguage();
   const { data: requests, isLoading, refetch } = useBookingRequests(true);
   const markContacted = useMarkRequestContacted();
 
@@ -53,21 +55,21 @@ export function AdminRequestsScreen() {
         ListHeaderComponent={
           <View>
             <PageHeader
-              title="Booking requests"
-              subtitle="Clients who tapped “Request for Booking” — call them back, then mark contacted."
+              title={t("ops.requests.title")}
+              subtitle={t("ops.requests.subtitle")}
             />
           </View>
         }
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading…" />
+            <LoadingState message={t("ops.requests.loading")} />
           ) : (
-            <EmptyState icon={PhoneIncoming} title="No requests yet" description="New requests appear here." />
+            <EmptyState icon={PhoneIncoming} title={t("ops.requests.empty.title")} description={t("ops.requests.empty.description")} />
           )
         }
         renderItem={({ item }) =>
           item.kind === "divider" ? (
-            <Text className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Contacted</Text>
+            <Text className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{t("ops.requests.contacted")}</Text>
           ) : (
             <RequestCard
               request={item.request}
@@ -89,6 +91,7 @@ function RequestCard({
   request: BookingRequestWithAccount;
   onContact?: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <Card className="p-4">
       <View className="flex-row items-start justify-between gap-3">
@@ -99,20 +102,20 @@ function RequestCard({
           <Text className="mt-1 text-xs text-gray-400 dark:text-gray-500">{formatLocalDateTime(r.created_at)}</Text>
         </View>
         {r.contacted ? (
-          <Pill bgClass="bg-emerald-50 dark:bg-emerald-400/10" textClass="text-emerald-700 dark:text-emerald-400">Contacted</Pill>
+          <Pill bgClass="bg-emerald-50 dark:bg-emerald-400/10" textClass="text-emerald-700 dark:text-emerald-400">{t("ops.requests.contacted")}</Pill>
         ) : (
-          <Pill bgClass="bg-amber-50 dark:bg-amber-400/10" textClass="text-amber-700 dark:text-amber-400">New</Pill>
+          <Pill bgClass="bg-amber-50 dark:bg-amber-400/10" textClass="text-amber-700 dark:text-amber-400">{t("ops.requests.new")}</Pill>
         )}
       </View>
 
       <View className="mt-3 flex-row items-center gap-5">
         {r.account?.phone ? (
-          <CardAction icon={Phone} label="Call" onPress={() => openUrl(`tel:${r.account!.phone}`)} />
+          <CardAction icon={Phone} label={t("ops.call")} onPress={() => openUrl(`tel:${r.account!.phone}`)} />
         ) : null}
         {onContact ? (
           <View className="ml-auto">
             <SmallPrimaryButton icon={Check} onPress={onContact}>
-              Mark contacted
+              {t("ops.requests.markContacted")}
             </SmallPrimaryButton>
           </View>
         ) : null}

@@ -4,10 +4,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 import { BrandLogo, FormInput, ChoiceChips, TextareaInput, PrimaryButton, OutlineButton } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
+import { useLanguage } from "@/lib/i18n";
+import { genderLabel } from "@/lib/enumI18n";
+import { translateTamilToEnglish } from "@/lib/translateText";
 import { useUpdateProfile } from "@vagewell/shared";
-import { GENDERS, GENDER_LABELS } from "@vagewell/shared";
-
-const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }));
+import { GENDERS } from "@vagewell/shared";
 
 /**
  * One-time gate for an admin/leaf_node account using the mobile app for
@@ -19,25 +20,31 @@ const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: GENDER_LABELS[g] }
  * Register screen, so this never shows for them).
  */
 export function CompleteProfileScreen() {
+  const { t } = useLanguage();
+  const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }));
   const { profile, refreshProfile, signOut } = useAuth();
   const update = useUpdateProfile();
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("male");
   const [address, setAddress] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     setErrors({});
     if (!address.trim()) {
-      setErrors({ address: "Enter your address." });
+      setErrors({ address: t("completeProfile.error.enterAddress") });
       return;
     }
     const ageNum = age.trim() === "" ? null : Number(age);
     if (age.trim() !== "" && (isNaN(ageNum as number) || (ageNum as number) < 0 || (ageNum as number) > 150)) {
-      setErrors({ age: "Enter a valid age." });
+      setErrors({ age: t("completeProfile.error.invalidAge") });
       return;
     }
     if (!profile) return;
+    setSaving(true);
+    const translatedAddress = await translateTamilToEnglish(address.trim());
+    setSaving(false);
     update.mutate(
       {
         id: profile.id,
@@ -45,11 +52,11 @@ export function CompleteProfileScreen() {
         age: ageNum,
         date_of_birth: profile.date_of_birth ?? null,
         gender,
-        address: address.trim(),
+        address: translatedAddress,
       },
       {
         onSuccess: async () => {
-          toast.success("All set — welcome to VAgeWell!");
+          toast.success(t("completeProfile.toast.success"));
           await refreshProfile();
         },
       }
@@ -64,37 +71,35 @@ export function CompleteProfileScreen() {
             <View className="mb-3">
               <BrandLogo size={56} />
             </View>
-            <Text className="text-2xl font-bold text-gray-900">Complete your profile</Text>
-            <Text className="mt-1 text-center text-sm text-gray-600">
-              Your account never collected these — fill them in once to use VAgeWell as a client too.
-            </Text>
+            <Text className="text-2xl font-bold text-gray-900">{t("completeProfile.title")}</Text>
+            <Text className="mt-1 text-center text-sm text-gray-600">{t("completeProfile.subtitle")}</Text>
           </View>
 
           <View className="rounded-2xl border border-gray-100 bg-white p-6">
             <View className="gap-4">
               <FormInput
-                label="Age (optional)"
+                label={t("completeProfile.age")}
                 value={age}
                 onChangeText={setAge}
-                placeholder="Age"
+                placeholder={t("completeProfile.age")}
                 keyboardType="number-pad"
                 error={errors.age}
               />
-              <ChoiceChips label="Gender" value={gender} onChange={setGender} options={GENDER_OPTIONS} />
+              <ChoiceChips label={t("completeProfile.gender")} value={gender} onChange={setGender} options={GENDER_OPTIONS} />
               <TextareaInput
-                label="Address"
+                label={t("completeProfile.address")}
                 value={address}
                 onChangeText={setAddress}
-                placeholder="House/street, city, pincode…"
+                placeholder={t("completeProfile.addressPlaceholder")}
                 rows={2}
                 maxLength={500}
                 error={errors.address}
               />
-              <PrimaryButton fullWidth loading={update.isPending} onPress={save}>
-                Save & Continue
+              <PrimaryButton fullWidth loading={saving || update.isPending} onPress={save}>
+                {t("completeProfile.saveAndContinue")}
               </PrimaryButton>
               <OutlineButton fullWidth onPress={signOut}>
-                Sign out
+                {t("completeProfile.signOut")}
               </OutlineButton>
             </View>
           </View>

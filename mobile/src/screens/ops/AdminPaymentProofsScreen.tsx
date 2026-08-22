@@ -13,6 +13,8 @@ import {
 import { PageHeader, Card, LoadingState, EmptyState } from "@/components/ui";
 import { PaymentReviewModal } from "@/components/ops/PaymentReviewModal";
 import { useSignedUrl } from "@/lib/signedUrl";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 
 /**
  * SCREEN_ID: ADMIN_PAYMENT_PROOFS — every booking awaiting proof review in one
@@ -21,6 +23,7 @@ import { useSignedUrl } from "@/lib/signedUrl";
  * itself. Port of web/src/app/payment-proofs/page.tsx.
  */
 export function AdminPaymentProofsScreen() {
+  const { t } = useLanguage();
   const { data: bookings, isLoading, refetch } = useAllBookings(true);
   const [reviewing, setReviewing] = useState<BookingWithNames | null>(null);
 
@@ -45,13 +48,13 @@ export function AdminPaymentProofsScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
-          <PageHeader title="Payment proofs" subtitle="Screenshots awaiting review." />
+          <PageHeader title={t("ops.paymentProofs.title")} subtitle={t("ops.paymentProofs.subtitle")} />
         }
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading…" />
+            <LoadingState message={t("ops.paymentProofs.loading")} />
           ) : (
-            <EmptyState icon={Receipt} title="Nothing to review" description="Uploaded proofs appear here." />
+            <EmptyState icon={Receipt} title={t("ops.paymentProofs.empty.title")} description={t("ops.paymentProofs.empty.description")} />
           )
         }
         renderItem={({ item }) => <ProofCard booking={item} onPress={() => setReviewing(item)} />}
@@ -65,6 +68,7 @@ export function AdminPaymentProofsScreen() {
 }
 
 function ProofCard({ booking, onPress }: { booking: BookingWithNames; onPress: () => void }) {
+  const { t } = useLanguage();
   const { data: signedUrl } = useSignedUrl(PAYMENT_PROOF_BUCKET, booking.payment_proof_path);
 
   return (
@@ -78,7 +82,7 @@ function ProofCard({ booking, onPress }: { booking: BookingWithNames; onPress: (
         <View className="flex-1">
           <Text className="text-sm font-semibold text-gray-900 dark:text-white">{booking.account?.full_name ?? "—"}</Text>
           <Text className="text-xs text-gray-500 dark:text-gray-400">
-            {booking.service_name} · Client{" "}
+            {translateServiceName(t, booking.service_name)} · {t("ops.client")}{" "}
             <Text className="font-medium text-purple-700 dark:text-purple-300">{booking.subject_name ?? "—"}</Text>
           </Text>
           <Text className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">

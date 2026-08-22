@@ -10,9 +10,10 @@ import {
   appointmentSchema,
   timeSlots,
   todayISODate,
+  daysBetween,
+  MAX_BOOKING_DAYS,
   normalizePhone,
   localPhone,
-  money,
   qk,
   OTP_LENGTH,
   type Profile,
@@ -31,8 +32,18 @@ import {
 } from "@/components/ui";
 import { supabase, createEphemeralClient } from "@/lib/supabase";
 import { useResendTimer } from "@/hooks/useResendTimer";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { translateTamilToEnglish } from "@/lib/translateText";
+import { useLanguage } from "@/lib/i18n";
 
 const SLOTS = timeSlots();
+
+// Local, not UTC — `new Date("YYYY-MM-DD")` parses as UTC midnight, which can
+// land on the wrong calendar day once shifted to the device's local zone.
+function parseISODate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 type Mode = "existing" | "new";
 
@@ -51,6 +62,7 @@ type Mode = "existing" | "new";
  * the way calling it on the shared client would.
  */
 export function NewAppointmentModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { t } = useLanguage();
   const [mode, setMode] = useState<Mode>("existing");
   const [query, setQuery] = useState("");
   const [patient, setPatient] = useState<Profile | null>(null);
@@ -73,7 +85,7 @@ export function NewAppointmentModal({ visible, onClose }: { visible: boolean; on
         reset();
         onClose();
       }}
-      title="New Appointment"
+      title={t("modal.newAppointment.title")}
     >
       {!patient ? (
         <View className="mb-4 flex-row rounded-lg bg-gray-100 p-1">
@@ -82,7 +94,7 @@ export function NewAppointmentModal({ visible, onClose }: { visible: boolean; on
             className={`flex-1 items-center rounded-md py-2 ${mode === "existing" ? "bg-white" : ""}`}
           >
             <Text className={`text-sm font-semibold ${mode === "existing" ? "text-purple-700" : "text-gray-500"}`}>
-              Existing patient
+              {t("modal.newAppointment.existingPatient")}
             </Text>
           </Pressable>
           <Pressable
@@ -90,7 +102,7 @@ export function NewAppointmentModal({ visible, onClose }: { visible: boolean; on
             className={`flex-1 items-center rounded-md py-2 ${mode === "new" ? "bg-white" : ""}`}
           >
             <Text className={`text-sm font-semibold ${mode === "new" ? "text-purple-700" : "text-gray-500"}`}>
-              New caller
+              {t("modal.newAppointment.newCaller")}
             </Text>
           </Pressable>
         </View>
@@ -116,6 +128,7 @@ function PatientSearch({
   onQueryChange: (v: string) => void;
   onPick: (p: Profile) => void;
 }) {
+  const { t } = useLanguage();
   const { data: profiles, isLoading, refetch } = useAllProfiles(true);
   // `qk.users` carries the shared 60s staleTime — if it was already fetched
   // earlier in the session (this modal opened once before, or the Team/User
@@ -140,20 +153,18 @@ function PatientSearch({
   return (
     <View className="gap-3">
       <FormInput
-        label="Search by name or phone"
+        label={t("modal.newAppointment.searchLabel")}
         value={query}
         onChangeText={onQueryChange}
-        placeholder="Type to search…"
+        placeholder={t("modal.newAppointment.searchPlaceholder")}
       />
       <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled">
         {isLoading ? (
-          <Text className="py-4 text-center text-sm text-gray-400">Loading…</Text>
+          <Text className="py-4 text-center text-sm text-gray-400">{t("modal.newAppointment.loading")}</Text>
         ) : !q ? (
-          <Text className="py-4 text-center text-sm text-gray-400">Start typing a patient's name or phone.</Text>
+          <Text className="py-4 text-center text-sm text-gray-400">{t("modal.newAppointment.startTyping")}</Text>
         ) : matches.length === 0 ? (
-          <Text className="py-4 text-center text-sm text-gray-400">
-            No match. Switch to "New caller" to verify and book them right now.
-          </Text>
+          <Text className="py-4 text-center text-sm text-gray-400">{t("modal.newAppointment.noMatch")}</Text>
         ) : (
           <View className="gap-2">
             {matches.map((p) => (
@@ -178,6 +189,7 @@ function PatientSearch({
  * module doc-comment above for why this needs `createEphemeralClient()`.
  */
 function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void }) {
+  const { t } = useLanguage();
   const [step, setStep] = useState<"details" | "otp">("details");
   const [fullName, setFullName] = useState("");
   const [phoneRaw, setPhoneRaw] = useState("");
@@ -204,19 +216,19 @@ function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void 
   const sendCode = async () => {
     setErr(null);
     if (fullName.trim().length < 2) {
-      setErr("Enter their full name.");
+      setErr(t("modal.newAppointment.error.enterName"));
       return;
     }
     const normalized = normalizePhone(phoneRaw);
     if (!normalized) {
-      setErr("Enter a valid 10-digit mobile number.");
+      setErr(t("modal.newAppointment.error.invalidPhone"));
       return;
     }
     setBusy(true);
     const { data: already } = await supabase.rpc("phone_registered", { p_phone: normalized });
     if (already) {
       setBusy(false);
-      setErr('This number already has an account — use "Existing patient" to search for them instead.');
+      setErr(t("modal.newAppointment.error.alreadyRegistered"));
       return;
     }
     const ok = await requestCode(normalized);
@@ -224,20 +236,20 @@ function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void 
     if (!ok) return;
     setE164(normalized);
     setStep("otp");
-    toast.success(`Code sent to ${normalized}`);
+    toast.success(t("modal.newAppointment.toast.codeSent", { phone: normalized }));
   };
 
   const resendCode = async () => {
     setErr(null);
     setOtp("");
     const ok = await requestCode(e164);
-    if (ok) toast.success("Code re-sent");
+    if (ok) toast.success(t("modal.newAppointment.toast.codeResent"));
   };
 
   const verify = async () => {
     setErr(null);
     if (otp.length !== OTP_LENGTH) {
-      setErr(`Enter the ${OTP_LENGTH}-digit code.`);
+      setErr(t("modal.newAppointment.error.enterCode", { length: OTP_LENGTH }));
       return;
     }
     setBusy(true);
@@ -245,7 +257,7 @@ function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void 
     const { data, error } = await client.auth.verifyOtp({ phone: e164, token: otp, type: "sms" });
     if (error || !data.user) {
       setBusy(false);
-      setErr(error?.message ?? "Could not verify. Please try again.");
+      setErr(error?.message ?? t("modal.newAppointment.error.verifyFailed"));
       return;
     }
     // Read the canonical row via the admin's own session — is_staff() RLS
@@ -258,7 +270,7 @@ function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void 
       .maybeSingle();
     setBusy(false);
     if (profErr || !profile) {
-      setErr('Verified, but could not load their profile. Search for them under "Existing patient".');
+      setErr(t("modal.newAppointment.error.profileLoadFailed"));
       return;
     }
     onVerified(profile as Profile);
@@ -267,9 +279,7 @@ function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void 
   if (step === "otp") {
     return (
       <View className="gap-4">
-        <Text className="text-sm text-gray-600">
-          Code sent to <Text className="font-semibold">{e164}</Text> — ask the caller to read it out.
-        </Text>
+        <Text className="text-sm text-gray-600">{t("modal.newAppointment.codeSentTo", { phone: e164 })}</Text>
         {err ? <ErrorBanner message={err} /> : null}
         <OtpInput value={otp} onChange={setOtp} autoFocus />
         <View className="flex-row items-center justify-between">
@@ -281,16 +291,16 @@ function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void 
               setErr(null);
             }}
           >
-            Change number
+            {t("modal.newAppointment.changeNumber")}
           </TextButton>
           {resend.canResend ? (
-            <TextButton onPress={resendCode}>Resend code</TextButton>
+            <TextButton onPress={resendCode}>{t("modal.newAppointment.resendCode")}</TextButton>
           ) : (
-            <Text className="text-xs text-gray-500">Resend in {resend.secondsLeft}s</Text>
+            <Text className="text-xs text-gray-500">{t("modal.newAppointment.resendIn", { seconds: resend.secondsLeft })}</Text>
           )}
         </View>
         <PrimaryButton fullWidth loading={busy} onPress={verify}>
-          Verify & Continue
+          {t("modal.newAppointment.verifyAndContinue")}
         </PrimaryButton>
       </View>
     );
@@ -298,22 +308,19 @@ function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void 
 
   return (
     <View className="gap-4">
-      <Text className="text-xs text-gray-500">
-        Sends a real code to the caller's phone while they're on the line — they read it back, you enter it, and a
-        real account is created that instant. Then you book the appointment right away, same as for any patient.
-      </Text>
+      <Text className="text-xs text-gray-500">{t("modal.newAppointment.liveVerifyIntro")}</Text>
       {err ? <ErrorBanner message={err} /> : null}
-      <FormInput label="Full name" value={fullName} onChangeText={setFullName} placeholder="Name" autoCapitalize="words" required />
+      <FormInput label={t("modal.newAppointment.fullName")} value={fullName} onChangeText={setFullName} placeholder={t("auth.namePlaceholder")} autoCapitalize="words" required />
       <FormInput
-        label="Mobile number"
+        label={t("modal.newAppointment.mobileNumber")}
         value={phoneRaw}
         onChangeText={setPhoneRaw}
-        placeholder="10-digit mobile number"
+        placeholder={t("modal.newAppointment.mobilePlaceholder")}
         keyboardType="phone-pad"
         required
       />
       <PrimaryButton fullWidth loading={busy} onPress={sendCode}>
-        Send Code
+        {t("modal.newAppointment.sendCode")}
       </PrimaryButton>
     </View>
   );
@@ -328,6 +335,7 @@ function BookingForm({
   onChangePatient: () => void;
   onDone: () => void;
 }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
   const { data: dependents } = useFamilyMembersByAccount(patient.id);
   const { data: services, isLoading: servicesLoading } = useServices();
@@ -336,7 +344,7 @@ function BookingForm({
     service_id: "",
     family_member_id: "",
     start_date: todayISODate(),
-    num_days: "1",
+    end_date: todayISODate(),
     time_slot: SLOTS[0].value,
     symptom_brief: "",
   });
@@ -345,25 +353,35 @@ function BookingForm({
   const [err, setErr] = useState<string | null>(null);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  // Picking a later start date shouldn't leave a stale end date before it.
+  const setStartDate = (v: string) => setForm((f) => ({ ...f, start_date: v, end_date: f.end_date < v ? v : f.end_date }));
 
   const serviceId = form.service_id || services?.[0]?.id || "";
   const selectedService = useMemo(() => services?.find((s) => s.id === serviceId) ?? null, [services, serviceId]);
-  const isFlatAdvance = selectedService?.pricing_model === "flat_advance";
-  const days = Math.max(1, Number(form.num_days) || 1);
-  const total = selectedService ? (isFlatAdvance ? selectedService.price_per_day : days * selectedService.price_per_day) : 0;
 
+  // No price shown here — the amount is decided by the care assistant/admin
+  // after the visit, not calculated at booking time.
   const serviceOptions = (services ?? []).map((s) => ({
     value: s.id,
-    label: s.pricing_model === "flat_advance" ? `${s.name} — Advance ${money(s.price_per_day)}` : `${s.name} — ${money(s.price_per_day)}/day`,
+    label: translateServiceName(t, s.name),
   }));
   const subjectOptions = [
-    { value: "", label: `${patient.full_name ?? "Myself"} (self)` },
+    { value: "", label: `${patient.full_name ?? t("appointment.myself")} (self)` },
     ...(dependents ?? []).map((d) => ({ value: d.id, label: `${d.full_name} (${d.relationship})` })),
   ];
 
   const submit = async () => {
     setErrors({});
     setErr(null);
+    if (form.end_date < form.start_date) {
+      setErrors({ end_date: t("modal.newAppointment.error.endBeforeStart") });
+      return;
+    }
+    const days = daysBetween(form.start_date, form.end_date);
+    if (days > MAX_BOOKING_DAYS) {
+      setErrors({ end_date: t("modal.newAppointment.error.rangeTooLong", { max: MAX_BOOKING_DAYS }) });
+      return;
+    }
     const candidate = {
       service_id: serviceId,
       family_member_id: form.family_member_id,
@@ -385,7 +403,7 @@ function BookingForm({
     // way) — enforced here too so an admin booking on someone's behalf always
     // captures a reason for the visit.
     if (form.symptom_brief.trim().length === 0) {
-      setErrors({ symptom_brief: "Describe the symptoms or concerns" });
+      setErrors({ symptom_brief: t("modal.newAppointment.error.describeSymptoms") });
       return;
     }
     // Same same-day-past-slot guard the client's own Appointment screen has —
@@ -395,16 +413,17 @@ function BookingForm({
       const now = new Date();
       const nowHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
       if (form.time_slot <= nowHHMM) {
-        setErrors({ time_slot: "That time has already passed today — pick a later time or a future date." });
+        setErrors({ time_slot: t("modal.newAppointment.error.timePassed") });
         return;
       }
     }
     if (!selectedService) {
-      setErrors({ service_id: "Select a service" });
+      setErrors({ service_id: t("modal.newAppointment.error.selectService") });
       return;
     }
 
     setBusy(true);
+    const symptomBrief = form.symptom_brief ? await translateTamilToEnglish(form.symptom_brief) : null;
     // account_id override is admin-only (tg_booking_snapshot, migration 0018)
     // — a patient's own insert can never set this, only stamps to auth.uid().
     const { error } = await supabase.from("bookings").insert({
@@ -415,7 +434,7 @@ function BookingForm({
       num_days: days,
       start_date: form.start_date,
       time_slot: form.time_slot,
-      symptom_brief: form.symptom_brief || null,
+      symptom_brief: symptomBrief,
       payment_method: "direct",
     });
     setBusy(false);
@@ -424,11 +443,11 @@ function BookingForm({
       return;
     }
     void qc.invalidateQueries({ queryKey: qk.bookings("all") });
-    toast.success("Appointment booked — Pay at Visit");
+    toast.success(t("modal.newAppointment.toast.booked"));
     onDone();
   };
 
-  if (servicesLoading) return <Text className="py-4 text-center text-sm text-gray-400">Loading…</Text>;
+  if (servicesLoading) return <Text className="py-4 text-center text-sm text-gray-400">{t("modal.newAppointment.loading")}</Text>;
 
   return (
     <View className="gap-4">
@@ -438,7 +457,7 @@ function BookingForm({
           <Text className="text-xs text-gray-500">{localPhone(patient.phone) || "—"}</Text>
         </View>
         <TextButton icon={ChevronLeft} onPress={onChangePatient}>
-          Change
+          {t("modal.newAppointment.change")}
         </TextButton>
       </View>
 
@@ -446,9 +465,9 @@ function BookingForm({
 
       <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
         <View className="gap-4">
-          <SelectSheet label="Service" value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
+          <SelectSheet label={t("modal.newAppointment.service")} value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
           <SelectSheet
-            label="Care for"
+            label={t("modal.newAppointment.careFor")}
             value={form.family_member_id}
             onValueChange={set("family_member_id")}
             options={subjectOptions}
@@ -456,31 +475,31 @@ function BookingForm({
           <View className="flex-row gap-3">
             <View className="flex-1">
               <DateField
-                label="Start date"
+                label={t("modal.newAppointment.startDate")}
                 value={form.start_date}
-                onChange={set("start_date")}
+                onChange={setStartDate}
                 error={errors.start_date}
                 minimumDate={new Date()}
                 required
               />
             </View>
             <View className="flex-1">
-              <FormInput
-                label={isFlatAdvance ? "Number of months" : "Number of days"}
-                value={form.num_days}
-                onChangeText={set("num_days")}
-                keyboardType="number-pad"
-                error={errors.num_days}
+              <DateField
+                label={t("modal.newAppointment.endDate")}
+                value={form.end_date}
+                onChange={set("end_date")}
+                error={errors.end_date}
+                minimumDate={parseISODate(form.start_date)}
                 required
               />
             </View>
           </View>
-          <TimeField label="Preferred time" value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
+          <TimeField label={t("modal.newAppointment.preferredTime")} value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
           <TextareaInput
-            label="Note"
+            label={t("modal.newAppointment.note")}
             value={form.symptom_brief}
             onChangeText={set("symptom_brief")}
-            placeholder="Describe symptoms or concerns…"
+            placeholder={t("modal.newAppointment.notePlaceholder")}
             rows={2}
             maxLength={2000}
             error={errors.symptom_brief}
@@ -489,13 +508,12 @@ function BookingForm({
         </View>
       </ScrollView>
 
-      <View className="flex-row items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-        <Text className="text-xs text-gray-500">Pay at Visit</Text>
-        <Text className="text-base font-bold text-purple-700">{money(total)}</Text>
+      <View className="rounded-lg border border-gray-100 px-3 py-2">
+        <Text className="text-xs text-gray-500">{t("modal.newAppointment.payAtVisit")}</Text>
       </View>
 
       <PrimaryButton fullWidth loading={busy} onPress={submit}>
-        Book Appointment
+        {t("modal.newAppointment.bookAppointment")}
       </PrimaryButton>
     </View>
   );

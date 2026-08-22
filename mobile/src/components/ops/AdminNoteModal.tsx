@@ -2,6 +2,8 @@ import { useState } from "react";
 import { View } from "react-native";
 import { useUpdateAdminNote, type BookingWithNames } from "@vagewell/shared";
 import { AppModal, TextareaInput, PrimaryButton, OutlineButton } from "@/components/ui";
+import { useLanguage } from "@/lib/i18n";
+import { translateTamilToEnglish } from "@/lib/translateText";
 
 /**
  * Admin's free-text note on a booking — patient details/needs the assigned
@@ -12,28 +14,35 @@ import { AppModal, TextareaInput, PrimaryButton, OutlineButton } from "@/compone
  * current note as its starting value — mounts per booking.
  */
 export function AdminNoteModal({ booking, onClose }: { booking: BookingWithNames | null; onClose: () => void }) {
+  const { t } = useLanguage();
   const [note, setNote] = useState(booking?.admin_note ?? "");
+  const [saving, setSaving] = useState(false);
   const update = useUpdateAdminNote();
 
   if (!booking) return null;
 
-  const save = () => update.mutate({ id: booking.id, note: note.trim() }, { onSuccess: onClose });
+  const save = async () => {
+    setSaving(true);
+    const translated = await translateTamilToEnglish(note.trim());
+    setSaving(false);
+    update.mutate({ id: booking.id, note: translated }, { onSuccess: onClose });
+  };
 
   return (
-    <AppModal visible onClose={onClose} title="Patient note">
+    <AppModal visible onClose={onClose} title={t("modal.adminNote.title")}>
       <View className="gap-4">
         <TextareaInput
-          label="Patient details / needs"
+          label={t("modal.adminNote.label")}
           value={note}
           onChangeText={setNote}
-          placeholder="e.g. mobility issues, allergies, preferred visit time…"
+          placeholder={t("modal.adminNote.placeholder")}
           rows={4}
           maxLength={1000}
         />
         <View className="flex-row items-center justify-end gap-3">
-          <OutlineButton onPress={onClose}>Cancel</OutlineButton>
-          <PrimaryButton loading={update.isPending} onPress={save}>
-            Save
+          <OutlineButton onPress={onClose}>{t("modal.adminNote.cancel")}</OutlineButton>
+          <PrimaryButton loading={saving || update.isPending} onPress={save}>
+            {t("modal.adminNote.save")}
           </PrimaryButton>
         </View>
       </View>

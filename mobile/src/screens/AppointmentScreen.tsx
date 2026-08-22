@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CalendarClock, Info } from "lucide-react-native";
+import { CalendarClock } from "lucide-react-native";
 import {
   PageHeader,
   SectionCard,
   SelectSheet,
-  FormInput,
   DateField,
   TextareaInput,
   TimeField,
@@ -16,21 +15,31 @@ import {
   LoadingState,
 } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 import {
   useServices,
   useFamilyMembers,
   appointmentSchema,
-  money,
   timeSlots,
   todayISODate,
-  addDays,
+  daysBetween,
+  MAX_BOOKING_DAYS,
 } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 const SLOTS = timeSlots();
 
+// Local, not UTC — `new Date("YYYY-MM-DD")` parses as UTC midnight, which can
+// land on the wrong calendar day once shifted to the device's local zone.
+function parseISODate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 // SCREEN_ID: APPOINTMENT
 export function AppointmentScreen({ navigation, route }: ServicesStackScreenProps<"Appointment">) {
+  const { t } = useLanguage();
   const { profile } = useAuth();
   const { data: services, isLoading } = useServices();
   const { data: dependents } = useFamilyMembers();
@@ -39,35 +48,42 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
     service_id: route.params?.serviceId ?? "",
     family_member_id: "",
     start_date: todayISODate(),
-    num_days: "1",
+    end_date: todayISODate(),
     time_slot: SLOTS[0].value,
     symptom_brief: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  // Picking a later start date shouldn't leave a stale end date before it.
+  const setStartDate = (v: string) => setForm((f) => ({ ...f, start_date: v, end_date: f.end_date < v ? v : f.end_date }));
 
   const serviceId = form.service_id || services?.[0]?.id || "";
   const selectedService = useMemo(() => services?.find((s) => s.id === serviceId) ?? null, [services, serviceId]);
-  const isFlatAdvance = selectedService?.pricing_model === "flat_advance";
-  const days = Math.max(1, Number(form.num_days) || 1);
-  const total = selectedService ? (isFlatAdvance ? selectedService.price_per_day : days * selectedService.price_per_day) : 0;
   const profileComplete = !!profile?.full_name;
 
+  // No price shown on the service picker — the amount is decided by the
+  // care assistant/admin after the visit, not calculated at booking time.
   const serviceOptions = (services ?? []).map((s) => ({
     value: s.id,
-    label:
-      s.pricing_model === "flat_advance"
-        ? `${s.name} — Advance ${money(s.price_per_day)} (monthly package)`
-        : `${s.name} — ${money(s.price_per_day)}/day`,
+    label: translateServiceName(t, s.name),
   }));
   const subjectOptions = [
-    { value: "", label: `Myself${profile?.full_name ? ` (${profile.full_name})` : ""}` },
+    { value: "", label: `${t("appointment.myself")}${profile?.full_name ? ` (${profile.full_name})` : ""}` },
     ...(dependents ?? []).map((d) => ({ value: d.id, label: `${d.full_name} (${d.relationship})` })),
   ];
 
   const submit = () => {
     setErrors({});
+    if (form.end_date < form.start_date) {
+      setErrors({ end_date: t("appointment.error.endBeforeStart") });
+      return;
+    }
+    const days = daysBetween(form.start_date, form.end_date);
+    if (days > MAX_BOOKING_DAYS) {
+      setErrors({ end_date: t("appointment.error.rangeTooLong", { max: MAX_BOOKING_DAYS }) });
+      return;
+    }
     const candidate = {
       service_id: serviceId,
       family_member_id: form.family_member_id,
@@ -89,7 +105,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
     // genuinely optional) — required specifically on the patient's own
     // booking form, enforced here rather than in the shared schema.
     if (form.symptom_brief.trim().length === 0) {
-      setErrors({ symptom_brief: "Describe the symptoms or concerns" });
+      setErrors({ symptom_brief: t("appointment.error.describeSymptoms") });
       return;
     }
     // The date picker only blocks past dates, not a past time slot on today's
@@ -99,29 +115,28 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
       const now = new Date();
       const nowHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
       if (form.time_slot <= nowHHMM) {
-        setErrors({ time_slot: "That time has already passed today — pick a later time or a future date." });
+        setErrors({ time_slot: t("appointment.error.timePassed") });
         return;
       }
     }
     if (!selectedService) {
-      setErrors({ service_id: "Select a service" });
+      setErrors({ service_id: t("appointment.error.selectService") });
       return;
     }
     const subjectName =
       form.family_member_id === ""
-        ? profile?.full_name ?? "Myself"
-        : dependents?.find((d) => d.id === form.family_member_id)?.full_name ?? "Dependent";
+        ? profile?.full_name ?? t("appointment.myself")
+        : dependents?.find((d) => d.id === form.family_member_id)?.full_name ?? t("appointment.dependent");
 
     navigation.navigate("Payment", {
       draft: {
         service_id: selectedService.id,
         service_name: selectedService.name,
-        price_per_day: selectedService.price_per_day,
-        pricing_model: selectedService.pricing_model,
         family_member_id: form.family_member_id || null,
         subject_name: subjectName,
         service_mode: "home_care",
         start_date: form.start_date,
+        end_date: form.end_date,
         num_days: days,
         time_slot: form.time_slot,
         symptom_brief: form.symptom_brief,
@@ -129,52 +144,52 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
     });
   };
 
-  if (isLoading) return <LoadingState message="Loading…" />;
+  if (isLoading) return <LoadingState message={t("appointment.loading")} />;
 
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
         <ScrollView contentContainerClassName="px-5 pt-4 pb-8" keyboardShouldPersistTaps="handled">
           <PageHeader
-            title="Book an Appointment"
-            subtitle="Request Personalized Care"
+            title={t("appointment.title")}
+            subtitle={t("appointment.subtitle")}
             onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
           />
 
           {!profileComplete ? (
             <View className="mb-4">
-              <WarningBanner message="Complete your profile (name) before booking." />
+              <WarningBanner message={t("appointment.completeProfileWarning")} />
               <View className="mt-2 self-start">
-                <TextButton onPress={() => navigation.navigate("ProfileTab")}>Go to Profile →</TextButton>
+                <TextButton onPress={() => navigation.navigate("ProfileTab")}>{t("appointment.goToProfile")}</TextButton>
               </View>
             </View>
           ) : null}
 
-          <SectionCard icon={CalendarClock} title="Appointment details">
+          <SectionCard icon={CalendarClock} title={t("appointment.sectionTitle")}>
             <View className="gap-4">
-              <SelectSheet label="Service" value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
-              <SelectSheet label="Care for" value={form.family_member_id} onValueChange={set("family_member_id")} options={subjectOptions} />
+              <SelectSheet label={t("appointment.service")} value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
+              <SelectSheet label={t("appointment.careFor")} value={form.family_member_id} onValueChange={set("family_member_id")} options={subjectOptions} />
               <View className="flex-row gap-3">
                 <View className="flex-1">
-                  <DateField label="Start date" value={form.start_date} onChange={set("start_date")} error={errors.start_date} minimumDate={new Date()} required />
+                  <DateField label={t("appointment.startDate")} value={form.start_date} onChange={setStartDate} error={errors.start_date} minimumDate={new Date()} required />
                 </View>
                 <View className="flex-1">
-                  <FormInput
-                    label={isFlatAdvance ? "Number of months" : "Number of days"}
-                    value={form.num_days}
-                    onChangeText={set("num_days")}
-                    keyboardType="number-pad"
-                    error={errors.num_days}
+                  <DateField
+                    label={t("appointment.endDate")}
+                    value={form.end_date}
+                    onChange={set("end_date")}
+                    error={errors.end_date}
+                    minimumDate={parseISODate(form.start_date)}
                     required
                   />
                 </View>
               </View>
-              <TimeField label="Preferred time" value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
+              <TimeField label={t("appointment.preferredTime")} value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
               <TextareaInput
-                label="Brief on the problem faced"
+                label={t("appointment.problemLabel")}
                 value={form.symptom_brief}
                 onChangeText={set("symptom_brief")}
-                placeholder="Describe symptoms or concerns…"
+                placeholder={t("appointment.problemPlaceholder")}
                 rows={3}
                 maxLength={2000}
                 error={errors.symptom_brief}
@@ -184,38 +199,11 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
           </SectionCard>
 
           <View className="mb-5 rounded-xl border border-purple-100 bg-purple-50 p-4">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-sm text-gray-600">
-                  {isFlatAdvance
-                    ? `Advance payment · ${days} month${days > 1 ? "s" : ""}`
-                    : `${days} day${days > 1 ? "s" : ""} × ${money(selectedService?.price_per_day ?? 0)}/day`}
-                </Text>
-                {isFlatAdvance ? (
-                  <Text className="mt-0.5 text-[11px] text-gray-400">Flat {money(selectedService?.price_per_day ?? 0)} advance — not multiplied by months</Text>
-                ) : null}
-                {!isFlatAdvance && days > 1 ? (
-                  <Text className="mt-0.5 text-[11px] text-gray-400">
-                    {form.start_date} → {addDays(form.start_date, days)} (consecutive)
-                  </Text>
-                ) : null}
-              </View>
-              <View className="items-end">
-                <Text className="text-[11px] uppercase tracking-wide text-gray-400">Total</Text>
-                <Text className="text-xl font-bold text-purple-700">{money(total)}</Text>
-              </View>
-            </View>
-          </View>
-
-          <View className="mb-3 flex-row items-center gap-2">
-            <Info size={14} color="#9ca3af" />
-            <Text className="flex-1 text-xs text-gray-400">
-              Slots are recorded as requested; availability is confirmed by our team.
-            </Text>
+            <Text className="text-sm text-gray-600">{t("appointment.priceAfterVisitNote")}</Text>
           </View>
 
           <PrimaryButton fullWidth disabled={!profileComplete} onPress={submit}>
-            Continue to Payment
+            {t("appointment.continueToPayment")}
           </PrimaryButton>
         </ScrollView>
       </KeyboardAvoidingView>

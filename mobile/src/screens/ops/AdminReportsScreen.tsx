@@ -14,6 +14,8 @@ import { PageHeader, Card, Pill, FormInput, LoadingState, EmptyState, SmallPrima
 import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
 import { useAuth } from "@/providers/AuthProvider";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 
 /**
  * SCREEN_ID: ADMIN_REPORTS — every report ever uploaded, reviewed or not, in
@@ -23,6 +25,7 @@ import { useAuth } from "@/providers/AuthProvider";
  * screen at all, though: it's an admin-only nav item).
  */
 export function AdminReportsScreen() {
+  const { t } = useLanguage();
   const { role } = useAuth();
   const { data: reports, isLoading } = useAllReports(true);
   const review = useReviewReport();
@@ -47,22 +50,22 @@ export function AdminReportsScreen() {
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
           <View>
-            <PageHeader title="Reports" subtitle="Every report ever uploaded, reviewed or not." />
+            <PageHeader title={t("ops.reports.title")} subtitle={t("ops.reports.subtitle")} />
             <View className="mb-4">
               <FormInput
-                label="Search"
+                label={t("ops.reports.searchLabel")}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Patient, service, filename…"
+                placeholder={t("ops.reports.searchPlaceholder")}
               />
             </View>
           </View>
         }
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading…" />
+            <LoadingState message={t("ops.reports.loading")} />
           ) : (
-            <EmptyState icon={FileText} title="No reports yet" description="Uploaded reports appear here." />
+            <EmptyState icon={FileText} title={t("ops.reports.empty.title")} description={t("ops.reports.empty.description")} />
           )
         }
         renderItem={({ item }) => (
@@ -82,6 +85,7 @@ function ReportRow({
   canRelease: boolean;
   onRelease: () => void;
 }) {
+  const { t } = useLanguage();
   const { data: url } = useSignedUrl(MEDICAL_REPORT_BUCKET, report.storage_path);
 
   return (
@@ -92,23 +96,25 @@ function ReportRow({
             {report.file_name ?? REPORT_TYPE_LABELS[report.report_type]}
           </Text>
           <Text className="text-xs text-gray-500 dark:text-gray-400">
-            {report.service_name ?? "—"} · {report.patient_name ?? "—"}
+            {report.service_name ? translateServiceName(t, report.service_name) : "—"} · {report.patient_name ?? "—"}
           </Text>
-          <Text className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Uploaded: {formatLocalDateTime(report.created_at)}</Text>
+          <Text className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+            {t("ops.reports.uploaded", { date: formatLocalDateTime(report.created_at) })}
+          </Text>
         </View>
         {report.reviewed ? (
-          <Pill bgClass="bg-emerald-50 dark:bg-emerald-400/10" textClass="text-emerald-700 dark:text-emerald-400">Released</Pill>
+          <Pill bgClass="bg-emerald-50 dark:bg-emerald-400/10" textClass="text-emerald-700 dark:text-emerald-400">{t("ops.released")}</Pill>
         ) : (
-          <Pill bgClass="bg-amber-50 dark:bg-amber-400/10" textClass="text-amber-700 dark:text-amber-400">Awaiting review</Pill>
+          <Pill bgClass="bg-amber-50 dark:bg-amber-400/10" textClass="text-amber-700 dark:text-amber-400">{t("ops.awaitingReview")}</Pill>
         )}
       </View>
 
       <View className="mt-3 flex-row items-center gap-5 border-t border-gray-100 pt-3 dark:border-slate-700">
-        {url ? <CardAction icon={Eye} label="View" onPress={() => openUrl(url)} tone="muted" /> : null}
+        {url ? <CardAction icon={Eye} label={t("ops.view")} onPress={() => openUrl(url)} tone="muted" /> : null}
         {canRelease && !report.reviewed ? (
           <View className="ml-auto">
             <SmallPrimaryButton icon={CheckCircle2} onPress={onRelease}>
-              Release
+              {t("ops.reports.release")}
             </SmallPrimaryButton>
           </View>
         ) : null}

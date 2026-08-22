@@ -1,10 +1,5 @@
 import type { PaymentStatus, BookingStatus, Profile } from "./types";
-import {
-  SLOT_MINUTES,
-  BOOKING_START_HOUR,
-  BOOKING_END_HOUR,
-  NEW_SIGNUP_WINDOW_MS,
-} from "./constants";
+import { SLOT_MINUTES, NEW_SIGNUP_WINDOW_MS } from "./constants";
 
 // Same 4 fields the mobile Profile screen's edit form covers, so every
 // "how complete is this profile" reading (mobile's ring, the web ops portal's
@@ -84,12 +79,12 @@ export function bookingStatusMeta(status: string): PillColors {
   return BOOKING_STATUS_META[status as BookingStatus] ?? UNKNOWN_META(status);
 }
 
-/** Build selectable 15-minute time slots within business hours (GR-4). */
+/** Build selectable 15-minute time slots across the full day — no business-hours
+ *  restriction (removed by request; any time of day can be booked). */
 export function timeSlots(): { value: string; label: string }[] {
   const out: { value: string; label: string }[] = [];
-  for (let h = BOOKING_START_HOUR; h <= BOOKING_END_HOUR; h++) {
+  for (let h = 0; h < 24; h++) {
     for (let m = 0; m < 60; m += SLOT_MINUTES) {
-      if (h === BOOKING_END_HOUR && m > 0) break; // last start = END_HOUR:00
       const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
       const suffix = h >= 12 ? "PM" : "AM";
       const h12 = h % 12 === 0 ? 12 : h % 12;

@@ -17,6 +17,7 @@ import {
 import { PageHeader, Card, FormInput, DateField, LoadingState, EmptyState, SmallPrimaryButton } from "@/components/ui";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
+import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 
 type ColumnDef = { key: keyof LiveSheetRow; header: string; width: number };
@@ -72,6 +73,7 @@ const REPORT_COL_WIDTH = 150;
  * persist in a downloaded sheet.
  */
 export function AdminLiveSheetScreen() {
+  const { t } = useLanguage();
   const { data: bookings, isLoading, refetch } = useAllBookings(true);
   const { data: clinical, refetch: refetchClinical } = useAllClinicalRecords(true);
   const { data: reports, refetch: refetchReports } = useAllReports(true);
@@ -128,7 +130,7 @@ export function AdminLiveSheetScreen() {
 
   const download = async () => {
     if (filtered.length === 0) {
-      toast.error("Nothing to download.");
+      toast.error(t("ops.liveSheet.nothingToDownload"));
       return;
     }
     const csvRows = filtered.map((r) => Object.fromEntries(columns.map((c) => [c.header, r[c.key]])));
@@ -139,44 +141,44 @@ export function AdminLiveSheetScreen() {
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900" edges={[]}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
         <PageHeader
-          title="Live sheet"
-          subtitle="Condensed daily view — account holder, patient, service, schedule, and status."
+          title={t("ops.liveSheet.title")}
+          subtitle={t("ops.liveSheet.subtitle")}
         />
 
         <View className="mb-4 flex-row gap-2">
-          <ViewToggleButton label="Overall Sheet" active={view === "overall"} onPress={() => setView("overall")} />
-          <ViewToggleButton label="Updated Sheet" active={view === "updated"} onPress={() => setView("updated")} />
+          <ViewToggleButton label={t("ops.liveSheet.overallSheet")} active={view === "overall"} onPress={() => setView("overall")} />
+          <ViewToggleButton label={t("ops.liveSheet.updatedSheet")} active={view === "updated"} onPress={() => setView("updated")} />
         </View>
 
         <View className="mb-4 gap-3">
           <View className="flex-row gap-3">
             <View className="flex-1">
-              <DateField label="From" value={dayFrom} onChange={setDayFrom} placeholder="Any date" />
+              <DateField label={t("ops.liveSheet.from")} value={dayFrom} onChange={setDayFrom} placeholder={t("ops.liveSheet.anyDate")} />
             </View>
             <View className="flex-1">
-              <DateField label="To" value={dayTo} onChange={setDayTo} placeholder="Any date" />
+              <DateField label={t("ops.liveSheet.to")} value={dayTo} onChange={setDayTo} placeholder={t("ops.liveSheet.anyDate")} />
             </View>
           </View>
           <FormInput
-            label="Search"
+            label={t("ops.liveSheet.searchLabel")}
             value={query}
             onChangeText={setQuery}
-            placeholder="Client, service, phone, symptom…"
+            placeholder={t("ops.liveSheet.searchPlaceholder")}
           />
           <View className="flex-row items-center justify-between">
             <Text className="text-xs text-gray-500 dark:text-gray-400">
-              Showing {filtered.length} of {rows.length} rows
+              {t("ops.liveSheet.showingRows", { shown: filtered.length, total: rows.length })}
             </Text>
             <SmallPrimaryButton icon={Download} onPress={download}>
-              Download CSV
+              {t("ops.liveSheet.downloadCsv")}
             </SmallPrimaryButton>
           </View>
         </View>
 
         {isLoading ? (
-          <LoadingState message="Loading…" />
+          <LoadingState message={t("ops.liveSheet.loading")} />
         ) : filtered.length === 0 ? (
-          <EmptyState icon={Table2} title="No rows" description="Bookings appear here once created." />
+          <EmptyState icon={Table2} title={t("ops.liveSheet.empty.title")} description={t("ops.liveSheet.empty.description")} />
         ) : (
           <Card className="overflow-hidden p-0">
             <ScrollView horizontal showsHorizontalScrollIndicator>
@@ -187,7 +189,7 @@ export function AdminLiveSheetScreen() {
                       {c.header}
                     </HeaderCell>
                   ))}
-                  <HeaderCell width={REPORT_COL_WIDTH}>Report</HeaderCell>
+                  <HeaderCell width={REPORT_COL_WIDTH}>{t("ops.liveSheet.reportColumn")}</HeaderCell>
                 </View>
                 {filtered.map((row, i) => (
                   <View

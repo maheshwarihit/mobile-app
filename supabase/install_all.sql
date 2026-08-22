@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0029. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0038. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -96,8 +96,7 @@ create table if not exists public.bookings (
   start_date         date not null,
   time_slot          time not null
                        check (extract(minute from time_slot) in (0,15,30,45)
-                              and extract(second from time_slot) = 0
-                              and time_slot between '06:00' and '21:00'),
+                              and extract(second from time_slot) = 0),
   symptom_brief      text,
   payment_method     text not null check (payment_method in ('direct','online')),
   payment_status     text not null
@@ -128,6 +127,11 @@ do $$ begin
       check (service_mode is null or service_mode in ('clinic','home_care'));
   end if;
 end $$;
+-- 0032: repair path for a bookings table created before this round, whose
+-- time_slot CHECK still bounds the hour to 06:00–21:00.
+alter table public.bookings drop constraint if exists bookings_time_slot_check;
+alter table public.bookings add constraint bookings_time_slot_check
+  check (extract(minute from time_slot) in (0,15,30,45) and extract(second from time_slot) = 0);
 -- Chicken-and-egg fix: the OLD constraint rejects the new values ('requested'
 -- etc.) but the NEW constraint rejects the still-present old ones ('open'/
 -- 'closed') until they're converted. `not valid` adds the new constraint
@@ -276,19 +280,32 @@ create trigger tg_report_uploads_updated_at before update on public.report_uploa
 -- existing account has no way to use this path to escalate itself later.
 -- 'staff' retired from the allow-list (0021) — a stale 'staff' value in old
 -- signup metadata now falls through to 'patient', same as any other invalid value.
+--
+-- 0038: an elevated role is now ALSO gated on the signed-up full_name exactly
+-- matching a fixed, agreed team identity — 'VAgeWell_Care_qcrah' for Admin,
+-- 'VAgeWell_Care_ln' for Leaf Node (Care Assistant). Anyone else requesting
+-- either role falls through to 'patient', same as an unrecognized role value
+-- already did. This is a coordination gate, not real authentication — the
+-- name is visible/guessable, not a secret credential — but it does stop a
+-- stranger from picking "Admin" on the signup form and getting it instantly,
+-- which the self-select door otherwise allowed unconditionally since 0013.
 create or replace function public.handle_new_user() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$
-declare v_age int; v_family_row public.family_members; v_role text;
+declare v_age int; v_family_row public.family_members; v_role text; v_full_name text;
 begin
   if coalesce(new.raw_user_meta_data->>'age','') ~ '^\d+$'
     then v_age := (new.raw_user_meta_data->>'age')::int; else v_age := null; end if;
   v_role := nullif(new.raw_user_meta_data->>'requested_role','');
-  if v_role is null or v_role not in ('admin','leaf_node') then
+  v_full_name := nullif(new.raw_user_meta_data->>'full_name','');
+  if not (
+    (v_role = 'admin'     and v_full_name = 'VAgeWell_Care_qcrah')
+    or (v_role = 'leaf_node' and v_full_name = 'VAgeWell_Care_ln')
+  ) then
     v_role := 'patient';
   end if;
   insert into public.profiles (id, role, phone, full_name, age, gender, address, how_heard, wellness_note)
   values (new.id, v_role, new.phone,
-          nullif(new.raw_user_meta_data->>'full_name',''), v_age,
+          v_full_name, v_age,
           nullif(new.raw_user_meta_data->>'gender',''),
           nullif(new.raw_user_meta_data->>'address',''),
           coalesce(nullif(new.raw_user_meta_data->>'how_heard',''),'web_search'),
@@ -315,6 +332,38 @@ end; $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- 0031: a Google-signed-in account has no phone at signup (auth.users.phone
+-- null) — the app requires one to be added + OTP-verified afterward
+-- (VerifyPhoneScreen, gated on !profile.phone in RootNavigator) via
+-- Supabase's standard phone-change flow (updateUser({phone}) then
+-- verifyOtp({type:'phone_change'})), which updates auth.users.phone
+-- directly. handle_new_user() only fires on INSERT, so this mirrors its
+-- profiles.phone sync + family_members/patient_leads auto-link matching for
+-- that later-verified case.
+create or replace function public.handle_user_phone_verified() returns trigger
+  language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_family_row public.family_members;
+begin
+  update public.profiles set phone = new.phone where id = new.id;
+
+  select * into v_family_row from public.family_members
+   where contact_phone = new.phone and linked_profile_id is null
+   order by created_at asc limit 1;
+  if found then
+    update public.profiles set primary_account_id = v_family_row.account_id where id = new.id;
+    update public.family_members set linked_profile_id = new.id where id = v_family_row.id;
+  end if;
+
+  update public.patient_leads set claimed_profile_id = new.id
+   where phone = new.phone and claimed_profile_id is null;
+
+  return new;
+end; $$;
+drop trigger if exists on_auth_user_phone_verified on auth.users;
+create trigger on_auth_user_phone_verified after update of phone on auth.users
+  for each row when (old.phone is null and new.phone is not null)
+  execute function public.handle_user_phone_verified();
 
 -- backfill a profile for any existing user who has none (won't change existing roles)
 insert into public.profiles (id, role, phone, full_name)
@@ -646,6 +695,31 @@ create policy report_select on public.report_uploads for select to authenticated
   using (public.is_staff()
     or (reviewed and exists (select 1 from public.bookings b where b.id = report_uploads.booking_id and public.in_household(b.account_id))));
 
+-- ── COMBINED VIEW (0037) ─────────────────────────────────────────────────────
+-- One flat, GET-able row per booking: patient/dependent/service/caregiver
+-- info all together, mirroring shared/src/hooks.ts's BOOKING_WITH_NAMES_SELECT
+-- shape. security_invoker = true means RLS is enforced as the calling user
+-- (via the underlying bookings/profiles/family_members policies above) — the
+-- view adds no new access, just a more convenient combined shape.
+create or replace view public.bookings_full
+with (security_invoker = true) as
+select
+  b.*,
+  acc.full_name    as account_full_name,
+  acc.phone        as account_phone,
+  acc.age          as account_age,
+  fm.full_name     as dependent_full_name,
+  fm.relationship  as dependent_relationship,
+  fm.age           as dependent_age,
+  fm.contact_phone as dependent_contact_phone,
+  asg.full_name    as assignee_full_name,
+  asg.phone        as assignee_phone
+from public.bookings b
+left join public.profiles acc on acc.id = b.account_id
+left join public.family_members fm on fm.id = b.family_member_id
+left join public.profiles asg on asg.id = b.assigned_to;
+grant select on public.bookings_full to authenticated;
+
 -- ── STORAGE BUCKETS ─────────────────────────────────────────────────────────
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('payment-proofs','payment-proofs', false, 5242880, array['image/png','image/jpeg','image/webp'])
@@ -820,10 +894,34 @@ create policy patient_lead_insert on public.patient_leads for insert to authenti
 update public.services set active = false, updated_at = now();
 
 insert into public.services (name, description, price_per_day, pricing_model) values
-  ('Nutrition',        'Diet adherence (supported by strategic meal provider partnerships).', 2000, 'flat_advance'),
-  ('Physio Therapy',   'Exercise completion, mobility scores.',                               2000, 'flat_advance'),
-  ('Para-Medical',     'Vitals tracking (BP, Sugar, SpO2) and medication compliance.',        800,  'per_day'),
-  ('Mental Wellbeing', 'Mood scores and social engagement tracking.',                         800,  'per_day')
+  ('Nutrition',
+   E'Diet adherence (supported by strategic meal provider partnerships).\n'
+   '• Individualized diet planning & support\n'
+   '• Ryles tube feeding guidance\n'
+   '• Dietitian consultation',
+   2000, 'flat_advance'),
+  ('Physio Therapy',
+   E'Exercise completion, mobility scores.\n'
+   '• Mobility training\n'
+   '• Post-surgery physio care\n'
+   '• Therapeutic exercise',
+   2000, 'flat_advance'),
+  ('Para-Medical',
+   E'Vitals Monitoring and medication compliance.\n'
+   '• Vitals Monitoring (BP, Sugar, O2)\n'
+   '• Elderly & geriatric care\n'
+   '• Bedridden patient care\n'
+   '• Wound & dressing care\n'
+   '• Post-hospitalization care\n'
+   '• 24/7 home nursing care',
+   800, 'per_day'),
+  ('Mental Wellbeing',
+   E'Mood scores and social engagement tracking.\n'
+   '• Elderly wellbeing support\n'
+   '• Psychological support\n'
+   '• Spiritual care\n'
+   '• Rehabilitation / relaxation care',
+   800, 'per_day')
 on conflict (name) do update
   set description   = excluded.description,
       price_per_day = excluded.price_per_day,

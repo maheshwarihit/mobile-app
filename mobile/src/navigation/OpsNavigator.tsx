@@ -10,6 +10,7 @@ import type { ClientsStackParamList, CaregiverTabsParamList } from "@/navigation
 import { AppTabBar } from "@/navigation/AppTabBar";
 import { BrandLogo } from "@/components/ui";
 import { AdminSidebar, type AdminSection } from "@/components/ops/AdminSidebar";
+import { useLanguage } from "@/lib/i18n";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
 import { AdminAppointmentsScreen } from "@/screens/ops/AdminAppointmentsScreen";
 import { AdminPaymentQrScreen } from "@/screens/ops/AdminPaymentQrScreen";
@@ -72,6 +73,7 @@ const tabScreenOptions = {
  * which `RootNavigator` already provides.
  */
 export function AdminNavigator() {
+  const { t } = useLanguage();
   const { profile } = useAuth();
   const [active, setActive] = useState<AdminSection>("appointments");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -101,7 +103,7 @@ export function AdminNavigator() {
         </Pressable>
         <View className="flex-row items-center gap-2">
           <BrandLogo size={26} transparent />
-          <Text className="text-sm font-bold text-white">VAgeWell Care</Text>
+          <Text className="text-sm font-bold text-white">{t("ops.brand")}</Text>
         </View>
         <Pressable onPress={() => selectSection("profile")} className="active:opacity-70">
           {profile ? (
@@ -148,25 +150,26 @@ const CaregiverTabs = createBottomTabNavigator<CaregiverTabsParamList>();
  * empty or error out rather than merely being unhelpful.
  */
 export function CaregiverNavigator() {
+  const { t } = useLanguage();
   return (
     <CaregiverTabs.Navigator tabBar={(props) => <AppTabBar {...props} />} screenOptions={tabScreenOptions}>
       <CaregiverTabs.Screen
         name="MyVisitsTab"
         component={MyVisitsScreen}
         options={{
-          title: "My Visits",
+          title: t("ops.nav.myVisits"),
           tabBarIcon: ({ color, size }) => <CalendarCheck size={size} color={color} />,
         }}
       />
       <CaregiverTabs.Screen
         name="CaregiverClientsTab"
         component={ClientsStackNavigator}
-        options={{ title: "Clients", tabBarIcon: ({ color, size }) => <Users size={size} color={color} /> }}
+        options={{ title: t("ops.nav.clients"), tabBarIcon: ({ color, size }) => <Users size={size} color={color} /> }}
       />
       <CaregiverTabs.Screen
         name="OpsProfileTab"
         component={OpsProfileScreen}
-        options={{ title: "Profile", tabBarIcon: ({ color, size }) => <User size={size} color={color} /> }}
+        options={{ title: t("ops.nav.profile"), tabBarIcon: ({ color, size }) => <User size={size} color={color} /> }}
       />
     </CaregiverTabs.Navigator>
   );

@@ -23,6 +23,8 @@ import { VitalsModal, type VitalsSubject } from "@/components/ops/VitalsModal";
 import { ReportUploadModal } from "@/components/ops/ReportUploadModal";
 import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 
 /**
  * SCREEN_ID: MY_VISITS — the caregiver's own work queue: visits an admin
@@ -34,6 +36,7 @@ import { useSignedUrl, openUrl } from "@/lib/signedUrl";
  * rather than everything — the full cross-account list is the Appointments tab.
  */
 export function MyVisitsScreen() {
+  const { t } = useLanguage();
   const { data: bookings, isLoading, error, refetch } = useMyAssignedBookings(true);
   const { data: reports, refetch: refetchReports } = useAllReports(true);
   const [vitals, setVitals] = useState<VitalsSubject | null>(null);
@@ -74,18 +77,18 @@ export function MyVisitsScreen() {
         ItemSeparatorComponent={() => <View className="h-3" />}
         ListHeaderComponent={
           <View>
-            <PageHeader title="My visits" subtitle="Home visits assigned to you." />
-            {error ? <ErrorBanner message="Could not load your visits." /> : null}
+            <PageHeader title={t("ops.myVisits.title")} subtitle={t("ops.myVisits.subtitle")} />
+            {error ? <ErrorBanner message={t("ops.myVisits.loadError")} /> : null}
           </View>
         }
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState message="Loading…" />
+            <LoadingState message={t("ops.myVisits.loading")} />
           ) : (
             <EmptyState
               icon={ClipboardList}
-              title="No assigned visits"
-              description="Work an admin assigns to you appears here."
+              title={t("ops.myVisits.empty.title")}
+              description={t("ops.myVisits.empty.description")}
             />
           )
         }
@@ -123,6 +126,7 @@ function VisitCard({
   onVitals: () => void;
   onReport: () => void;
 }) {
+  const { t } = useLanguage();
   const status = bookingStatusMeta(booking.booking_status);
   const start = useStartVisit();
   const complete = useCompleteVisit();
@@ -135,20 +139,25 @@ function VisitCard({
     <Card className="p-4">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
-          <Text className="text-base font-semibold text-gray-900 dark:text-white">{booking.service_name}</Text>
+          <Text className="text-base font-semibold text-gray-900 dark:text-white">{translateServiceName(t, booking.service_name)}</Text>
           <Text className="text-xs text-gray-500 dark:text-gray-400">
-            Client <Text className="font-medium text-purple-700 dark:text-purple-300">{booking.subject_name ?? "—"}</Text>
+            {t("ops.client")} <Text className="font-medium text-purple-700 dark:text-purple-300">{booking.subject_name ?? "—"}</Text>
             {localPhone(booking.subject_phone) ? ` · ${localPhone(booking.subject_phone)}` : ""}
           </Text>
           <Text className="mt-1 text-sm text-gray-600 dark:text-gray-300">
             {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)} · {money(booking.total_amount)}
           </Text>
           {booking.symptom_brief ? (
-            <Text className="mt-1 text-xs text-gray-500 dark:text-gray-400">Note: {booking.symptom_brief}</Text>
+            <Text className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {t("ops.myVisits.note", { note: booking.symptom_brief })}
+            </Text>
           ) : null}
           {latestReport ? (
             <Text className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-              Report uploaded: {latestReport.file_name ?? "file"} · {formatLocalDateTime(latestReport.created_at)}
+              {t("ops.myVisits.reportUploaded", {
+                file: latestReport.file_name ?? "file",
+                date: formatLocalDateTime(latestReport.created_at),
+              })}
             </Text>
           ) : null}
         </View>
@@ -159,27 +168,27 @@ function VisitCard({
         {canStart ? (
           <CardAction
             icon={PlayCircle}
-            label="Start Visit"
+            label={t("ops.myVisits.action.startVisit")}
             onPress={() => start.mutate(booking.id)}
             disabled={start.isPending}
           />
         ) : null}
-        {inFlight ? <CardAction icon={Activity} label="Vitals" onPress={onVitals} tone="muted" /> : null}
+        {inFlight ? <CardAction icon={Activity} label={t("ops.myVisits.action.vitals")} onPress={onVitals} tone="muted" /> : null}
         {/* Upload is available from `assigned` onward, not just once started —
             a caregiver shouldn't have to tap Start before a report can go up. */}
         {canStart || inFlight ? (
-          <CardAction icon={UploadCloud} label="Upload Report" onPress={onReport} tone="muted" />
+          <CardAction icon={UploadCloud} label={t("ops.myVisits.action.uploadReport")} onPress={onReport} tone="muted" />
         ) : null}
         {reportUrl ? (
-          <CardAction icon={Eye} label="View Report" onPress={() => openUrl(reportUrl)} tone="muted" />
+          <CardAction icon={Eye} label={t("ops.myVisits.action.viewReport")} onPress={() => openUrl(reportUrl)} tone="muted" />
         ) : null}
         {booking.subject_phone ? (
-          <CardAction icon={Phone} label="Call" onPress={() => openUrl(`tel:${booking.subject_phone}`)} tone="muted" />
+          <CardAction icon={Phone} label={t("ops.myVisits.action.call")} onPress={() => openUrl(`tel:${booking.subject_phone}`)} tone="muted" />
         ) : null}
         {inFlight ? (
           <CardAction
             icon={CheckCircle2}
-            label="Complete"
+            label={t("ops.myVisits.action.complete")}
             onPress={() => setConfirmOpen(true)}
             tone="success"
             disabled={complete.isPending}
@@ -189,18 +198,17 @@ function VisitCard({
 
       <ConfirmModal
         open={confirmOpen}
-        title="Mark visit complete?"
+        title={t("ops.myVisits.confirmComplete.title")}
         onClose={() => setConfirmOpen(false)}
         onConfirm={() => {
           complete.mutate(booking.id);
           setConfirmOpen(false);
         }}
-        confirmLabel="Mark complete"
-        cancelLabel="Not yet"
+        confirmLabel={t("ops.myVisits.confirmComplete.confirm")}
+        cancelLabel={t("ops.myVisits.confirmComplete.cancel")}
       >
         <Text className="text-sm text-gray-600">
-          This closes the {booking.service_name} visit on {formatDate(booking.start_date)} and removes it from your
-          active list.
+          {t("ops.myVisits.confirmComplete.body", { service: translateServiceName(t, booking.service_name), date: formatDate(booking.start_date) })}
         </Text>
       </ConfirmModal>
     </Card>

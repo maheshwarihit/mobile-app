@@ -19,6 +19,7 @@ import {
 import { ROLE_LABELS, type Profile } from "@vagewell/shared";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
 import { useThemePreference } from "@/hooks/useThemePreference";
+import { useLanguage, type TranslationKey } from "@/lib/i18n";
 
 export type AdminSection =
   | "appointments"
@@ -32,16 +33,16 @@ export type AdminSection =
   | "paymentQr"
   | "profile";
 
-const ITEMS: { key: AdminSection; label: string; icon: LucideIcon }[] = [
-  { key: "appointments", label: "Appointments", icon: ClipboardList },
-  { key: "requests", label: "Requests", icon: PhoneIncoming },
-  { key: "userDetails", label: "User Details", icon: UserPlus },
-  { key: "clients", label: "Clients", icon: Users },
-  { key: "team", label: "Leaf Nodes", icon: UserCog },
-  { key: "reports", label: "Reports", icon: FileText },
-  { key: "liveSheet", label: "Live sheet", icon: Table2 },
-  { key: "paymentProofs", label: "Payment proofs", icon: Receipt },
-  { key: "paymentQr", label: "Payment QR", icon: QrCode },
+const ITEM_DEFS: { key: AdminSection; labelKey: TranslationKey; icon: LucideIcon }[] = [
+  { key: "appointments", labelKey: "ops.nav.appointments", icon: ClipboardList },
+  { key: "requests", labelKey: "ops.nav.requests", icon: PhoneIncoming },
+  { key: "userDetails", labelKey: "ops.nav.userDetails", icon: UserPlus },
+  { key: "clients", labelKey: "ops.nav.clients", icon: Users },
+  { key: "team", labelKey: "ops.nav.team", icon: UserCog },
+  { key: "reports", labelKey: "ops.nav.reports", icon: FileText },
+  { key: "liveSheet", labelKey: "ops.nav.liveSheet", icon: Table2 },
+  { key: "paymentProofs", labelKey: "ops.nav.paymentProofs", icon: Receipt },
+  { key: "paymentQr", labelKey: "ops.nav.paymentQr", icon: QrCode },
 ];
 
 const PANEL_WIDTH = 280;
@@ -87,6 +88,8 @@ export function AdminSidebar({
   requestsBadge?: number;
   profile: Pick<Profile, "id" | "full_name" | "avatar_path" | "updated_at" | "role"> | null;
 }) {
+  const { t } = useLanguage();
+  const ITEMS = ITEM_DEFS.map((i) => ({ key: i.key, label: t(i.labelKey), icon: i.icon }));
   const [query, setQuery] = useState("");
   const { colorScheme, toggle } = useThemePreference();
   const translateX = useRef(new Animated.Value(-PANEL_WIDTH)).current;
@@ -139,9 +142,9 @@ export function AdminSidebar({
           <View className="flex-1 bg-white dark:bg-slate-900">
             <View className="flex-row items-center justify-between border-b border-gray-100 px-4 pb-3 pt-12 dark:border-slate-700">
               <View className="flex-1">
-                <Text className="text-base font-bold text-gray-900 dark:text-white">VAgeWell Care</Text>
+                <Text className="text-base font-bold text-gray-900 dark:text-white">{t("ops.brand")}</Text>
                 <Text className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {profile?.role ? ROLE_LABELS[profile.role] : "Admin"} Portal
+                  {profile?.role ? ROLE_LABELS[profile.role] : "Admin"} {t("ops.portal")}
                 </Text>
               </View>
               <View className="flex-row items-center gap-1">
@@ -160,7 +163,7 @@ export function AdminSidebar({
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Search menu…"
+                  placeholder={t("ops.searchMenu")}
                   placeholderTextColor="#9ca3af"
                   className="flex-1 text-sm text-gray-900 dark:text-white"
                 />
@@ -169,7 +172,7 @@ export function AdminSidebar({
 
             <ScrollView className="flex-1 px-2 pt-3" showsVerticalScrollIndicator={false}>
               <Text className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                Menu
+                {t("ops.menu")}
               </Text>
               {filtered.map((item) => {
                 const isActive = item.key === active;

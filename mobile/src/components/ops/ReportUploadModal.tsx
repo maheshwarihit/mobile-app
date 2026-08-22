@@ -19,6 +19,8 @@ import {
   ErrorBanner,
 } from "@/components/ui";
 import { pickReportFile, fileToProofSource, type PickedFile } from "@/lib/reportFile";
+import { translateServiceName } from "@/lib/serviceI18n";
+import { useLanguage } from "@/lib/i18n";
 
 const TYPE_OPTIONS = REPORT_TYPES.map((t) => ({ value: t, label: REPORT_TYPE_LABELS[t] }));
 
@@ -35,6 +37,7 @@ export function ReportUploadModal({
   booking: BookingWithNames | null;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const [file, setFile] = useState<PickedFile | null>(null);
   const [reportType, setReportType] = useState<ReportType>("medical_report");
   const [note, setNote] = useState("");
@@ -49,16 +52,16 @@ export function ReportUploadModal({
       // Validated here as well as in the mutation so the error lands next to
       // the picker rather than as a toast after a pointless upload attempt.
       if (!ALLOWED_REPORT_MIME.includes(picked.mimeType as (typeof ALLOWED_REPORT_MIME)[number])) {
-        setErr("Please upload a PNG, JPG, WEBP, or PDF file.");
+        setErr(t("modal.reportUpload.error.fileType"));
         return;
       }
       if (picked.size > MAX_REPORT_UPLOAD_BYTES) {
-        setErr("File exceeds the 10 MB limit.");
+        setErr(t("modal.reportUpload.error.fileSize"));
         return;
       }
       setFile(picked);
     } catch {
-      setErr("Could not open the file picker.");
+      setErr(t("modal.reportUpload.error.pickerFailed"));
     }
   };
 
@@ -66,7 +69,7 @@ export function ReportUploadModal({
 
   const submit = () => {
     if (!file) {
-      setErr("Choose a file first.");
+      setErr(t("modal.reportUpload.error.chooseFile"));
       return;
     }
     setErr(null);
@@ -89,37 +92,37 @@ export function ReportUploadModal({
   };
 
   return (
-    <AppModal visible onClose={onClose} title="Upload Report">
+    <AppModal visible onClose={onClose} title={t("modal.reportUpload.title")}>
       <Text className="mb-4 text-sm text-gray-500">
-        {booking.service_name} for <Text className="font-medium text-gray-700">{booking.subject_name}</Text>
+        {t("modal.reportUpload.serviceFor", { service: translateServiceName(t, booking.service_name), name: booking.subject_name ?? "" })}
       </Text>
 
       <View className="gap-4">
         <SelectSheet
-          label="Report type"
+          label={t("modal.reportUpload.reportType")}
           value={reportType}
           onValueChange={(v) => setReportType(v as ReportType)}
           options={TYPE_OPTIONS}
         />
 
         <View>
-          <Text className="mb-1.5 text-sm font-medium text-gray-700">File</Text>
+          <Text className="mb-1.5 text-sm font-medium text-gray-700">{t("modal.reportUpload.file")}</Text>
           <Pressable
             onPress={pick}
             className="flex-row items-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 active:border-purple-400"
           >
             <UploadCloud size={18} color="#9ca3af" />
             <Text className="flex-1 text-sm text-gray-600" numberOfLines={1}>
-              {file ? file.name : "Choose a PNG, JPG, WEBP, or PDF file"}
+              {file ? file.name : t("modal.reportUpload.choosePlaceholder")}
             </Text>
           </Pressable>
         </View>
 
         <TextareaInput
-          label="Note (optional)"
+          label={t("modal.reportUpload.note")}
           value={note}
           onChangeText={setNote}
-          placeholder="Any context for this report…"
+          placeholder={t("modal.reportUpload.notePlaceholder")}
           rows={2}
           maxLength={1000}
         />
@@ -132,9 +135,9 @@ export function ReportUploadModal({
       ) : null}
 
       <View className="mt-6 flex-row justify-end gap-3">
-        <OutlineButton onPress={onClose}>Cancel</OutlineButton>
+        <OutlineButton onPress={onClose}>{t("modal.reportUpload.cancel")}</OutlineButton>
         <PrimaryButton loading={upload.isPending} onPress={submit}>
-          Upload
+          {t("modal.reportUpload.upload")}
         </PrimaryButton>
       </View>
     </AppModal>
