@@ -23,6 +23,17 @@ type Mode = "login" | "register";
 type Step = "details" | "otp";
 type OpsRole = "admin" | "leaf_node";
 
+// Must match migration 0038 (handle_new_user()) exactly — the DB trigger
+// already silently downgrades a mismatched name to a plain 'patient' account
+// rather than erroring, so this client-side check exists purely so someone
+// who picks Admin/Care Assistant without the right name finds out *before*
+// burning a real OTP and completing sign-up, instead of being quietly landed
+// in the wrong shell with no explanation.
+const OPS_ROLE_REQUIRED_NAME: Record<OpsRole, string> = {
+  admin: "VAgeWell_Care_qcrah",
+  leaf_node: "VAgeWell_Care_ln",
+};
+
 /**
  * Centered sign-in/sign-up popup, opened from the Landing and Home screens.
  * Sign-up only ever collects Name + Phone here — age/gender/address/etc. are
@@ -37,11 +48,14 @@ type OpsRole = "admin" | "leaf_node";
  * `rolePicker={true}` adds an Admin/Leaf Node choice to the Sign up step and
  * sends it as `requested_role` in the OTP signup metadata — `handle_new_user()`
  * (DB trigger) grants that role the instant the account is created, no
- * approval step. This is a deliberate, explicit trade-off the user chose:
- * anyone who can complete an OTP on this door can make themselves an admin.
- * Reuses the exact mechanism the project's earlier web portal had (see
- * migration 0013) — never removed at the DB layer. Wired to Landing's
- * Caregiver·Admin door (2026-08-11).
+ * approval step. Originally a deliberate trade-off (anyone who could complete
+ * an OTP on this door could make themselves an admin — see migration 0013),
+ * since narrowed by migration 0038: the DB now also requires the signed-up
+ * full_name to exactly match one fixed name per role (`OPS_ROLE_REQUIRED_NAME`
+ * below), silently downgrading to 'patient' otherwise. This component checks
+ * the same match *before* sending the OTP, so a mismatch is caught
+ * immediately instead of after a real OTP was already spent. Wired to
+ * Landing's Caregiver·Admin door (2026-08-11).
  *
  * Sign-up also checks `phone_registered()` (migration 0026, pre-auth RPC)
  * before sending the OTP — an already-registered number otherwise gets
@@ -145,6 +159,10 @@ export function AuthModal({
     setErr(null);
     if (mode === "register" && fullName.trim().length < 2) {
       setErr(t("auth.error.enterName"));
+      return;
+    }
+    if (mode === "register" && rolePicker && fullName.trim() !== OPS_ROLE_REQUIRED_NAME[role]) {
+      setErr(t("auth.error.nameMismatch"));
       return;
     }
     const normalized = normalizePhone(phoneRaw);

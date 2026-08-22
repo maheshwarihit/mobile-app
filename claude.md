@@ -2976,3 +2976,57 @@ admin/ops toggle specifically) bled through onto screens that had no matching li
   this environment to a real phone with system dark mode on) — confirmed the service card's background
   computed to `rgb(255, 255, 255)` (white) even under emulated OS dark mode, screenshotted showing the
   correct light appearance throughout. Zero console errors.
+
+## Change round — pushed to GitHub, first Vercel deploy of the mobile app's web build (user, 2026-08-22)
+User asked to `git push` and deploy to Vercel for testing. This session's entire accumulated work (i18n,
+Google sign-in, booking flow rework, dark-mode fix, migrations 0030–0038, etc. — everything logged above
+since the last push) was committed as one commit and pushed to `origin/main`
+(`https://github.com/maheshwarihit/mobile-app.git`), landing as commit `5b77929`.
+
+- [x] **Did NOT reuse the repo's existing `.vercel/project.json` link** — it points to a project literally
+      named `"web"`, last deployed 14 days before this round (i.e. before the `web/` Next.js portal was
+      deleted in the "single mobile app" merge). Reusing it would have either broken or confusingly
+      overwritten whatever that project currently serves. Deployed the mobile app's web build as a
+      **new**, separate Vercel project instead (`vagewell-web-deploy`, same team/account,
+      `https://vagewell-web-deploy.vercel.app`), built from a copy made **outside** the repo (so Vercel
+      CLI couldn't walk up and find the old `.vercel` link) rather than from inside the repo tree.
+- [x] **Found and fixed a real deploy-breaking bug in the process, not just this session's demo build**:
+      the first deploy attempt rendered a **blank page** — root-caused to Vercel's CLI silently excluding
+      any folder literally named `node_modules` from the upload (a built-in default, not configurable via
+      `.vercelignore`). Expo's web export happens to name a real asset folder
+      `assets/node_modules/@expo-google-fonts/...` (mirroring the font package's own path for its
+      asset-hashing scheme) — those font files never made it to Vercel, `useFonts()` in `App.tsx` never
+      resolved, and `if (!fontsLoaded) return null` meant the whole app rendered nothing, forever, with no
+      console error at all (only 404s on the font requests). Fixed by renaming
+      `assets/node_modules` → `assets/vendor-fonts` in the built output and patching the one JS bundle
+      file that referenced the old path (19 occurrences, confirmed zero remaining) before redeploying —
+      **this same rename/patch step will be needed on every future deploy** to Vercel (or any host with
+      the same default `node_modules`-folder exclusion) until Expo's own asset-hashing naming changes;
+      not yet automated into a script, done by hand this round.
+- Verified: redeployed build live-checked with Playwright — zero console errors, zero failed requests,
+  screenshotted showing the Choose Language screen rendering correctly with the hero background image and
+  both fonts visibly applied.
+- **For the user:** the live testing link is **https://vagewell-web-deploy.vercel.app**. The old `"web"`
+  Vercel project (`web-kappa-brown-gettx9v7gj.vercel.app`) was left completely untouched — worth deleting
+  it from the Vercel dashboard if it's confirmed dead, or renaming/repurposing it, but that's your call,
+  not done here.
+
+## Change round — client-side name check on the Admin/Care Assistant sign-up form (user, 2026-08-22)
+Follow-up to 0038 (the DB-side name gate): the trigger silently downgrades a mismatched name to
+`'patient'` rather than erroring, so someone who picked Admin/Care Assistant with the wrong name would
+complete a real OTP send + verify and only discover the mismatch by quietly landing in the wrong shell —
+confusing and wastes a real OTP. User asked for the name to be enforced ("compulsory") on the signup form
+itself.
+
+- [x] **`mobile/src/components/feature/AuthModal.tsx`**: new `OPS_ROLE_REQUIRED_NAME` map (`admin` →
+      `'VAgeWell_Care_qcrah'`, `leaf_node` → `'VAgeWell_Care_ln'` — must stay in sync with migration 0038
+      by hand, flagged in a comment since there's no shared constant between the DB and the client for
+      this). `sendOtp()` now checks the typed Full Name against the map for whichever role is selected
+      *before* sending anything — a mismatch shows `auth.error.nameMismatch` inline and never calls
+      Supabase at all, so no OTP is spent on a doomed attempt. New translation key added (English + Tamil).
+- Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green. **Live-verified end
+  to end with Playwright** against the real Supabase project (this check runs entirely client-side, so it
+  was safe to test for real): typing a wrong name blocked immediately with the mismatch error, no network
+  call made; typing the correct name (`VAgeWell_Care_ln`) passed the check cleanly and proceeded to the
+  next real step (hit "number already has an account" only because the test number used was already
+  registered — expected, unrelated to this fix). Zero console errors throughout.
