@@ -40,8 +40,13 @@ export function ApproveAssignModal({
   const modeChosenByCustomer = !!booking?.service_mode;
 
   const candidates = useMemo(() => (profiles ?? []).filter((p) => p.role === "leaf_node"), [profiles]);
+  // display_name (the Care Giver's real name, collected separately at sign-up)
+  // rather than full_name — every Care Giver shares the same fixed full_name
+  // (the self-select-role gate string), which is meaningless for telling
+  // candidates apart here. Falls back to full_name for an account created
+  // before display_name existed (migration 0040).
   const options = useMemo(
-    () => candidates.map((p) => ({ value: p.id, label: p.full_name ?? p.id })),
+    () => candidates.map((p) => ({ value: p.id, label: p.display_name ?? p.full_name ?? p.id })),
     [candidates]
   );
 
@@ -67,7 +72,7 @@ export function ApproveAssignModal({
   if (assignedTo) {
     const link = waLink(assignedTo.phone, assignmentMessage(booking));
     return (
-      <AppModal visible onClose={close} title={t("modal.approveAssign.assignedTitle", { name: assignedTo.full_name ?? "—" })}>
+      <AppModal visible onClose={close} title={t("modal.approveAssign.assignedTitle", { name: assignedTo.display_name ?? assignedTo.full_name ?? "—" })}>
         <Text className="mb-4 text-sm text-gray-500">{t("modal.approveAssign.messageNow")}</Text>
         {link ? (
           <PrimaryButton fullWidth icon={MessageCircle} onPress={() => openUrl(link)}>

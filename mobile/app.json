@@ -14,11 +14,17 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "ios": {
+      "bundleIdentifier": "in.vagewell.care"
+    },
     "android": {
       "package": "in.vagewell.care",
       "versionCode": 1,
       "permissions": [
-        "READ_MEDIA_IMAGES"
+        "READ_MEDIA_IMAGES",
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ]
     },
     "plugins": [
@@ -27,13 +33,21 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "VAgeWell needs access to your photos so you can upload a payment screenshot."
+          "photosPermission": "VAgeWell needs access to your photos so you can upload a payment screenshot.",
+          "cameraPermission": "VAgeWell needs camera access so Care Givers can take a visit photo with the patient."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "VAgeWell needs your location so a visit photo can be tagged with where the visit took place."
         }
       ],
       "@react-native-community/datetimepicker",
       "expo-asset",
       "expo-document-picker",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

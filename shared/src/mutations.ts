@@ -9,6 +9,8 @@ import {
   ALLOWED_REPORT_MIME,
   MAX_REPORT_UPLOAD_BYTES,
   PROFILE_PHOTO_BUCKET,
+  VISIT_PHOTO_BUCKET,
+  ALLOWED_IMAGE_MIME as ALLOWED_VISIT_PHOTO_MIME,
 } from "./constants";
 import type { Role, ServiceMode, ReportType } from "./types";
 
@@ -139,6 +141,25 @@ export function useCompleteVisit() {
   });
 }
 
+/** Admin records the real amount for a booking after the visit — no longer
+ * auto-calculated from the service catalog at booking time (migration
+ * 0044). Independent of marking paid/rejecting: this can be saved as soon
+ * as the actual charge is known, whether or not payment has been settled yet. */
+export function useSetBookingAmount() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ id, amount }: { id: string; amount: number }) => {
+      const { error } = await getSupabase().from("bookings").update({ total_amount: amount }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.bookings("all"), qk.bookings("mine"), qk.bookings("assigned")]);
+      toast.success("Amount saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 export function useVerifyPayment() {
   const invalidate = useInvalidate();
   return useMutation({
@@ -258,6 +279,7 @@ export function useUpdateProfile() {
       gender: string | null;
       address?: string | null;
       emp_id?: string | null;
+      display_name?: string | null;
     }) => {
       const { id, ...rest } = payload;
       const { error } = await getSupabase().from("profiles").update(rest).eq("id", id);
@@ -390,6 +412,86 @@ export function useUploadReport() {
     onSuccess: (_data, vars) => {
       invalidate([qk.reports(vars.bookingId), qk.reportsAll, qk.bookings("assigned"), qk.bookings("all")]);
       toast.success("Report uploaded — awaiting admin release to the customer");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Uploader removes their own not-yet-released report (a wrong upload); admin can remove any. */
+export function useDeleteReport() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; bookingId: string }) => {
+      const { error } = await getSupabase().from("report_uploads").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      invalidate([qk.reports(vars.bookingId), qk.reportsAll, qk.bookings("assigned"), qk.bookings("all")]);
+      toast.success("Report removed");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Mandatory GPS-tagged "Care Giver with patient" photo — required before a
+ * booking can be marked completed (enforced server-side too, see migration
+ * 0042's tg_booking_update_guard()). Never customer-visible: a separate
+ * bucket/table from report_uploads, staff-only by RLS. */
+export function useUploadVisitPhoto() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({
+      bookingId,
+      source,
+      latitude,
+      longitude,
+    }: {
+      bookingId: string;
+      source: ProofSource;
+      latitude: number | null;
+      longitude: number | null;
+    }) => {
+      if (!ALLOWED_VISIT_PHOTO_MIME.includes(source.contentType as (typeof ALLOWED_VISIT_PHOTO_MIME)[number]))
+        throw new Error("Please upload a PNG, JPG, or WEBP image.");
+      if (source.sizeBytes > MAX_UPLOAD_BYTES) throw new Error("File exceeds the 5 MB limit.");
+      const sb = getSupabase();
+      const {
+        data: { user },
+      } = await sb.auth.getUser();
+      if (!user) throw new Error("Not signed in.");
+      const ext = source.contentType === "image/png" ? "png" : source.contentType === "image/webp" ? "webp" : "jpg";
+      const path = `${bookingId}/${user.id}/${Date.now()}.${ext}`;
+      const body = await source.toArrayBuffer();
+      const { error: upErr } = await sb.storage
+        .from(VISIT_PHOTO_BUCKET)
+        .upload(path, body, { contentType: source.contentType, upsert: true });
+      if (upErr) throw upErr;
+      const { error } = await sb
+        .from("visit_photos")
+        .insert({ booking_id: bookingId, storage_path: path, latitude, longitude });
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      invalidate([qk.visitPhotos(vars.bookingId)]);
+      toast.success("Visit photo saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+/** Uploader renames their own not-yet-released report's file name (fixing a
+ * typo/unclear name); admin can rename any report. Mirrors useDeleteReport's
+ * ownership rule. */
+export function useRenameReport() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ id, fileName }: { id: string; fileName: string; bookingId: string }) => {
+      const { error } = await getSupabase().from("report_uploads").update({ file_name: fileName }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      invalidate([qk.reports(vars.bookingId), qk.reportsAll]);
+      toast.success("Report renamed");
     },
     onError: (e: Error) => toast.error(e.message),
   });

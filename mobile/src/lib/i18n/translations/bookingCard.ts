@@ -1,6 +1,7 @@
 export const en = {
   "bookingCard.client": "Client",
   "bookingCard.days": "day{plural}",
+  "bookingCard.amount": "Amount: {amount}",
   "bookingCard.paymentRejected": "Payment proof was rejected",
   "bookingCard.reuploadProof": "Re-upload proof",
   "bookingCard.uploading": "Uploading…",
@@ -17,6 +18,7 @@ export const en = {
 export const ta: Record<keyof typeof en, string> = {
   "bookingCard.client": "வாடிக்கையாளர்",
   "bookingCard.days": "நாள்{plural}",
+  "bookingCard.amount": "தொகை: {amount}",
   "bookingCard.paymentRejected": "பணம் செலுத்திய சான்று நிராகரிக்கப்பட்டது",
   "bookingCard.reuploadProof": "சான்றை மீண்டும் பதிவேற்று",
   "bookingCard.uploading": "பதிவேற்றுகிறது…",

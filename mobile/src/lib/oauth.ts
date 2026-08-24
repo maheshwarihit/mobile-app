@@ -1,73 +1,80 @@
 import { Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { supabase } from "./supabase";
 
 export type OAuthProvider = "google";
 
 /**
- * Google sign-in via Supabase's hosted OAuth flow — no native SDK
- * (no `@react-native-google-signin/google-signin`), same one mechanism on
- * both web and native. (Apple was removed — Google alone covers the
- * "sign in with an email account" convenience this app wants; every account,
- * however it started, still ends up phone-verified — see
- * VerifyPhoneScreen.tsx.)
+ * Google sign-in. Two different mechanisms depending on platform:
  *
- * Requires the provider to actually be configured in the Supabase dashboard
- * (Authentication → Providers) with real credentials from Google Cloud
- * Console / the Apple Developer portal — this function will just surface
- * whatever error Supabase returns if it isn't.
+ * - **Web** (browser/PWA): Supabase's hosted OAuth redirect — a plain
+ *   redirect to Google, which redirects back to this origin with the
+ *   session in the URL fragment (`detectSessionInUrl: true`, lib/supabase.ts,
+ *   picks it up automatically). This is the only option on web; it always
+ *   shows Google's consent screen labelled with the raw Supabase project
+ *   domain ("to continue to <ref>.supabase.co"), since the redirect lands on
+ *   a domain this app doesn't own — that's Google's own anti-spoofing
+ *   behavior, not fixable without a custom Supabase Auth domain.
  *
- * On web: a plain redirect. `supabase.auth.signInWithOAuth` sends the
- * browser to the provider, which redirects back to this same origin with the
- * session in the URL fragment — `detectSessionInUrl: true` (lib/supabase.ts)
- * picks it up automatically once the page reloads. Nothing to await here.
+ * - **Native** (real Android/iOS app builds): the native Google Sign-In SDK
+ *   (`@react-native-google-signin/google-signin`) instead — this drives the
+ *   device's own account picker (app icon + app name, no domain shown at
+ *   all, since there's no web redirect involved) and hands the resulting ID
+ *   token straight to `supabase.auth.signInWithIdToken()`. Requires:
+ *     1. `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` set to the same "Web application"
+ *        OAuth Client ID already configured in Supabase's Google provider —
+ *        Supabase verifies the ID token's `aud` claim against that Client ID,
+ *        so it must be the Web one, not the native Android/iOS client below.
+ *     2. A separate native OAuth Client registered in Google Cloud Console
+ *        per platform (Android: package name `in.vagewell.care` + the
+ *        signing certificate's SHA-1 fingerprint; iOS: bundle identifier) —
+ *        these exist purely so Google can verify which real app is asking,
+ *        they're never referenced directly in this app's code/config.
+ *     3. An actual native build (`eas build`) — this SDK has no native
+ *        module in Expo Go or a plain web export.
  *
- * On native: `skipBrowserRedirect` gets the provider URL without navigating
- * away from the app, `expo-web-browser` opens it in an in-app browser
- * session, and the result is parsed for the tokens Supabase appended to the
- * redirect (`vagewell://` — app.json's `scheme`) — `setSession()` then
- * establishes the session the same way verifyOtp() normally would.
+ * (Apple was removed — Google alone covers the "sign in with an email
+ * account" convenience this app wants; every account, however it started,
+ * still ends up phone-verified — see VerifyPhoneScreen.tsx.)
  */
-export async function signInWithProvider(
-  provider: OAuthProvider,
-  requestedRole?: string
-): Promise<{ error: string | null }> {
-  const roleParam = requestedRole ? { requested_role: requestedRole } : undefined;
-
+export async function signInWithProvider(provider: OAuthProvider): Promise<{ error: string | null }> {
   if (Platform.OS === "web") {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: window.location.origin, queryParams: roleParam },
+      options: { redirectTo: window.location.origin },
     });
     return { error: error?.message ?? null };
   }
 
-  const redirectUrl = Linking.createURL("/");
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo: redirectUrl, skipBrowserRedirect: true, queryParams: roleParam },
-  });
-  if (error || !data.url) return { error: error?.message ?? "Could not start sign-in." };
+  return nativeGoogleSignIn();
+}
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-  if (result.type !== "success") {
-    return result.type === "cancel" || result.type === "dismiss" ? { error: null } : { error: "Sign-in was interrupted." };
+let googleConfigured = false;
+function ensureGoogleConfigured() {
+  if (googleConfigured) return;
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  if (!webClientId) {
+    throw new Error(
+      "Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID — set it to the Google OAuth 'Web application' Client ID already configured in Supabase's Google provider."
+    );
   }
+  GoogleSignin.configure({ webClientId });
+  googleConfigured = true;
+}
 
-  const parsedResult = Linking.parse(result.url);
-  const resultQueryParams = parsedResult.queryParams as Record<string, string> | null;
-  if (resultQueryParams?.error) return { error: resultQueryParams.error_description ?? "Sign-in failed." };
-
-  // Supabase's implicit OAuth flow appends tokens after a `#`, not as `?`
-  // query params — expo-linking's own parser only reads the query string, so
-  // the fragment is parsed by hand here.
-  const hash = result.url.split("#")[1];
-  const fragment = new URLSearchParams(hash ?? "");
-  const access_token = fragment.get("access_token");
-  const refresh_token = fragment.get("refresh_token");
-  if (!access_token || !refresh_token) return { error: "No session returned from sign-in." };
-
-  const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
-  return { error: sessionError?.message ?? null };
+async function nativeGoogleSignIn(): Promise<{ error: string | null }> {
+  ensureGoogleConfigured();
+  try {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const response = await GoogleSignin.signIn();
+    if (response.type !== "success") return { error: null }; // user cancelled the picker
+    const idToken = response.data.idToken;
+    if (!idToken) return { error: "Google did not return an ID token." };
+    const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken });
+    return { error: error?.message ?? null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Google sign-in failed." };
+  }
 }

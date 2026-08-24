@@ -3,7 +3,7 @@ export const en = {
   "ops.nav.requests": "Requests",
   "ops.nav.userDetails": "User Details",
   "ops.nav.clients": "Clients",
-  "ops.nav.team": "Leaf Nodes",
+  "ops.nav.team": "Care Givers",
   "ops.nav.reports": "Reports",
   "ops.nav.liveSheet": "Live sheet",
   "ops.nav.paymentProofs": "Payment proofs",
@@ -28,6 +28,8 @@ export const en = {
   "ops.joined": "Joined",
   "ops.released": "Released",
   "ops.awaitingReview": "Awaiting review",
+  "ops.reportRow.rename.title": "Rename report",
+  "ops.reportRow.rename.label": "File name",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -35,7 +37,7 @@ export const ta: Record<keyof typeof en, string> = {
   "ops.nav.requests": "கோரிக்கைகள்",
   "ops.nav.userDetails": "பயனர் விவரங்கள்",
   "ops.nav.clients": "வாடிக்கையாளர்கள்",
-  "ops.nav.team": "லீஃப் நோட்கள்",
+  "ops.nav.team": "கேர் கிவர்கள்",
   "ops.nav.reports": "அறிக்கைகள்",
   "ops.nav.liveSheet": "லைவ் ஷீட்",
   "ops.nav.paymentProofs": "பணம் செலுத்திய சான்றுகள்",
@@ -60,4 +62,6 @@ export const ta: Record<keyof typeof en, string> = {
   "ops.joined": "சேர்ந்த தேதி",
   "ops.released": "வெளியிடப்பட்டது",
   "ops.awaitingReview": "மதிப்பாய்வுக்காக காத்திருக்கிறது",
+  "ops.reportRow.rename.title": "அறிக்கையை மறுபெயரிடு",
+  "ops.reportRow.rename.label": "கோப்பு பெயர்",
 };

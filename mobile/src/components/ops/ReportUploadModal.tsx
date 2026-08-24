@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { UploadCloud } from "lucide-react-native";
+import { UploadCloud, Plus, X } from "lucide-react-native";
 import {
   useUploadReport,
   REPORT_TYPES,
@@ -18,17 +18,22 @@ import {
   OutlineButton,
   ErrorBanner,
 } from "@/components/ui";
-import { pickReportFile, fileToProofSource, type PickedFile } from "@/lib/reportFile";
+import { pickReportFiles, fileToProofSource, type PickedFile } from "@/lib/reportFile";
 import { translateServiceName } from "@/lib/serviceI18n";
 import { useLanguage } from "@/lib/i18n";
 
 const TYPE_OPTIONS = REPORT_TYPES.map((t) => ({ value: t, label: REPORT_TYPE_LABELS[t] }));
 
 /**
- * Caregiver/admin uploads a report against a booking. Mirrors
- * web/src/components/ReportUploadModal.tsx — an AFTER INSERT trigger advances
- * the booking to `report_uploaded`, and the report stays invisible to the
- * client until an admin releases it.
+ * Caregiver/admin uploads one or more reports against a booking in one pass
+ * (e.g. a multi-page lab result, or a prescription plus a scan) — each file
+ * becomes its own `report_uploads` row (the schema is one file per row), all
+ * sharing the report type/note picked once for the whole batch. Mirrors
+ * web/src/components/ReportUploadModal.tsx's original single-file shape,
+ * extended to a picked-files list with per-file remove before submitting.
+ * An `AFTER INSERT` trigger advances the booking to `report_uploaded` on the
+ * first row; the report stays invisible to the client until an admin
+ * releases it.
  */
 export function ReportUploadModal({
   booking,
@@ -38,57 +43,70 @@ export function ReportUploadModal({
   onClose: () => void;
 }) {
   const { t } = useLanguage();
-  const [file, setFile] = useState<PickedFile | null>(null);
+  const [files, setFiles] = useState<PickedFile[]>([]);
   const [reportType, setReportType] = useState<ReportType>("medical_report");
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const upload = useUploadReport();
 
   const pick = async () => {
     setErr(null);
     try {
-      const picked = await pickReportFile();
-      if (!picked) return; // cancelled
+      const picked = await pickReportFiles();
+      if (!picked.length) return; // cancelled
       // Validated here as well as in the mutation so the error lands next to
       // the picker rather than as a toast after a pointless upload attempt.
-      if (!ALLOWED_REPORT_MIME.includes(picked.mimeType as (typeof ALLOWED_REPORT_MIME)[number])) {
+      const bad = picked.find((f) => !ALLOWED_REPORT_MIME.includes(f.mimeType as (typeof ALLOWED_REPORT_MIME)[number]));
+      if (bad) {
         setErr(t("modal.reportUpload.error.fileType"));
         return;
       }
-      if (picked.size > MAX_REPORT_UPLOAD_BYTES) {
+      const tooBig = picked.find((f) => f.size > MAX_REPORT_UPLOAD_BYTES);
+      if (tooBig) {
         setErr(t("modal.reportUpload.error.fileSize"));
         return;
       }
-      setFile(picked);
+      setFiles((prev) => [...prev, ...picked]);
     } catch {
       setErr(t("modal.reportUpload.error.pickerFailed"));
     }
   };
 
+  const removeFile = (uri: string) => setFiles((prev) => prev.filter((f) => f.uri !== uri));
+
   if (!booking) return null;
 
-  const submit = () => {
-    if (!file) {
+  const submit = async () => {
+    if (!files.length) {
       setErr(t("modal.reportUpload.error.chooseFile"));
       return;
     }
     setErr(null);
-    upload.mutate(
-      {
-        bookingId: booking.id,
-        reportType,
-        note,
-        fileName: file.name,
-        source: fileToProofSource(file),
-      },
-      {
-        onSuccess: () => {
-          setFile(null);
-          setNote("");
-          onClose();
-        },
+    setSubmitting(true);
+    try {
+      // Sequential, not Promise.all — each upload writes to the same
+      // booking_id/user.id storage folder with a Date.now()-based filename,
+      // and running them one at a time keeps that naturally unique.
+      for (const f of files) {
+        await upload.mutateAsync({
+          bookingId: booking.id,
+          reportType,
+          note,
+          fileName: f.name,
+          source: fileToProofSource(f),
+        });
       }
-    );
+      setFiles([]);
+      setNote("");
+      onClose();
+    } catch {
+      // useUploadReport() already toasts the specific error; leave the
+      // modal open with whatever files hadn't uploaded yet still picked,
+      // so the caregiver can retry without re-selecting everything.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -107,13 +125,29 @@ export function ReportUploadModal({
 
         <View>
           <Text className="mb-1.5 text-sm font-medium text-gray-700">{t("modal.reportUpload.file")}</Text>
+
+          {files.length ? (
+            <View className="mb-2 gap-2">
+              {files.map((f) => (
+                <View key={f.uri} className="flex-row items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                  <Text className="flex-1 text-sm text-gray-700" numberOfLines={1}>
+                    {f.name}
+                  </Text>
+                  <Pressable onPress={() => removeFile(f.uri)} hitSlop={8} className="active:opacity-60">
+                    <X size={16} color="#9ca3af" />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
           <Pressable
             onPress={pick}
             className="flex-row items-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 active:border-purple-400"
           >
-            <UploadCloud size={18} color="#9ca3af" />
+            {files.length ? <Plus size={18} color="#9ca3af" /> : <UploadCloud size={18} color="#9ca3af" />}
             <Text className="flex-1 text-sm text-gray-600" numberOfLines={1}>
-              {file ? file.name : t("modal.reportUpload.choosePlaceholder")}
+              {files.length ? t("modal.reportUpload.addMore") : t("modal.reportUpload.choosePlaceholder")}
             </Text>
           </Pressable>
         </View>
@@ -136,8 +170,8 @@ export function ReportUploadModal({
 
       <View className="mt-6 flex-row justify-end gap-3">
         <OutlineButton onPress={onClose}>{t("modal.reportUpload.cancel")}</OutlineButton>
-        <PrimaryButton loading={upload.isPending} onPress={submit}>
-          {t("modal.reportUpload.upload")}
+        <PrimaryButton loading={submitting || upload.isPending} onPress={submit}>
+          {files.length > 1 ? t("modal.reportUpload.uploadCount", { count: files.length }) : t("modal.reportUpload.upload")}
         </PrimaryButton>
       </View>
     </AppModal>

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { View, Text, Image, ScrollView, Pressable } from "react-native";
-import { Check, Ban } from "lucide-react-native";
+import { Check, Ban, Save } from "lucide-react-native";
 import {
   useVerifyPayment,
   useRejectPayment,
-  money,
+  useSetBookingAmount,
   formatDate,
   formatSlot,
   PAYMENT_PROOF_BUCKET,
@@ -15,7 +15,9 @@ import {
   PrimaryButton,
   OutlineButton,
   DangerButton,
+  SmallPrimaryButton,
   TextareaInput,
+  FormInput,
   Spinner,
 } from "@/components/ui";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
@@ -42,8 +44,14 @@ export function PaymentReviewModal({
   const { t } = useLanguage();
   const [reason, setReason] = useState("");
   const [showReject, setShowReject] = useState(false);
+  // Not pre-filled from any catalog calculation — admin types the real
+  // amount fresh, based on what actually happened at the visit (migration
+  // 0044). Pre-filled only from a value admin already saved earlier, so
+  // re-opening Review doesn't lose prior work.
+  const [amount, setAmount] = useState(booking?.total_amount != null ? String(booking.total_amount) : "");
   const verify = useVerifyPayment();
   const reject = useRejectPayment();
+  const setBookingAmount = useSetBookingAmount();
   const { data: signedUrl, isLoading: urlLoading } = useSignedUrl(
     PAYMENT_PROOF_BUCKET,
     booking?.payment_proof_path
@@ -51,6 +59,13 @@ export function PaymentReviewModal({
 
   if (!booking) return null;
 
+  const parsedAmount = Number(amount);
+  const amountValid = amount.trim().length > 0 && Number.isFinite(parsedAmount) && parsedAmount >= 0;
+
+  const doSaveAmount = () => {
+    if (!amountValid) return;
+    setBookingAmount.mutate({ id: booking.id, amount: parsedAmount });
+  };
   const doVerify = () => verify.mutate(booking.id, { onSuccess: onClose });
   const doReject = () => reject.mutate({ id: booking.id, reason }, { onSuccess: onClose });
 
@@ -65,12 +80,34 @@ export function PaymentReviewModal({
             label={t("modal.paymentReview.when")}
             value={`${formatDate(booking.start_date)} · ${formatSlot(booking.time_slot)} · ${booking.num_days}d`}
           />
-          <Row label={t("modal.paymentReview.total")} value={money(booking.total_amount)} />
           <Row
             label={t("modal.paymentReview.method")}
             value={booking.payment_method === "online" ? t("modal.paymentReview.methodOnline") : t("modal.paymentReview.methodDirect")}
           />
         </View>
+
+        {booking.booking_status !== "cancelled" ? (
+          <View className="mb-4 flex-row items-end gap-2">
+            <View className="flex-1">
+              <FormInput
+                label={t("modal.paymentReview.amountLabel")}
+                value={amount}
+                onChangeText={setAmount}
+                placeholder={t("modal.paymentReview.amountPlaceholder")}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <SmallPrimaryButton
+              icon={Save}
+              disabled={!amountValid || setBookingAmount.isPending}
+              onPress={doSaveAmount}
+            >
+              {t("modal.paymentReview.saveAmount")}
+            </SmallPrimaryButton>
+          </View>
+        ) : (
+          <Row label={t("modal.paymentReview.total")} value={booking.total_amount != null ? String(booking.total_amount) : "—"} />
+        )}
 
         <Text className="mb-1.5 text-sm font-medium text-gray-700">{t("modal.paymentReview.proofLabel")}</Text>
         {booking.payment_proof_path ? (
@@ -121,10 +158,13 @@ export function PaymentReviewModal({
           </>
         ) : !showReject ? (
           <>
+            {booking.total_amount == null ? (
+              <Text className="flex-1 text-xs text-gray-500">{t("modal.paymentReview.amountRequiredHint")}</Text>
+            ) : null}
             <OutlineButton icon={Ban} onPress={() => setShowReject(true)}>
               {t("modal.paymentReview.reject")}
             </OutlineButton>
-            <PrimaryButton icon={Check} loading={verify.isPending} onPress={doVerify}>
+            <PrimaryButton icon={Check} loading={verify.isPending} disabled={booking.total_amount == null} onPress={doVerify}>
               {t("modal.paymentReview.markPaid")}
             </PrimaryButton>
           </>

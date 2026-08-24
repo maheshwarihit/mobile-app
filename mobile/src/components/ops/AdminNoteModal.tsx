@@ -7,7 +7,7 @@ import { translateTamilToEnglish } from "@/lib/translateText";
 
 /**
  * Admin's free-text note on a booking — patient details/needs the assigned
- * leaf node should know. Saved to `bookings.admin_note` (migration 0027) and
+ * Care Giver should know. Saved to `bookings.admin_note` (migration 0027) and
  * folded into the WhatsApp assignment message (`assignmentMessage()`,
  * `mobile/src/lib/whatsapp.ts`) alongside the client's own symptom brief.
  * The caller must key this on `booking.id` so a fresh instance — with the

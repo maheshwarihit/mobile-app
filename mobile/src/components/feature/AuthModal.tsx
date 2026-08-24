@@ -26,13 +26,19 @@ type OpsRole = "admin" | "leaf_node";
 // Must match migration 0038 (handle_new_user()) exactly — the DB trigger
 // already silently downgrades a mismatched name to a plain 'patient' account
 // rather than erroring, so this client-side check exists purely so someone
-// who picks Admin/Care Assistant without the right name finds out *before*
+// who picks Admin/Care Giver without the right name finds out *before*
 // burning a real OTP and completing sign-up, instead of being quietly landed
 // in the wrong shell with no explanation.
 const OPS_ROLE_REQUIRED_NAME: Record<OpsRole, string> = {
   admin: "VAgeWell_Care_qcrah",
-  leaf_node: "VAgeWell_Care_ln",
+  leaf_node: "VAgeWell_Care_cg",
 };
+
+// Every ops account of a given role shares the same fixed `full_name` above
+// (the gate string) — meaningless for telling two Admins or two Care Givers
+// apart anywhere their name is shown back (e.g. the Approve & Assign
+// dropdown). This second field collects the person's real name into its own
+// `display_name` column instead; `full_name` is never touched by it.
 
 /**
  * Centered sign-in/sign-up popup, opened from the Landing and Home screens.
@@ -45,7 +51,7 @@ const OPS_ROLE_REQUIRED_NAME: Record<OpsRole, string> = {
  * `allowModeSwitch={false}` locks the modal to `initialMode` and hides the
  * Login/Sign up toggle — used where a signup path genuinely doesn't apply.
  *
- * `rolePicker={true}` adds an Admin/Leaf Node choice to the Sign up step and
+ * `rolePicker={true}` adds an Admin/Care Giver choice to the Sign up step and
  * sends it as `requested_role` in the OTP signup metadata — `handle_new_user()`
  * (DB trigger) grants that role the instant the account is created, no
  * approval step. Originally a deliberate trade-off (anyone who could complete
@@ -56,6 +62,15 @@ const OPS_ROLE_REQUIRED_NAME: Record<OpsRole, string> = {
  * the same match *before* sending the OTP, so a mismatch is caught
  * immediately instead of after a real OTP was already spent. Wired to
  * Landing's Caregiver·Admin door (2026-08-11).
+ *
+ * Every Admin (and every Care Giver) signs up with the *same* fixed
+ * `full_name` (the gate string above), which left the Approve & Assign
+ * dropdown unable to tell Care Giver candidates apart. Both ops roles
+ * collect a second field for this — the person's real name, sent as its own
+ * signup-metadata field and stored in its own `profiles.display_name`
+ * column — currently only actually *displayed* back in that Care Giver
+ * dropdown (migration 0040), but captured for Admin too for the same reason
+ * and to keep one consistent signup shape.
  *
  * Sign-up also checks `phone_registered()` (migration 0026, pre-auth RPC)
  * before sending the OTP — an already-registered number otherwise gets
@@ -87,6 +102,7 @@ export function AuthModal({
   const [mode, setMode] = useState<Mode>(initialMode);
   const [step, setStep] = useState<Step>("details");
   const [fullName, setFullName] = useState("");
+  const [opsDisplayName, setOpsDisplayName] = useState("");
   const [phoneRaw, setPhoneRaw] = useState("");
   const [e164, setE164] = useState("");
   const [otp, setOtp] = useState("");
@@ -108,7 +124,7 @@ export function AuthModal({
   const oauthSignIn = async (provider: OAuthProvider) => {
     setErr(null);
     setOauthBusy(provider);
-    const { error } = await signInWithProvider(provider, mode === "register" && rolePicker ? role : undefined);
+    const { error } = await signInWithProvider(provider);
     setOauthBusy(null);
     if (error) setErr(error);
   };
@@ -116,6 +132,7 @@ export function AuthModal({
   const reset = () => {
     setStep("details");
     setFullName("");
+    setOpsDisplayName("");
     setPhoneRaw("");
     setE164("");
     setOtp("");
@@ -144,7 +161,10 @@ export function AuthModal({
       }
     } else {
       const data: Record<string, string> = { full_name: fullName.trim() };
-      if (rolePicker) data.requested_role = role;
+      if (rolePicker) {
+        data.requested_role = role;
+        data.display_name = opsDisplayName.trim();
+      }
       const { error } = await supabase.auth.signInWithOtp({ phone, options: { data } });
       if (error) {
         setErr(error.message);
@@ -163,6 +183,10 @@ export function AuthModal({
     }
     if (mode === "register" && rolePicker && fullName.trim() !== OPS_ROLE_REQUIRED_NAME[role]) {
       setErr(t("auth.error.nameMismatch"));
+      return;
+    }
+    if (mode === "register" && rolePicker && opsDisplayName.trim().length < 2) {
+      setErr(t("auth.error.enterDisplayName"));
       return;
     }
     const normalized = normalizePhone(phoneRaw);
@@ -245,7 +269,7 @@ export function AuthModal({
       {step === "details" ? (
         <View className="gap-4">
           {/* Google/Apple sign-in is a client-only convenience — an OAuth
-              account has no phone number, and the Care Assistant/Admin door
+              account has no phone number, and the Care Giver/Admin door
               (rolePicker) is a promotable ops identity that needs one for
               RLS/household matching, so this door is OTP-only. */}
           {!rolePicker ? (
@@ -274,6 +298,16 @@ export function AuthModal({
           ) : null}
           {mode === "register" && rolePicker ? (
             <ChoiceChips label={t("auth.registeringAs")} value={role} onChange={(v) => setRole(v as OpsRole)} options={ROLE_OPTIONS} required />
+          ) : null}
+          {mode === "register" && rolePicker ? (
+            <FormInput
+              label={role === "admin" ? t("auth.adminName") : t("auth.careGiverName")}
+              value={opsDisplayName}
+              onChangeText={setOpsDisplayName}
+              placeholder={t("auth.displayNamePlaceholder")}
+              autoCapitalize="words"
+              required
+            />
           ) : null}
           <FormInput
             label={t("auth.mobileNumber")}

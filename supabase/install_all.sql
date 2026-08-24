@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0038. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0045. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -12,6 +12,7 @@ create table if not exists public.profiles (
   id                 uuid primary key references auth.users(id) on delete cascade,
   role               text not null default 'patient' check (role in ('patient','admin','leaf_node')),
   full_name          text,
+  display_name       text,
   phone              text,
   age                int  check (age is null or (age >= 0 and age <= 150)),
   gender             text check (gender is null or gender in ('male','female','other','prefer_not_to_say')),
@@ -39,6 +40,8 @@ alter table public.profiles add column if not exists avatar_path text;
 alter table public.profiles add column if not exists emp_id text;
 -- Repair path: viewed_by_admin_at on a table that predates 0029.
 alter table public.profiles add column if not exists viewed_by_admin_at timestamptz;
+-- Repair path: display_name on a table that predates 0040.
+alter table public.profiles add column if not exists display_name text;
 -- Backfill pre-existing profiles as already-viewed (fixed cutoff, not now() —
 -- this script re-runs repeatedly, and now() would wrongly re-mark a genuinely
 -- new, still-unviewed sign-up as viewed on every later re-run).
@@ -283,7 +286,8 @@ create trigger tg_report_uploads_updated_at before update on public.report_uploa
 --
 -- 0038: an elevated role is now ALSO gated on the signed-up full_name exactly
 -- matching a fixed, agreed team identity — 'VAgeWell_Care_qcrah' for Admin,
--- 'VAgeWell_Care_ln' for Leaf Node (Care Assistant). Anyone else requesting
+-- 'VAgeWell_Care_cg' for Care Giver (renamed from 'VAgeWell_Care_ln' in 0039).
+-- Anyone else requesting
 -- either role falls through to 'patient', same as an unrecognized role value
 -- already did. This is a coordination gate, not real authentication — the
 -- name is visible/guessable, not a secret credential — but it does stop a
@@ -291,21 +295,26 @@ create trigger tg_report_uploads_updated_at before update on public.report_uploa
 -- which the self-select door otherwise allowed unconditionally since 0013.
 create or replace function public.handle_new_user() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$
-declare v_age int; v_family_row public.family_members; v_role text; v_full_name text;
+declare v_age int; v_family_row public.family_members; v_role text; v_full_name text; v_display_name text;
 begin
   if coalesce(new.raw_user_meta_data->>'age','') ~ '^\d+$'
     then v_age := (new.raw_user_meta_data->>'age')::int; else v_age := null; end if;
   v_role := nullif(new.raw_user_meta_data->>'requested_role','');
   v_full_name := nullif(new.raw_user_meta_data->>'full_name','');
+  v_display_name := nullif(new.raw_user_meta_data->>'display_name','');
   if not (
     (v_role = 'admin'     and v_full_name = 'VAgeWell_Care_qcrah')
-    or (v_role = 'leaf_node' and v_full_name = 'VAgeWell_Care_ln')
+    or (v_role = 'leaf_node' and v_full_name = 'VAgeWell_Care_cg')
   ) then
     v_role := 'patient';
+    -- display_name only ever means something for a genuinely-granted Care
+    -- Giver identity (see AuthModal.tsx) — dropped for a downgraded signup so
+    -- a stray/guessed value on a patient account can't masquerade as one.
+    v_display_name := null;
   end if;
-  insert into public.profiles (id, role, phone, full_name, age, gender, address, how_heard, wellness_note)
+  insert into public.profiles (id, role, phone, full_name, display_name, age, gender, address, how_heard, wellness_note)
   values (new.id, v_role, new.phone,
-          v_full_name, v_age,
+          v_full_name, v_display_name, v_age,
           nullif(new.raw_user_meta_data->>'gender',''),
           nullif(new.raw_user_meta_data->>'address',''),
           coalesce(nullif(new.raw_user_meta_data->>'how_heard',''),'web_search'),
@@ -405,7 +414,9 @@ begin
   new.price_per_day := v_price;
   new.service_name  := v_name;
   new.pricing_model := v_pricing_model;
-  new.total_amount  := case when v_pricing_model = 'flat_advance' then v_price else new.num_days * v_price end;
+  -- 0044: no longer auto-computed from the catalog — admin sets the real
+  -- amount after the visit (Review modal), based on what actually happened.
+  new.total_amount  := null;
   if new.payment_method = 'direct' then
     new.payment_status := 'pay_at_visit';
   else
@@ -437,6 +448,11 @@ begin
   or new.time_slot is distinct from old.time_slot
   or new.payment_method is distinct from old.payment_method then
     raise exception 'immutable booking field changed' using errcode = '42501';
+  end if;
+
+  -- 0044: total_amount is admin-set (Review modal), not auto-calculated.
+  if new.total_amount is distinct from old.total_amount and not public.is_admin() then
+    raise exception 'admin only' using errcode = '42501';
   end if;
 
   if new.payment_proof_path is distinct from old.payment_proof_path and old.payment_status = 'paid' then
@@ -472,6 +488,13 @@ begin
   end if;
 
   if new.booking_status is distinct from old.booking_status then
+    -- 0042: completing a visit requires a visit_photos row (Care Giver with
+    -- patient, GPS-tagged) for this booking — enforced here so it can't be
+    -- bypassed by calling the API directly.
+    if new.booking_status = 'completed'
+       and not exists (select 1 from public.visit_photos where booking_id = new.id) then
+      raise exception 'a visit photo (Care Giver with patient) is required before completing' using errcode = '23514';
+    end if;
     if new.booking_status = 'cancelled' then
       if public.is_staff() then
         if old.booking_status = 'completed' then
@@ -615,7 +638,7 @@ grant select on public.profiles to authenticated;
 -- denied for table profiles", regardless of role or RLS.
 -- emp_id (0025): new field for the ops-side "My Profile" panel; granted
 -- up front this time instead of repeating the 0019 discovery.
-grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path, emp_id, viewed_by_admin_at) on public.profiles to authenticated;
+grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path, emp_id, viewed_by_admin_at, display_name) on public.profiles to authenticated;
 revoke insert, update, delete on public.bookings from anon, authenticated;
 grant select on public.bookings to authenticated;
 -- account_id (0018): widened so an admin's insert can name the target
@@ -624,10 +647,18 @@ grant select on public.bookings to authenticated;
 -- who isn't admin, regardless of what they submit.
 grant insert (account_id, service_id, family_member_id, num_days, start_date, time_slot, symptom_brief, payment_method, payment_proof_path, service_mode) on public.bookings to authenticated;
 grant update (booking_status, symptom_brief, payment_proof_path, service_mode, assigned_to, admin_note) on public.bookings to authenticated;
+-- 0044: admin sets the real amount after the visit (enforced admin-only by
+-- tg_booking_update_guard() above, not by this grant, which is per-caller).
+grant update (total_amount) on public.bookings to authenticated;
 grant select, insert, update, delete on public.family_members   to authenticated;
 grant select, insert, update, delete on public.services         to authenticated;
 grant select, insert, update, delete on public.clinical_records to authenticated;
 grant select, insert on public.report_uploads to authenticated;
+-- 0041: lets a caregiver remove a report they uploaded by mistake, before an
+-- admin has released it to the customer; admin can delete any report.
+grant delete on public.report_uploads to authenticated;
+-- 0043: lets the uploader (or admin) rename a report's file name.
+grant update (file_name) on public.report_uploads to authenticated;
 
 -- ── ENABLE RLS ──────────────────────────────────────────────────────────────
 alter table public.profiles         enable row level security;
@@ -694,6 +725,13 @@ drop policy if exists report_select on public.report_uploads;
 create policy report_select on public.report_uploads for select to authenticated
   using (public.is_staff()
     or (reviewed and exists (select 1 from public.bookings b where b.id = report_uploads.booking_id and public.in_household(b.account_id))));
+drop policy if exists report_delete on public.report_uploads;
+create policy report_delete on public.report_uploads for delete to authenticated
+  using ((uploaded_by = auth.uid() and not reviewed) or public.is_admin());
+drop policy if exists report_update on public.report_uploads;
+create policy report_update on public.report_uploads for update to authenticated
+  using ((uploaded_by = auth.uid() and not reviewed) or public.is_admin())
+  with check ((uploaded_by = auth.uid() and not reviewed) or public.is_admin());
 
 -- ── COMBINED VIEW (0037) ─────────────────────────────────────────────────────
 -- One flat, GET-able row per booking: patient/dependent/service/caregiver
@@ -886,6 +924,51 @@ create policy patient_lead_select on public.patient_leads for select to authenti
 drop policy if exists patient_lead_insert on public.patient_leads;
 create policy patient_lead_insert on public.patient_leads for insert to authenticated with check (public.is_admin());
 
+-- ── VISIT PHOTOS (0042) — mandatory GPS-tagged Care Giver + patient photo, ──
+-- required before a booking can be marked completed. Separate from
+-- report_uploads (never customer-visible — internal ops verification only).
+create table if not exists public.visit_photos (
+  id           uuid primary key default gen_random_uuid(),
+  booking_id   uuid not null references public.bookings(id) on delete cascade,
+  uploaded_by  uuid not null references public.profiles(id) on delete restrict,
+  storage_path text not null,
+  latitude     double precision,
+  longitude    double precision,
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_visit_photos_booking on public.visit_photos(booking_id);
+
+create or replace function public.tg_visit_photo_stamp() returns trigger
+  language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  new.uploaded_by := auth.uid();
+  return new;
+end; $$;
+drop trigger if exists tg_visit_photos_before_insert on public.visit_photos;
+create trigger tg_visit_photos_before_insert before insert on public.visit_photos
+  for each row execute function public.tg_visit_photo_stamp();
+
+alter table public.visit_photos enable row level security;
+alter table public.visit_photos force row level security;
+grant select, insert on public.visit_photos to authenticated;
+
+drop policy if exists visit_photo_select on public.visit_photos;
+create policy visit_photo_select on public.visit_photos for select to authenticated using (public.is_staff());
+drop policy if exists visit_photo_insert on public.visit_photos;
+create policy visit_photo_insert on public.visit_photos for insert to authenticated with check (public.is_staff());
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('visit-photos','visit-photos', false, 5242880, array['image/jpeg','image/png'])
+on conflict (id) do update
+  set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists visit_photo_file_insert on storage.objects;
+create policy visit_photo_file_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'visit-photos' and public.is_staff());
+drop policy if exists visit_photo_file_select on storage.objects;
+create policy visit_photo_file_select on storage.objects for select to authenticated
+  using (bucket_id = 'visit-photos' and public.is_staff());
+
 -- ── SEED SERVICES ───────────────────────────────────────────────────────────
 -- Retire anything already in the catalog first (mirrors migration 0006): a
 -- piecemeal setup may still hold the original 6 placeholder services, and rows
@@ -941,6 +1024,29 @@ left join public.profiles p on p.id = b.account_id
 where r.booking_id = b.id
   and (r.service_name is null or r.patient_name is null);
 
+-- ── clear stale auto-priced bookings (0045 repair path) ─────────────────────
+-- 0044 stopped auto-calculating total_amount on new bookings, but any booking
+-- inserted before 0044 ran already has a stale, auto-calculated amount stored
+-- on the row. Clear it on anything not yet marked paid, so it goes back to
+-- blank for admin to set fresh, same as every new booking now does.
+-- tg_booking_update_guard() blocks a total_amount change unless the caller is
+-- admin — the SQL Editor session running this script isn't one, so disable
+-- the trigger around this one bulk UPDATE (same pattern as the 0009
+-- booking_status backfill above), then re-enable it.
+do $$ begin
+  if exists (select 1 from pg_trigger where tgname = 'tg_bookings_before_update' and tgrelid = 'public.bookings'::regclass) then
+    execute 'alter table public.bookings disable trigger tg_bookings_before_update';
+  end if;
+end $$;
+update public.bookings
+set total_amount = null
+where payment_status <> 'paid';
+do $$ begin
+  if exists (select 1 from pg_trigger where tgname = 'tg_bookings_before_update' and tgrelid = 'public.bookings'::regclass) then
+    execute 'alter table public.bookings enable trigger tg_bookings_before_update';
+  end if;
+end $$;
+
 -- ── (optional) promote your founding admin — edit the phone, then uncomment ──
 -- update public.profiles set role = 'admin', updated_at = now()
 --  where id in (select id from auth.users where replace(phone,'+','') = '919000000001');
@@ -962,6 +1068,6 @@ from auth.users u where replace(u.phone, '+', '') = '919000000002'
 on conflict (id) do update set role = excluded.role, updated_at = now();
 
 insert into public.profiles (id, role, phone, full_name)
-select u.id, 'leaf_node', u.phone, coalesce(u.raw_user_meta_data->>'full_name', 'Leaf Node')
+select u.id, 'leaf_node', u.phone, coalesce(u.raw_user_meta_data->>'full_name', 'Care Giver')
 from auth.users u where replace(u.phone, '+', '') = '919000000003'
 on conflict (id) do update set role = excluded.role, updated_at = now();

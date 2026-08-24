@@ -27,6 +27,7 @@ export const qk = {
   reports: (booking: string) => ["reports", booking] as const,
   reportsUnreviewed: ["reports", "__unreviewed__"] as const,
   reportsAll: ["reports", "__all__"] as const,
+  visitPhotos: (booking: string) => ["visit_photos", booking] as const,
   bookingRequests: ["booking_requests"] as const,
   patientLeads: ["patient_leads"] as const,
 };
