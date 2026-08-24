@@ -8,7 +8,6 @@ import {
   useSetUserRole,
   localPhone,
   formatDate,
-  money,
   bookingStatusMeta,
   ROLES,
   ROLE_LABELS,
@@ -47,8 +46,14 @@ export function AdminTeamScreen({ onOpenClient }: { onOpenClient?: (accountId: s
   const sections = useMemo<Section[]>(() => {
     const pool = q ? profiles ?? [] : (profiles ?? []).filter((p) => p.role === "leaf_node");
     const matched = pool
-      .filter((p) => !q || (p.full_name ?? "").toLowerCase().includes(q) || (p.phone ?? "").includes(q))
-      .sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
+      .filter(
+        (p) =>
+          !q ||
+          (p.full_name ?? "").toLowerCase().includes(q) ||
+          (p.display_name ?? "").toLowerCase().includes(q) ||
+          (p.phone ?? "").includes(q)
+      )
+      .sort((a, b) => (a.display_name ?? a.full_name ?? "").localeCompare(b.display_name ?? b.full_name ?? ""));
 
     if (!q) return [{ title: "", data: matched }];
 
@@ -137,7 +142,7 @@ function MemberRow({
         <ProfilePhoto profile={p} size={40} />
         <View className="flex-1">
           <Text className={`text-base font-semibold text-gray-900 dark:text-white ${onPress ? "underline" : ""}`}>
-            {p.full_name ?? "—"}
+            {p.display_name ?? p.full_name ?? "—"}
           </Text>
           <Text className="text-xs text-gray-500 dark:text-gray-400">
             {t("ops.team.detail", { phone: localPhone(p.phone) || "—", date: formatDate(p.created_at) })}
@@ -153,7 +158,7 @@ function MemberRow({
 }
 
 /**
- * A Care Assistant's own clients & visit history — every booking ever
+ * A Care Giver's own clients & visit history — every booking ever
  * assigned to them, filtered client-side from `useAllBookings` (bk_select
  * already grants an admin every booking, so no dedicated query needed).
  * Mirrors the deleted web portal's `/team/[memberId]` page.
@@ -194,7 +199,7 @@ function TeamMemberDetail({
               <View className="flex-row items-center gap-3">
                 <ProfilePhoto profile={member} size={48} />
                 <View className="flex-1">
-                  <Text className="text-lg font-bold text-gray-900 dark:text-white">{member.full_name ?? "—"}</Text>
+                  <Text className="text-lg font-bold text-gray-900 dark:text-white">{member.display_name ?? member.full_name ?? "—"}</Text>
                   <Text className="text-xs text-gray-500 dark:text-gray-400">
                     {t("ops.team.detailHeader", {
                       role: ROLE_LABELS[member.role],
@@ -244,7 +249,6 @@ function TeamMemberDetail({
                   <Text className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatDate(b.start_date)}</Text>
                 </View>
                 <View className="items-end gap-1.5">
-                  <Text className="text-sm font-bold text-gray-900 dark:text-white">{money(b.total_amount)}</Text>
                   <Pill bgClass={status.bg} textClass={status.text}>
                     {status.label}
                   </Pill>

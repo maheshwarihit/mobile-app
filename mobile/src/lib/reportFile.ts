@@ -14,29 +14,33 @@ function guessMime(nameOrUri: string): string {
 }
 
 /**
- * Pick a report file — images *or* PDF, matching the web portal's own
- * accept list (ALLOWED_REPORT_MIME). expo-image-picker can't return a PDF,
- * which is why this uses the document picker instead: a caregiver uploading
- * a lab report or prescription PDF is a normal case, not an edge one.
- * Returns null when the picker is cancelled.
+ * Pick one or more report files — images *or* PDF, matching the web portal's
+ * own accept list (ALLOWED_REPORT_MIME). expo-image-picker can't return a
+ * PDF, which is why this uses the document picker instead: a caregiver
+ * uploading a lab report or prescription PDF is a normal case, not an edge
+ * one. A booking's report can legitimately be several pages/photos (e.g. a
+ * multi-page lab result), so the picker allows selecting more than one file
+ * in a single pass — `ReportUploadModal` also lets the caregiver add more
+ * afterward, one pick at a time. Returns an empty array when cancelled.
  */
-export async function pickReportFile(): Promise<PickedFile | null> {
+export async function pickReportFiles(): Promise<PickedFile[]> {
   const res = await DocumentPicker.getDocumentAsync({
     type: [...ALLOWED_REPORT_MIME],
     copyToCacheDirectory: true, // the uri must outlive the picker for the upload read
-    multiple: false,
+    multiple: true,
   });
-  if (res.canceled || !res.assets?.[0]) return null;
-  const a = res.assets[0];
-  const name = a.name || "report";
-  return {
-    uri: a.uri,
-    name,
-    // Android occasionally hands back a null/generic mimeType — fall back to
-    // the extension so the upload isn't rejected by the shared MIME guard.
-    mimeType: a.mimeType && a.mimeType !== "application/octet-stream" ? a.mimeType : guessMime(name),
-    size: a.size ?? 0,
-  };
+  if (res.canceled || !res.assets?.length) return [];
+  return res.assets.map((a) => {
+    const name = a.name || "report";
+    return {
+      uri: a.uri,
+      name,
+      // Android occasionally hands back a null/generic mimeType — fall back to
+      // the extension so the upload isn't rejected by the shared MIME guard.
+      mimeType: a.mimeType && a.mimeType !== "application/octet-stream" ? a.mimeType : guessMime(name),
+      size: a.size ?? 0,
+    };
+  });
 }
 
 /** Wrap a picked file as the platform-neutral ProofSource the shared upload mutation expects. */

@@ -45,6 +45,7 @@ export function OpsProfileScreen() {
   const uploadPhoto = useUploadProfilePhoto();
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [empId, setEmpId] = useState("");
   const [address, setAddress] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -53,6 +54,7 @@ export function OpsProfileScreen() {
 
   const startEdit = () => {
     setFullName(profile?.full_name ?? "");
+    setDisplayName(profile?.display_name ?? "");
     setEmpId(profile?.emp_id ?? "");
     setAddress(profile?.address ?? "");
     setErrors({});
@@ -67,8 +69,9 @@ export function OpsProfileScreen() {
     }
     setErrors({});
     setSaving(true);
-    const [translatedName, translatedAddress] = await Promise.all([
+    const [translatedName, translatedDisplayName, translatedAddress] = await Promise.all([
       translateTamilToEnglish(fullName.trim()),
+      displayName.trim() ? translateTamilToEnglish(displayName.trim()) : Promise.resolve(""),
       address.trim() ? translateTamilToEnglish(address.trim()) : Promise.resolve(""),
     ]);
     setSaving(false);
@@ -76,6 +79,7 @@ export function OpsProfileScreen() {
       {
         id: profile.id,
         full_name: translatedName,
+        display_name: translatedDisplayName || null,
         // Untouched by this form, but useUpdateProfile takes the whole bio —
         // pass the current values through so saving a name can't blank them.
         age: profile.age,
@@ -133,7 +137,11 @@ export function OpsProfileScreen() {
               </View>
             </Pressable>
             <View className="flex-1">
-              <Text className="text-lg font-bold text-gray-900 dark:text-white">{profile?.full_name ?? "—"}</Text>
+              {/* display_name (the real name collected at sign-up, see AuthModal.tsx)
+                  instead of full_name — every ops account of a given role shares the
+                  same fixed full_name (the self-select-role gate string), which would
+                  otherwise show back to the account as its own "name" here. */}
+              <Text className="text-lg font-bold text-gray-900 dark:text-white">{profile?.display_name ?? profile?.full_name ?? "—"}</Text>
               <View className="mt-1 flex-row">
                 <Pill bgClass="bg-purple-50 dark:bg-purple-400/10" textClass="text-purple-700 dark:text-purple-300">
                   {role ? ROLE_LABELS[role] : "—"}
@@ -152,6 +160,7 @@ export function OpsProfileScreen() {
                 autoCapitalize="words"
                 required
               />
+              <FormInput label={t("ops.profile.yourName")} value={displayName} onChangeText={setDisplayName} autoCapitalize="words" />
               <FormInput label={t("ops.profile.employeeId")} value={empId} onChangeText={setEmpId} placeholder={t("ops.profile.employeeIdPlaceholder")} />
               <FormInput label={t("ops.profile.address")} value={address} onChangeText={setAddress} placeholder={t("ops.profile.addressPlaceholder")} />
               <View className="flex-row justify-end gap-3">
@@ -163,6 +172,7 @@ export function OpsProfileScreen() {
             </View>
           ) : (
             <View className="gap-3">
+              <Row label={t("ops.profile.yourName")} value={profile?.display_name ?? profile?.full_name ?? "—"} />
               <Row label={t("ops.profile.mobile")} value={localPhone(profile?.phone) || "—"} />
               <Row label={t("ops.profile.employeeId")} value={profile?.emp_id || "—"} />
               <Row label={t("ops.profile.address")} value={profile?.address || "—"} />

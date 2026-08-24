@@ -10,6 +10,7 @@ import type {
   ClinicalRecord,
   BookingWithNames,
   ReportUpload,
+  VisitPhoto,
   BookingRequestWithAccount,
   PatientLead,
 } from "./types";
@@ -115,7 +116,7 @@ export function useMyBookings() {
 }
 
 const BOOKING_WITH_NAMES_SELECT =
-  "*, account:profiles!bookings_account_id_fkey(full_name, phone, age), dependent:family_members(full_name, relationship, age, contact_phone), assignee:profiles!bookings_assigned_to_fkey(full_name, phone)";
+  "*, account:profiles!bookings_account_id_fkey(full_name, phone, age), dependent:family_members(full_name, relationship, age, contact_phone), assignee:profiles!bookings_assigned_to_fkey(full_name, display_name, phone)";
 
 function mapBookingWithNames(row: Record<string, unknown>): BookingWithNames {
   const account = row.account as Pick<Profile, "full_name" | "phone" | "age"> | null;
@@ -123,7 +124,7 @@ function mapBookingWithNames(row: Record<string, unknown>): BookingWithNames {
     FamilyMember,
     "full_name" | "relationship" | "age" | "contact_phone"
   > | null;
-  const assignee = row.assignee as Pick<Profile, "full_name" | "phone"> | null;
+  const assignee = row.assignee as Pick<Profile, "full_name" | "display_name" | "phone"> | null;
   return {
     ...(row as unknown as Booking),
     account: account ?? undefined,
@@ -132,6 +133,7 @@ function mapBookingWithNames(row: Record<string, unknown>): BookingWithNames {
     subject_age: dependent ? dependent.age : account?.age ?? null,
     subject_phone: dependent ? dependent.contact_phone : account?.phone ?? null,
     assigned_to_name: assignee?.full_name ?? null,
+    assigned_to_display_name: assignee?.display_name ?? null,
     assigned_to_phone: assignee?.phone ?? null,
   } as BookingWithNames;
 }
@@ -227,7 +229,7 @@ export function useAllClinicalRecords(enabled: boolean) {
   });
 }
 
-// ── All users (admin Role Manager, Staff/Leaf Node lists) ────────
+// ── All users (admin Role Manager, Staff/Care Giver lists) ────────
 export function useAllProfiles(enabled: boolean) {
   return useQuery({
     queryKey: qk.users,
@@ -258,6 +260,24 @@ export function useReportsForBooking(bookingId: string | null) {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ReportUpload[];
+    },
+  });
+}
+
+// ── Visit photos for one booking (mandatory Care Giver + patient proof) ────
+export function useVisitPhotosForBooking(bookingId: string | null) {
+  return useQuery({
+    queryKey: qk.visitPhotos(bookingId ?? "none"),
+    enabled: !!bookingId,
+    queryFn: async (): Promise<VisitPhoto[]> => {
+      const sb = getSupabase();
+      const { data, error } = await sb
+        .from("visit_photos")
+        .select("*")
+        .eq("booking_id", bookingId as string)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as VisitPhoto[];
     },
   });
 }

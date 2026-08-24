@@ -7,7 +7,6 @@ import {
   FileSearch,
   UserPlus2,
   UploadCloud,
-  Eye,
   MessageCircle,
   ClipboardList,
   NotebookPen,
@@ -17,16 +16,13 @@ import {
 } from "lucide-react-native";
 import {
   useAllBookings,
-  useAllReports,
+  useReportsForBooking,
   money,
   formatDate,
-  formatLocalDateTime,
   paymentStatusMeta,
   bookingStatusMeta,
   waLink,
-  MEDICAL_REPORT_BUCKET,
   type BookingWithNames,
-  type ReportUpload,
 } from "@vagewell/shared";
 import {
   PageHeader,
@@ -43,10 +39,12 @@ import {
 import { PaymentReviewModal } from "@/components/ops/PaymentReviewModal";
 import { ApproveAssignModal } from "@/components/ops/ApproveAssignModal";
 import { ReportUploadModal } from "@/components/ops/ReportUploadModal";
+import { ReportRow } from "@/components/ops/ReportRow";
+import { VisitPhotoStatus } from "@/components/ops/VisitPhotoStatus";
 import { AdminNoteModal } from "@/components/ops/AdminNoteModal";
 import { NewAppointmentModal } from "@/components/ops/NewAppointmentModal";
 import { assignmentMessage } from "@/lib/whatsapp";
-import { useSignedUrl, openUrl } from "@/lib/signedUrl";
+import { openUrl } from "@/lib/signedUrl";
 import { iconForService } from "@/lib/serviceIcon";
 import { translateServiceName } from "@/lib/serviceI18n";
 import { useLanguage } from "@/lib/i18n";
@@ -64,10 +62,6 @@ import { BRAND } from "@/theme";
 export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (accountId: string) => void }) {
   const { t } = useLanguage();
   const { data: bookings, isLoading, error, refetch } = useAllBookings(true);
-  // One reports query for the whole list instead of one per card — every row
-  // needs "is there a report yet?", and report_select already returns every
-  // row to an ops account, so N per-booking queries would be pure waste.
-  const { data: reports, refetch: refetchReports } = useAllReports(true);
   const [query, setQuery] = useState("");
   const [dayFrom, setDayFrom] = useState("");
   const [dayTo, setDayTo] = useState("");
@@ -80,16 +74,8 @@ export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (acco
   useFocusEffect(
     useCallback(() => {
       void refetch();
-      void refetchReports();
-    }, [refetch, refetchReports])
+    }, [refetch])
   );
-
-  // Newest-first already, so the first match per booking is the latest report.
-  const latestReportByBooking = useMemo(() => {
-    const map = new Map<string, ReportUpload>();
-    for (const r of reports ?? []) if (!map.has(r.booking_id)) map.set(r.booking_id, r);
-    return map;
-  }, [reports]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -104,6 +90,7 @@ export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (acco
       return (
         (b.subject_name ?? "").toLowerCase().includes(q) ||
         (b.assigned_to_name ?? "").toLowerCase().includes(q) ||
+        (b.assigned_to_display_name ?? "").toLowerCase().includes(q) ||
         b.service_name.toLowerCase().includes(q)
       );
     });
@@ -179,7 +166,6 @@ export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (acco
         renderItem={({ item }) => (
           <AdminBookingCard
             booking={item}
-            latestReport={latestReportByBooking.get(item.id) ?? null}
             onReview={() => setReviewing(item)}
             onApprove={() => setApproving(item)}
             onUploadReport={() => setReporting(item)}
@@ -206,7 +192,6 @@ export function AdminAppointmentsScreen({ onOpenClient }: { onOpenClient?: (acco
 
 function AdminBookingCard({
   booking,
-  latestReport,
   onReview,
   onApprove,
   onUploadReport,
@@ -214,7 +199,6 @@ function AdminBookingCard({
   onOpenClient,
 }: {
   booking: BookingWithNames;
-  latestReport: ReportUpload | null;
   onReview: () => void;
   onApprove: () => void;
   onUploadReport: () => void;
@@ -227,8 +211,11 @@ function AdminBookingCard({
   const isCancelled = booking.booking_status === "cancelled";
   const isRequested = booking.booking_status === "requested";
   const waHref = booking.assigned_to_phone ? waLink(booking.assigned_to_phone, assignmentMessage(booking)) : null;
-  const { data: reportUrl } = useSignedUrl(MEDICAL_REPORT_BUCKET, latestReport?.storage_path);
   const ServiceIcon = iconForService(booking.service_name);
+  // Every report for this booking, not just the latest — admin can view or
+  // remove any of them (report_delete RLS grants admin unconditionally,
+  // unlike a caregiver's own not-yet-released-only removal).
+  const { data: reports } = useReportsForBooking(booking.id);
 
   return (
     <Card className="rounded-2xl p-5">
@@ -255,8 +242,12 @@ function AdminBookingCard({
 
       <View className="mt-3 flex-row flex-wrap gap-2">
         <InfoPill icon={CalendarDays} text={formatDate(booking.start_date)} />
-        <InfoPill icon={Wallet} text={money(booking.total_amount)} />
-        {booking.assigned_to_name ? <InfoPill icon={UserCheck} text={booking.assigned_to_name} /> : null}
+        {booking.total_amount != null ? (
+          <InfoPill icon={Wallet} text={money(booking.total_amount)} />
+        ) : null}
+        {booking.assigned_to_name ? (
+          <InfoPill icon={UserCheck} text={booking.assigned_to_display_name ?? booking.assigned_to_name} />
+        ) : null}
       </View>
 
       {booking.admin_note ? (
@@ -264,15 +255,28 @@ function AdminBookingCard({
           {t("ops.appointments.note", { note: booking.admin_note })}
         </Text>
       ) : null}
-      {latestReport ? (
-        <Text className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-          {t("ops.appointments.reportUploaded", { date: formatLocalDateTime(latestReport.created_at) })}
-        </Text>
+      {!isCancelled && (booking.booking_status === "in_progress" || booking.booking_status === "report_uploaded") ? (
+        <View className="mt-2">
+          <VisitPhotoStatus bookingId={booking.id} />
+        </View>
+      ) : null}
+      {reports?.length ? (
+        <View className="mt-3 gap-2 border-t border-gray-100 pt-3 dark:border-slate-700">
+          {reports.map((r) => (
+            <ReportRow key={r.id} report={r} bookingId={booking.id} canDelete />
+          ))}
+        </View>
       ) : null}
 
       {!isCancelled ? (
         <View className="mt-4 flex-row flex-wrap gap-2 border-t border-gray-100 pt-4 dark:border-slate-700">
           <CardAction icon={FileSearch} label={t("ops.appointments.action.review")} onPress={onReview} />
+          <CardAction
+            icon={Wallet}
+            label={booking.total_amount != null ? t("ops.appointments.action.editPrice") : t("ops.appointments.action.addPrice")}
+            onPress={onReview}
+            tone="success"
+          />
           <CardAction
             icon={NotebookPen}
             label={booking.admin_note ? t("ops.appointments.action.editNote") : t("ops.appointments.action.addNote")}
@@ -284,9 +288,6 @@ function AdminBookingCard({
           ) : (
             <CardAction icon={UploadCloud} label={t("ops.appointments.action.uploadReport")} onPress={onUploadReport} tone="muted" />
           )}
-          {reportUrl ? (
-            <CardAction icon={Eye} label={t("ops.appointments.action.viewReport")} onPress={() => openUrl(reportUrl)} tone="muted" />
-          ) : null}
           {waHref ? (
             <CardAction icon={MessageCircle} label={t("ops.appointments.action.whatsapp")} onPress={() => openUrl(waHref)} tone="success" />
           ) : null}

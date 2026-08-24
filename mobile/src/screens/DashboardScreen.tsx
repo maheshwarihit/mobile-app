@@ -18,6 +18,7 @@ import {
   isBookingTerminal,
   isBookingMissed,
   bookingStatusMeta,
+  money,
   type Booking,
 } from "@vagewell/shared";
 import type { AppTabScreenProps } from "@/navigation/types";
@@ -182,6 +183,11 @@ function LastCompletedCheckup({ booking, subjectName }: { booking: Booking; subj
               <Text className="mt-1 text-sm text-gray-600">
                 {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
               </Text>
+              {booking.total_amount != null ? (
+                <Text className="mt-1 text-sm font-semibold text-gray-900">
+                  {t("bookingCard.amount", { amount: money(booking.total_amount) })}
+                </Text>
+              ) : null}
             </View>
           </View>
           <View className="items-end">
@@ -223,6 +229,11 @@ function MissedAppointment({
             <Text className="mt-1 text-sm text-gray-600">
               {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
             </Text>
+            {booking.total_amount != null ? (
+              <Text className="mt-1 text-sm font-semibold text-gray-900">
+                {t("bookingCard.amount", { amount: money(booking.total_amount) })}
+              </Text>
+            ) : null}
           </View>
         </View>
         <View className="items-end gap-1">

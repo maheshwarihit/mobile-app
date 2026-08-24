@@ -43,6 +43,7 @@ export interface Profile {
   address: string | null;
   avatar_path: string | null; // storage path in PROFILE_PHOTO_BUCKET (public bucket)
   emp_id: string | null; // free-text employee ID, ops accounts only in practice
+  display_name: string | null; // a leaf_node's real personal name, shown in the Approve & Assign dropdown instead of full_name (which is the fixed self-select-role gate string, e.g. "VAgeWell_Care_cg" — identical for every Care Giver)
   how_heard: HowHeard | null;
   wellness_note: string | null; // "How well are you?" (R1.5)
   // Set once this account's phone auto-links to a family_members row on
@@ -131,6 +132,17 @@ export interface ReportUpload {
   updated_at: string;
 }
 
+// ── visit_photos (mandatory GPS-tagged Care Giver + patient photo, migration 0042) ──
+export interface VisitPhoto {
+  id: string;
+  booking_id: string;
+  uploaded_by: string; // FK -> profiles.id
+  storage_path: string;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
+}
+
 // ── booking_requests ("Request for Booking" — quick contact-me lead, admin inbox) ──
 export interface BookingRequest {
   id: string;
@@ -185,7 +197,8 @@ export interface BookingWithNames extends Booking {
   subject_relationship?: Relationship | "self";
   subject_age?: number | null;
   subject_phone?: string | null;
-  assigned_to_name?: string | null; // resolved from the assigned staff/leaf_node profile
+  assigned_to_name?: string | null; // resolved from the assigned staff/leaf_node profile — the fixed self-select-role gate string, not a real name; prefer assigned_to_display_name for display
+  assigned_to_display_name?: string | null; // the assignee's real name (profiles.display_name), falls back to assigned_to_name when unset (e.g. an account created before this field existed)
   assigned_to_phone?: string | null;
 }
 

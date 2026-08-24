@@ -37,7 +37,7 @@ const landingPhoto = require("../../assets/onboarding/image5.png.png");
  *                                up) depend on which of these two buttons was
  *                                tapped, same as the Care Seeker path.
  *
- * The Caregiver·Admin door now also offers Sign up, with an Admin/Leaf Node
+ * The Caregiver·Admin door now also offers Sign up, with an Admin/Care Giver
  * role picker (`AuthModal`'s `rolePicker` prop) — anyone completing OTP there
  * can pick a role and get it immediately, no approval step (see the
  * `handle_new_user()` DB trigger, migration 0013). This was a deliberate

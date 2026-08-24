@@ -23,7 +23,7 @@ export const ROLES = ["patient", "admin", "leaf_node"] as const;
 export const ROLE_LABELS: Record<(typeof ROLES)[number], string> = {
   patient: "Client",
   admin: "Admin",
-  leaf_node: "Care Assistant",
+  leaf_node: "Care Giver",
 };
 // Roles that operate the web portal (vs. the patient mobile app).
 export const OPS_ROLES = ["admin", "leaf_node"] as const;
@@ -131,6 +131,9 @@ export const MEDICAL_REPORT_BUCKET = "medical-reports"; // private (see migratio
 
 // ── Profile photo (self-uploaded; public bucket, no signed URL needed) ──
 export const PROFILE_PHOTO_BUCKET = "profile-photos"; // public (see migration 0022)
+
+// ── Visit photo (Care Giver + patient, GPS-tagged; required before Complete) ──
+export const VISIT_PHOTO_BUCKET = "visit-photos"; // private, staff-only (see migration 0042)
 
 // A sign-up counts as "new" for this long — the web admin nav badge and the
 // User Details list's "New" pill both key off this, so they never disagree.

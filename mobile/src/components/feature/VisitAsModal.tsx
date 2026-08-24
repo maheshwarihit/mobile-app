@@ -16,7 +16,7 @@ export type VisitAs = "care_seeker" | "caregiver";
  * Picking an option here only decides which *form* opens next (`onContinue`
  * — Landing maps "care_seeker" to the client AuthModal and "caregiver" to the
  * staff/admin one). Both doors support Login and Sign up; the staff/admin
- * AuthModal instance also carries a role picker (Admin/Leaf Node) on its
+ * AuthModal instance also carries a role picker (Admin/Care Giver) on its
  * Sign up step (`rolePicker`, see AuthModal) — picking this option and
  * signing up grants that role immediately, no approval step.
  */

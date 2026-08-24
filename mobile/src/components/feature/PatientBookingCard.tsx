@@ -14,6 +14,7 @@ import {
   bookingStatusMeta,
   formatDate,
   formatSlot,
+  money,
   ALLOWED_IMAGE_MIME,
   MAX_UPLOAD_BYTES,
   type Booking,
@@ -72,6 +73,11 @@ export function PatientBookingCard({
               {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)} · {booking.num_days}{" "}
               {t("bookingCard.days", { plural: booking.num_days > 1 ? "s" : "" })}
             </Text>
+            {booking.total_amount != null ? (
+              <Text className="mt-1 text-sm font-semibold text-gray-900">
+                {t("bookingCard.amount", { amount: money(booking.total_amount) })}
+              </Text>
+            ) : null}
           </View>
         </View>
         <View className="items-end gap-1">

@@ -42,7 +42,7 @@ type SlideDef = {
 
 /**
  * 4 slides (image1-4, in filename order) — image5 (the heart-hands photo,
- * "Care Assistant") moved to LandingScreen as its full-bleed backdrop
+ * "Care Giver") moved to LandingScreen as its full-bleed backdrop
  * instead of staying a 5th onboarding slide. Covers intro, physio, nutrition,
  * and family — admin isn't named by a slide of its own (unchanged from the
  * prior round's decision); admin functionality itself is untouched

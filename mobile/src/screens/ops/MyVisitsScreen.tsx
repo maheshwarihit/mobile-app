@@ -1,29 +1,34 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { View, Text, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Activity, PlayCircle, UploadCloud, CheckCircle2, Eye, ClipboardList, Phone } from "lucide-react-native";
+import { toast } from "sonner-native";
+import { Activity, PlayCircle, UploadCloud, Camera, CheckCircle2, ClipboardList, Phone } from "lucide-react-native";
 import {
   useMyAssignedBookings,
-  useAllReports,
+  useReportsForBooking,
+  useVisitPhotosForBooking,
+  useUploadVisitPhoto,
   useStartVisit,
   useCompleteVisit,
-  money,
   formatDate,
   formatSlot,
-  formatLocalDateTime,
   bookingStatusMeta,
   localPhone,
-  MEDICAL_REPORT_BUCKET,
+  money,
   type BookingWithNames,
-  type ReportUpload,
 } from "@vagewell/shared";
-import { PageHeader, Card, Pill, LoadingState, EmptyState, ErrorBanner, ConfirmModal } from "@/components/ui";
+import { PageHeader, Card, Pill, LoadingState, EmptyState, ErrorBanner, ConfirmModal, WarningBanner } from "@/components/ui";
 import { VitalsModal, type VitalsSubject } from "@/components/ops/VitalsModal";
 import { ReportUploadModal } from "@/components/ops/ReportUploadModal";
+import { ReportRow } from "@/components/ops/ReportRow";
+import { VisitPhotoStatus } from "@/components/ops/VisitPhotoStatus";
+import { VisitPhotoStamper, type VisitPhotoStamperHandle } from "@/components/ops/VisitPhotoStamper";
 import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
-import { useSignedUrl, openUrl } from "@/lib/signedUrl";
+import { takeVisitPhoto, reverseGeocodeVisit, buildVisitPhotoSource } from "@/lib/visitPhoto";
+import { openUrl } from "@/lib/signedUrl";
 import { translateServiceName } from "@/lib/serviceI18n";
+import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 
 /**
@@ -38,28 +43,16 @@ import { useLanguage } from "@/lib/i18n";
 export function MyVisitsScreen() {
   const { t } = useLanguage();
   const { data: bookings, isLoading, error, refetch } = useMyAssignedBookings(true);
-  const { data: reports, refetch: refetchReports } = useAllReports(true);
   const [vitals, setVitals] = useState<VitalsSubject | null>(null);
   const [reporting, setReporting] = useState<BookingWithNames | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       void refetch();
-      void refetchReports();
-    }, [refetch, refetchReports])
+    }, [refetch])
   );
 
-  const active = useMemo(
-    () =>
-      (bookings ?? []).filter((b) => b.booking_status !== "completed" && b.booking_status !== "cancelled"),
-    [bookings]
-  );
-
-  const latestReportByBooking = useMemo(() => {
-    const map = new Map<string, ReportUpload>();
-    for (const r of reports ?? []) if (!map.has(r.booking_id)) map.set(r.booking_id, r);
-    return map;
-  }, [reports]);
+  const active = (bookings ?? []).filter((b) => b.booking_status !== "completed" && b.booking_status !== "cancelled");
 
   const openVitals = (b: BookingWithNames) =>
     setVitals(
@@ -93,12 +86,7 @@ export function MyVisitsScreen() {
           )
         }
         renderItem={({ item }) => (
-          <VisitCard
-            booking={item}
-            latestReport={latestReportByBooking.get(item.id) ?? null}
-            onVitals={() => openVitals(item)}
-            onReport={() => setReporting(item)}
-          />
+          <VisitCard booking={item} onVitals={() => openVitals(item)} onReport={() => setReporting(item)} />
         )}
       />
 
@@ -117,26 +105,74 @@ export function MyVisitsScreen() {
 
 function VisitCard({
   booking,
-  latestReport,
   onVitals,
   onReport,
 }: {
   booking: BookingWithNames;
-  latestReport: ReportUpload | null;
   onVitals: () => void;
   onReport: () => void;
 }) {
   const { t } = useLanguage();
+  const { user, role } = useAuth();
   const status = bookingStatusMeta(booking.booking_status);
   const start = useStartVisit();
   const complete = useCompleteVisit();
+  const uploadVisitPhoto = useUploadVisitPhoto();
+  const stamperRef = useRef<VisitPhotoStamperHandle>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const canStart = booking.booking_status === "assigned";
   const inFlight = booking.booking_status === "in_progress" || booking.booking_status === "report_uploaded";
-  const { data: reportUrl } = useSignedUrl(MEDICAL_REPORT_BUCKET, latestReport?.storage_path);
+  // Every report for this booking, newest first — not just the latest one,
+  // so a multi-file upload (or several separate uploads over time) all stay
+  // reachable, each with its own View/Delete.
+  const { data: reports } = useReportsForBooking(booking.id);
+  const { data: visitPhotos } = useVisitPhotosForBooking(booking.id);
+  const hasVisitPhoto = (visitPhotos?.length ?? 0) > 0;
+
+  const captureVisitPhoto = async () => {
+    setCapturing(true);
+    try {
+      const shot = await takeVisitPhoto();
+      if (!shot) return; // cancelled
+
+      // Burn the location/time directly onto the photo (GPS-camera-app
+      // style) instead of only recording it as separate metadata — matches
+      // what was specifically asked for, and survives even if the photo is
+      // ever viewed outside this app.
+      const now = new Date();
+      const lines = [translateServiceName(t, booking.service_name)];
+      if (shot.latitude != null && shot.longitude != null) {
+        const address = await reverseGeocodeVisit(shot.latitude, shot.longitude);
+        if (address) lines.push(address);
+        lines.push(`Lat ${shot.latitude.toFixed(6)}°  Long ${shot.longitude.toFixed(6)}°`);
+      } else {
+        lines.push(t("ops.myVisits.visitPhoto.noLocation"));
+      }
+      lines.push(now.toLocaleString());
+
+      const stamped = stamperRef.current
+        ? await stamperRef.current.stamp(shot.uri, shot.width, shot.height, lines)
+        : { uri: shot.uri, mimeType: shot.mimeType, stamped: false };
+      const source = await buildVisitPhotoSource(stamped.uri, stamped.mimeType);
+
+      await uploadVisitPhoto.mutateAsync({
+        bookingId: booking.id,
+        source,
+        latitude: shot.latitude,
+        longitude: shot.longitude,
+      });
+      if (!stamped.stamped) toast.warning(t("ops.myVisits.visitPhoto.stampFailed"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("ops.myVisits.visitPhoto.error"));
+    } finally {
+      setCapturing(false);
+    }
+  };
 
   return (
     <Card className="p-4">
+      <VisitPhotoStamper ref={stamperRef} />
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
           <Text className="text-base font-semibold text-gray-900 dark:text-white">{translateServiceName(t, booking.service_name)}</Text>
@@ -145,24 +181,40 @@ function VisitCard({
             {localPhone(booking.subject_phone) ? ` · ${localPhone(booking.subject_phone)}` : ""}
           </Text>
           <Text className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-            {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)} · {money(booking.total_amount)}
+            {formatDate(booking.start_date)} · {formatSlot(booking.time_slot)}
           </Text>
+          {booking.total_amount != null ? (
+            <Text className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
+              {t("bookingCard.amount", { amount: money(booking.total_amount) })}
+            </Text>
+          ) : null}
           {booking.symptom_brief ? (
             <Text className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {t("ops.myVisits.note", { note: booking.symptom_brief })}
             </Text>
           ) : null}
-          {latestReport ? (
-            <Text className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-              {t("ops.myVisits.reportUploaded", {
-                file: latestReport.file_name ?? "file",
-                date: formatLocalDateTime(latestReport.created_at),
-              })}
-            </Text>
-          ) : null}
         </View>
         <Pill bgClass={status.bg} textClass={status.text}>{status.label}</Pill>
       </View>
+
+      {inFlight ? (
+        <View className="mt-2">
+          <VisitPhotoStatus bookingId={booking.id} />
+        </View>
+      ) : null}
+
+      {reports?.length ? (
+        <View className="mt-3 gap-2 border-t border-gray-100 pt-3 dark:border-slate-700">
+          {reports.map((r) => (
+            <ReportRow
+              key={r.id}
+              report={r}
+              bookingId={booking.id}
+              canDelete={!r.reviewed && (role === "admin" || r.uploaded_by === user?.id)}
+            />
+          ))}
+        </View>
+      ) : null}
 
       <View className="mt-3 flex-row flex-wrap gap-x-5 gap-y-2 border-t border-gray-100 pt-3 dark:border-slate-700">
         {canStart ? (
@@ -179,8 +231,14 @@ function VisitCard({
         {canStart || inFlight ? (
           <CardAction icon={UploadCloud} label={t("ops.myVisits.action.uploadReport")} onPress={onReport} tone="muted" />
         ) : null}
-        {reportUrl ? (
-          <CardAction icon={Eye} label={t("ops.myVisits.action.viewReport")} onPress={() => openUrl(reportUrl)} tone="muted" />
+        {inFlight ? (
+          <CardAction
+            icon={Camera}
+            label={hasVisitPhoto ? t("ops.myVisits.action.retakeVisitPhoto") : t("ops.myVisits.action.takeVisitPhoto")}
+            onPress={captureVisitPhoto}
+            tone={hasVisitPhoto ? "muted" : "brand"}
+            disabled={capturing || uploadVisitPhoto.isPending}
+          />
         ) : null}
         {booking.subject_phone ? (
           <CardAction icon={Phone} label={t("ops.myVisits.action.call")} onPress={() => openUrl(`tel:${booking.subject_phone}`)} tone="muted" />
@@ -191,10 +249,16 @@ function VisitCard({
             label={t("ops.myVisits.action.complete")}
             onPress={() => setConfirmOpen(true)}
             tone="success"
-            disabled={complete.isPending}
+            disabled={complete.isPending || !hasVisitPhoto}
           />
         ) : null}
       </View>
+
+      {inFlight && !hasVisitPhoto ? (
+        <View className="mt-3">
+          <WarningBanner message={t("ops.myVisits.visitPhoto.required")} />
+        </View>
+      ) : null}
 
       <ConfirmModal
         open={confirmOpen}
