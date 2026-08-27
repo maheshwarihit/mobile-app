@@ -1,7 +1,7 @@
 -- ============================================================================
 -- VAgeWell Care — CONSOLIDATED "install everything" (idempotent, safe to re-run)
 -- Paste into the hosted project's SQL Editor and Run. Combines migrations
--- 0001–0045. Fixes a project that was set up piecemeal, and also converges an
+-- 0001–0046. Fixes a project that was set up piecemeal, and also converges an
 -- already-migrated project onto the latest shape.
 -- ============================================================================
 
@@ -42,6 +42,8 @@ alter table public.profiles add column if not exists emp_id text;
 alter table public.profiles add column if not exists viewed_by_admin_at timestamptz;
 -- Repair path: display_name on a table that predates 0040.
 alter table public.profiles add column if not exists display_name text;
+-- Repair path: payment_qr_path on a table that predates 0046.
+alter table public.profiles add column if not exists payment_qr_path text;
 -- Backfill pre-existing profiles as already-viewed (fixed cutoff, not now() —
 -- this script re-runs repeatedly, and now() would wrongly re-mark a genuinely
 -- new, still-unviewed sign-up as viewed on every later re-run).
@@ -638,7 +640,7 @@ grant select on public.profiles to authenticated;
 -- denied for table profiles", regardless of role or RLS.
 -- emp_id (0025): new field for the ops-side "My Profile" panel; granted
 -- up front this time instead of repeating the 0019 discovery.
-grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path, emp_id, viewed_by_admin_at, display_name) on public.profiles to authenticated;
+grant update (full_name, age, date_of_birth, gender, how_heard, wellness_note, address, avatar_path, emp_id, viewed_by_admin_at, display_name, payment_qr_path) on public.profiles to authenticated;
 revoke insert, update, delete on public.bookings from anon, authenticated;
 grant select on public.bookings to authenticated;
 -- account_id (0018): widened so an admin's insert can name the target
@@ -838,6 +840,28 @@ create policy avatar_update on storage.objects for update to authenticated
 drop policy if exists avatar_delete on storage.objects;
 create policy avatar_delete on storage.objects for delete to authenticated
   using (bucket_id = 'profile-photos'
+    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
+
+-- care-giver-payment-qr (0046): a Care Giver's own UPI QR, shown on their own
+-- Profile and scanned by the client at a home visit. Public bucket, same
+-- reasoning as profile-photos; separate from the fixed admin-owned
+-- payment-qr bucket (0005/0028). INSERT policy is bucket_id-only from the
+-- start — 0023 already found a path-ownership check on INSERT rejects real
+-- uploads for this exact bucket shape.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('care-giver-payment-qr','care-giver-payment-qr', true, 5242880, array['image/png','image/jpeg','image/webp'])
+on conflict (id) do update
+  set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists cg_qr_insert on storage.objects;
+create policy cg_qr_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'care-giver-payment-qr');
+drop policy if exists cg_qr_update on storage.objects;
+create policy cg_qr_update on storage.objects for update to authenticated
+  using (bucket_id = 'care-giver-payment-qr'
+    and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
+drop policy if exists cg_qr_delete on storage.objects;
+create policy cg_qr_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'care-giver-payment-qr'
     and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
 
 -- ── BOOKING REQUESTS (0010) — quick "contact me" lead, admin-only inbox ─────

@@ -132,6 +132,9 @@ export const MEDICAL_REPORT_BUCKET = "medical-reports"; // private (see migratio
 // ── Profile photo (self-uploaded; public bucket, no signed URL needed) ──
 export const PROFILE_PHOTO_BUCKET = "profile-photos"; // public (see migration 0022)
 
+// ── Care Giver's own payment QR (self-uploaded, shown on own Profile only) ──
+export const CARE_GIVER_PAYMENT_QR_BUCKET = "care-giver-payment-qr"; // public (see migration 0046)
+
 // ── Visit photo (Care Giver + patient, GPS-tagged; required before Complete) ──
 export const VISIT_PHOTO_BUCKET = "visit-photos"; // private, staff-only (see migration 0042)
 

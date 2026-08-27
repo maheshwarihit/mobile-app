@@ -9,6 +9,7 @@ import {
   ALLOWED_REPORT_MIME,
   MAX_REPORT_UPLOAD_BYTES,
   PROFILE_PHOTO_BUCKET,
+  CARE_GIVER_PAYMENT_QR_BUCKET,
   VISIT_PHOTO_BUCKET,
   ALLOWED_IMAGE_MIME as ALLOWED_VISIT_PHOTO_MIME,
 } from "./constants";
@@ -342,6 +343,33 @@ export function useUploadProfilePhoto() {
     // server-side) updates the same toast instead of stacking a new one on
     // top of the last, which read as the error never going away.
     onError: (e: Error) => toast.error(e.message, { id: "profile-photo-upload" }),
+  });
+}
+
+/** A Care Giver's own UPI QR (shown on their own Profile, scanned by the client at a home visit). Same upload shape as useUploadProfilePhoto, different bucket/column. */
+export function useUploadPaymentQr() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ userId, source }: { userId: string; source: ProofSource }) => {
+      if (!ALLOWED_IMAGE_MIME.includes(source.contentType as (typeof ALLOWED_IMAGE_MIME)[number]))
+        throw new Error("Please upload a PNG, JPG, or WEBP image.");
+      if (source.sizeBytes > MAX_UPLOAD_BYTES) throw new Error("File exceeds the 5 MB limit.");
+      const sb = getSupabase();
+      const ext = source.contentType === "image/png" ? "png" : source.contentType === "image/webp" ? "webp" : "jpg";
+      const path = `${userId}/${Date.now()}.${ext}`;
+      const body = await source.toArrayBuffer();
+      const { error: upErr } = await sb.storage
+        .from(CARE_GIVER_PAYMENT_QR_BUCKET)
+        .upload(path, body, { contentType: source.contentType, upsert: false });
+      if (upErr) throw upErr;
+      const { error } = await sb.from("profiles").update({ payment_qr_path: path }).eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.profile]);
+      toast.success("Payment QR updated");
+    },
+    onError: (e: Error) => toast.error(e.message, { id: "payment-qr-upload" }),
   });
 }
 

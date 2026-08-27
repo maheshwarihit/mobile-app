@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, Image, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
-import { User, Camera, LogOut } from "lucide-react-native";
+import { User, Camera, LogOut, QrCode } from "lucide-react-native";
 import {
   useUpdateProfile,
   useUploadProfilePhoto,
+  useUploadPaymentQr,
   localPhone,
   formatDate,
   ROLE_LABELS,
   ALLOWED_IMAGE_MIME,
   MAX_UPLOAD_BYTES,
+  CARE_GIVER_PAYMENT_QR_BUCKET,
 } from "@vagewell/shared";
 import {
   PageHeader,
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
 import { useAuth } from "@/providers/AuthProvider";
+import { supabase } from "@/lib/supabase";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
 import { translateTamilToEnglish } from "@/lib/translateText";
 import { useLanguage } from "@/lib/i18n";
@@ -43,6 +46,8 @@ export function OpsProfileScreen() {
   const { profile, user, role, refreshProfile, signOut } = useAuth();
   const update = useUpdateProfile();
   const uploadPhoto = useUploadProfilePhoto();
+  const uploadQr = useUploadPaymentQr();
+  const [qrLoadFailed, setQrLoadFailed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -119,6 +124,34 @@ export function OpsProfileScreen() {
     }
   };
 
+  const pickQr = async () => {
+    if (!user) return;
+    try {
+      const img = await pickImageAsset();
+      if (!img) return;
+      if (!(ALLOWED_IMAGE_MIME as readonly string[]).includes(img.mimeType)) {
+        toast.error(t("ops.profile.error.imageType"));
+        return;
+      }
+      if (img.fileSize > MAX_UPLOAD_BYTES) {
+        toast.error(t("ops.profile.error.fileSize"));
+        return;
+      }
+      setQrLoadFailed(false);
+      uploadQr.mutate(
+        { userId: user.id, source: assetToProofSource(img) },
+        { onSuccess: () => void refreshProfile() }
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("ops.profile.error.pickerFailed"));
+    }
+  };
+
+  const qrUrl =
+    profile?.payment_qr_path && profile.updated_at
+      ? `${supabase.storage.from(CARE_GIVER_PAYMENT_QR_BUCKET).getPublicUrl(profile.payment_qr_path).data.publicUrl}?v=${encodeURIComponent(profile.updated_at)}`
+      : null;
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-slate-900" edges={["top"]}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
@@ -183,6 +216,31 @@ export function OpsProfileScreen() {
             </View>
           )}
         </SectionCard>
+
+        {role === "leaf_node" ? (
+          <SectionCard icon={QrCode} title={t("ops.profile.paymentQr.title")} subtitle={t("ops.profile.paymentQr.hint")}>
+            <View className="items-center gap-3">
+              {qrUrl && !qrLoadFailed ? (
+                <View className="h-48 w-48 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-700">
+                  <Image
+                    source={{ uri: qrUrl }}
+                    style={{ width: 192, height: 192 }}
+                    resizeMode="contain"
+                    onError={() => setQrLoadFailed(true)}
+                  />
+                </View>
+              ) : (
+                <View className="h-48 w-48 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 dark:border-slate-600 dark:bg-slate-800">
+                  <QrCode size={32} color="#9ca3af" />
+                  <Text className="mt-2 text-xs text-gray-400 dark:text-gray-500">{t("ops.profile.paymentQr.noQr")}</Text>
+                </View>
+              )}
+              <PrimaryButton loading={uploadQr.isPending} onPress={pickQr}>
+                {qrUrl ? t("ops.profile.paymentQr.change") : t("ops.profile.paymentQr.upload")}
+              </PrimaryButton>
+            </View>
+          </SectionCard>
+        ) : null}
 
         <SectionCard icon={LogOut} title={t("ops.profile.sessionTitle")}>
           <Text className="mb-4 text-sm text-gray-500 dark:text-gray-400">{t("ops.profile.sessionHint")}</Text>
