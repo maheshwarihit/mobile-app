@@ -20,6 +20,11 @@ export const en = {
   "ops.profile.error.imageType": "Please upload a PNG, JPG, or WEBP image.",
   "ops.profile.error.fileSize": "File exceeds the 5 MB limit.",
   "ops.profile.error.pickerFailed": "Could not open the image picker.",
+  "ops.profile.paymentQr.title": "Your Payment QR",
+  "ops.profile.paymentQr.hint": "Show this to the client to collect payment at the home visit.",
+  "ops.profile.paymentQr.noQr": "No QR code added yet",
+  "ops.profile.paymentQr.upload": "Add QR code",
+  "ops.profile.paymentQr.change": "Change QR code",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -44,4 +49,9 @@ export const ta: Record<keyof typeof en, string> = {
   "ops.profile.error.imageType": "PNG, JPG அல்லது WEBP படத்தைப் பதிவேற்றவும்.",
   "ops.profile.error.fileSize": "கோப்பு 5 MB வரம்பை மீறுகிறது.",
   "ops.profile.error.pickerFailed": "படத் தேர்வியைத் திறக்க முடியவில்லை.",
+  "ops.profile.paymentQr.title": "உங்கள் பணம் QR",
+  "ops.profile.paymentQr.hint": "வீட்டு வருகையின் போது பணம் பெற வாடிக்கையாளரிடம் இதைக் காட்டவும்.",
+  "ops.profile.paymentQr.noQr": "இன்னும் QR குறியீடு சேர்க்கப்படவில்லை",
+  "ops.profile.paymentQr.upload": "QR குறியீடு சேர்",
+  "ops.profile.paymentQr.change": "QR குறியீட்டை மாற்று",
 };

@@ -42,6 +42,7 @@ export interface Profile {
   date_of_birth: string | null; // YYYY-MM-DD
   address: string | null;
   avatar_path: string | null; // storage path in PROFILE_PHOTO_BUCKET (public bucket)
+  payment_qr_path: string | null; // storage path in CARE_GIVER_PAYMENT_QR_BUCKET (public bucket) — a leaf_node's own UPI QR, shown on their own Profile
   emp_id: string | null; // free-text employee ID, ops accounts only in practice
   display_name: string | null; // a leaf_node's real personal name, shown in the Approve & Assign dropdown instead of full_name (which is the fixed self-select-role gate string, e.g. "VAgeWell_Care_cg" — identical for every Care Giver)
   how_heard: HowHeard | null;

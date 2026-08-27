@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "VAgeWell Care",
-    "slug": "vagewell-care",
+    "slug": "vagewellcare",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -19,12 +19,13 @@
     },
     "android": {
       "package": "in.vagewell.care",
-      "versionCode": 1,
+      "versionCode": 5,
       "permissions": [
-        "READ_MEDIA_IMAGES",
-        "CAMERA",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -48,6 +49,12 @@
       "expo-document-picker",
       "expo-web-browser",
       "@react-native-google-signin/google-signin"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "eeb02a21-5219-427d-9781-97b9edde3b47"
+      }
+    },
+    "owner": "vagewellcare"
   }
 }
