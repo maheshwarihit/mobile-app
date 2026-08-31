@@ -50,14 +50,19 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
 
   const cancel = useCancelBooking();
 
-  // Tapping Reschedule clears it from "Recently missed" right away, two ways
-  // at once: (1) actually cancels the booking server-side when the patient is
-  // allowed to (requested/approved — server-enforced), which permanently
-  // removes it from every future "missed" computation regardless of device,
-  // reload, or reinstall; (2) also dismisses it locally as a belt-and-braces
-  // for the case where the server cancel isn't permitted (already assigned/
-  // in_progress) — that one is left for staff to close out from the web
-  // portal, but shouldn't keep nagging this device either.
+  // Shared by both the "Recently missed" nudge and the Reschedule action on an
+  // upcoming (not yet missed) booking — e.g. the patient already knows they
+  // won't be available and wants to move it before the day even arrives,
+  // rather than waiting for it to lapse into "missed" first. Two things
+  // happen at once: (1) actually cancels the booking server-side when the
+  // patient is allowed to (requested/approved — server-enforced), which
+  // permanently removes it from every future "missed" computation regardless
+  // of device, reload, or reinstall; (2) also dismisses it locally as a
+  // belt-and-braces for the case where the server cancel isn't permitted
+  // (already assigned/in_progress) — that one is left for staff to close out
+  // from the web portal, but shouldn't keep nagging this device either. Step
+  // (2) is a no-op for an upcoming booking (it was never in the dismissed-
+  // missed set to begin with) — harmless to still run unconditionally.
   const reschedule = (b: Booking) => {
     if (b.booking_status === "requested" || b.booking_status === "approved") {
       cancel.mutate(b.id);
@@ -146,7 +151,12 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
             lastCompleted ? <LastCompletedCheckup booking={lastCompleted} subjectName={nameFor(lastCompleted)} /> : null
           }
           renderItem={({ item: b }) => (
-            <PatientBookingCard booking={b} userId={userId} subjectName={nameFor(b)} />
+            <PatientBookingCard
+              booking={b}
+              userId={userId}
+              subjectName={nameFor(b)}
+              onReschedule={() => reschedule(b)}
+            />
           )}
         />
       </View>
