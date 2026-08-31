@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { toast } from "sonner-native";
-import { CalendarClock, Upload, AlertTriangle } from "lucide-react-native";
-import { Pill, DangerButton, ConfirmModal, Card } from "@/components/ui";
+import { CalendarClock, Upload, AlertTriangle, RotateCcw } from "lucide-react-native";
+import { Pill, DangerButton, SmallPrimaryButton, ConfirmModal, Card } from "@/components/ui";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
 import { translateServiceName } from "@/lib/serviceI18n";
 import { useLanguage } from "@/lib/i18n";
@@ -24,15 +24,21 @@ export function PatientBookingCard({
   booking,
   subjectName,
   userId,
+  onReschedule,
 }: {
   booking: Booking;
   subjectName: string;
   userId: string;
+  /** Lets the patient reschedule ahead of the appointment date — e.g. they already know they
+   *  won't be available — instead of only being offered this once the booking is missed. Only
+   *  shown while the booking is still in a self-cancellable state (requested/approved). */
+  onReschedule?: () => void;
 }) {
   const { t } = useLanguage();
   const cancel = useCancelBooking();
   const reupload = useReuploadProof();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [rescheduleConfirmOpen, setRescheduleConfirmOpen] = useState(false);
 
   const pay = paymentStatusMeta(booking.payment_status);
   const status = bookingStatusMeta(booking.booking_status);
@@ -107,7 +113,12 @@ export function PatientBookingCard({
       ) : null}
 
       {booking.booking_status === "requested" || booking.booking_status === "approved" ? (
-        <View className="mt-3 flex-row justify-end">
+        <View className="mt-3 flex-row items-center justify-end gap-2">
+          {onReschedule ? (
+            <SmallPrimaryButton icon={RotateCcw} onPress={() => setRescheduleConfirmOpen(true)}>
+              {t("bookingCard.reschedule")}
+            </SmallPrimaryButton>
+          ) : null}
           <DangerButton onPress={() => setConfirmOpen(true)}>{t("bookingCard.cancel")}</DangerButton>
         </View>
       ) : null}
@@ -126,6 +137,22 @@ export function PatientBookingCard({
       >
         <Text className="text-sm text-gray-600">
           {t("bookingCard.confirmCancel.body", { service: translateServiceName(t, booking.service_name), date: formatDate(booking.start_date) })}
+        </Text>
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={rescheduleConfirmOpen}
+        title={t("bookingCard.confirmReschedule.title")}
+        onClose={() => setRescheduleConfirmOpen(false)}
+        onConfirm={() => {
+          setRescheduleConfirmOpen(false);
+          onReschedule?.();
+        }}
+        confirmLabel={t("bookingCard.confirmReschedule.confirm")}
+        cancelLabel={t("bookingCard.confirmReschedule.cancel")}
+      >
+        <Text className="text-sm text-gray-600">
+          {t("bookingCard.confirmReschedule.body", { service: translateServiceName(t, booking.service_name), date: formatDate(booking.start_date) })}
         </Text>
       </ConfirmModal>
     </Card>

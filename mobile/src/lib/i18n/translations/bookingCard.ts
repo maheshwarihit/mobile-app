@@ -6,6 +6,7 @@ export const en = {
   "bookingCard.reuploadProof": "Re-upload proof",
   "bookingCard.uploading": "Uploading…",
   "bookingCard.cancel": "Cancel",
+  "bookingCard.reschedule": "Reschedule",
   "bookingCard.error.imageType": "Please upload a PNG, JPG, or WEBP image.",
   "bookingCard.error.fileSize": "File exceeds the 5 MB limit.",
   "bookingCard.error.pickerFailed": "Could not open the picker.",
@@ -13,6 +14,10 @@ export const en = {
   "bookingCard.confirmCancel.body": "This will cancel your {service} appointment on {date}.",
   "bookingCard.confirmCancel.confirm": "Yes, cancel",
   "bookingCard.confirmCancel.cancel": "Keep it",
+  "bookingCard.confirmReschedule.title": "Reschedule appointment?",
+  "bookingCard.confirmReschedule.body": "This will cancel your {service} appointment on {date} and open a new booking for the same service — pick whichever date works for you.",
+  "bookingCard.confirmReschedule.confirm": "Yes, reschedule",
+  "bookingCard.confirmReschedule.cancel": "Keep it",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -23,6 +28,7 @@ export const ta: Record<keyof typeof en, string> = {
   "bookingCard.reuploadProof": "சான்றை மீண்டும் பதிவேற்று",
   "bookingCard.uploading": "பதிவேற்றுகிறது…",
   "bookingCard.cancel": "ரத்து செய்",
+  "bookingCard.reschedule": "மறு அட்டவணை",
   "bookingCard.error.imageType": "PNG, JPG அல்லது WEBP படத்தைப் பதிவேற்றவும்.",
   "bookingCard.error.fileSize": "கோப்பு 5 MB வரம்பை மீறுகிறது.",
   "bookingCard.error.pickerFailed": "படத் தேர்வியைத் திறக்க முடியவில்லை.",
@@ -30,4 +36,8 @@ export const ta: Record<keyof typeof en, string> = {
   "bookingCard.confirmCancel.body": "இது {date} அன்று உங்கள் {service} சந்திப்பை ரத்து செய்யும்.",
   "bookingCard.confirmCancel.confirm": "ஆம், ரத்து செய்",
   "bookingCard.confirmCancel.cancel": "வைத்திரு",
+  "bookingCard.confirmReschedule.title": "சந்திப்பை மறு அட்டவணை செய்யவா?",
+  "bookingCard.confirmReschedule.body": "இது {date} அன்று உங்கள் {service} சந்திப்பை ரத்து செய்து, அதே சேவைக்கு புதிய முன்பதிவைத் திறக்கும் — உங்களுக்கு ஏற்ற தேதியைத் தேர்ந்தெடுக்கவும்.",
+  "bookingCard.confirmReschedule.confirm": "ஆம், மறு அட்டவணை செய்",
+  "bookingCard.confirmReschedule.cancel": "வைத்திரு",
 };
