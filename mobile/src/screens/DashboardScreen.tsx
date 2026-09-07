@@ -12,7 +12,7 @@ import { useLanguage } from "@/lib/i18n";
 import {
   useMyBookings,
   useFamilyMembers,
-  useCancelBooking,
+  useRescheduleBooking,
   formatDate,
   formatSlot,
   isBookingTerminal,
@@ -48,24 +48,28 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
 
   const nameFor = (b: Booking) => (b.family_member_id ? depMap[b.family_member_id] ?? t("dashboard.dependent") : profileName);
 
-  const cancel = useCancelBooking();
+  const reschedule_ = useRescheduleBooking();
 
   // Shared by both the "Recently missed" nudge and the Reschedule action on an
   // upcoming (not yet missed) booking — e.g. the patient already knows they
   // won't be available and wants to move it before the day even arrives,
   // rather than waiting for it to lapse into "missed" first. Two things
-  // happen at once: (1) actually cancels the booking server-side when the
-  // patient is allowed to (requested/approved — server-enforced), which
-  // permanently removes it from every future "missed" computation regardless
-  // of device, reload, or reinstall; (2) also dismisses it locally as a
-  // belt-and-braces for the case where the server cancel isn't permitted
-  // (already assigned/in_progress) — that one is left for staff to close out
-  // from the web portal, but shouldn't keep nagging this device either. Step
-  // (2) is a no-op for an upcoming booking (it was never in the dismissed-
-  // missed set to begin with) — harmless to still run unconditionally.
+  // happen at once: (1) releases the old booking server-side when the patient
+  // is allowed to (requested/approved — server-enforced), which permanently
+  // removes it from every future "missed" computation regardless of device,
+  // reload, or reinstall — it lands in "cancelled" (the pipeline has no
+  // separate "rescheduled" state) and stays visible in Profile → Checkup
+  // history; (2) also dismisses it locally as a belt-and-braces for the case
+  // where the server release isn't permitted (already assigned/in_progress) —
+  // that one is left for staff to close out from the web portal, but
+  // shouldn't keep nagging this device either. Step (2) is a no-op for an
+  // upcoming booking (it was never in the dismissed-missed set to begin with)
+  // — harmless to still run unconditionally. useRescheduleBooking (not
+  // useCancelBooking) so the toast reads "let's reschedule", not the alarming
+  // "Appointment cancelled".
   const reschedule = (b: Booking) => {
     if (b.booking_status === "requested" || b.booking_status === "approved") {
-      cancel.mutate(b.id);
+      reschedule_.mutate(b.id);
     }
     setDismissedMissed((prev) => new Set(prev).add(b.id));
     void dismissMissedBooking(b.id);

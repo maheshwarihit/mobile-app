@@ -47,9 +47,11 @@ module.exports = {
           600: "#12809E",
           700: "#0C5F74",
         },
-        // Page background — cream (was pale lavender). One token re-themes all screens.
-        authbg: "#F1EFE8",
-        cream: "#F1EFE8",
+        // Page background — soft, faintly cool off-white. One token re-themes all
+        // screens; sits cleaner behind the teal brand accents than the old warm
+        // cream, which read slightly muddy next to #12809E.
+        authbg: "#EFF3F4",
+        cream: "#EFF3F4",
         danger: "#A32D2D",
         warn: "#854F0B",
       },

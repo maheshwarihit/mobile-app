@@ -65,10 +65,13 @@ export default function App() {
               >
                 <RootNavigator />
               </NavigationContainer>
-              {/* closeButton: a manual X on every toast — belt-and-braces so an
-                  error is always dismissible by hand, not just by its 4s
-                  auto-close timer. */}
-              <Toaster closeButton />
+              {/* position: notifications used to slam into the very top edge,
+                  under the status bar/notch — reported as hard to notice and
+                  visually jarring. bottom-center floats them clear of both the
+                  top edge and the tab bar. closeButton: a manual X on every
+                  toast — belt-and-braces so an error is always dismissible by
+                  hand, not just by its 4s auto-close timer. */}
+              <Toaster position="bottom-center" closeButton />
               <StatusBar style="dark" />
             </AuthProvider>
           </LanguageProvider>
