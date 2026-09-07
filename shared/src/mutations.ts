@@ -40,6 +40,31 @@ export function useCancelBooking() {
   });
 }
 
+/**
+ * Reschedule = release the current booking and let the patient make a fresh one
+ * (the screen navigates to the booking form straight after). Server-side it's
+ * the same write as a cancel — the pipeline has no distinct "rescheduled"
+ * state — but the user-facing message must NOT say "cancelled", which reads as
+ * "your appointment is gone" rather than "let's pick a new time".
+ */
+export function useRescheduleBooking() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await getSupabase()
+        .from("bookings")
+        .update({ booking_status: "cancelled" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate([qk.bookings("mine"), qk.bookings("all")]);
+      toast.success("Let's reschedule — pick a new date and time");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 /** Admin-entered patient details/needs — also folded into the WhatsApp assignment message. */
 export function useUpdateAdminNote() {
   const invalidate = useInvalidate();

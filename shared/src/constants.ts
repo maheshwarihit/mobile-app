@@ -109,6 +109,10 @@ export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] a
 export const SLOT_MINUTES = 15;
 export const MIN_BOOKING_DAYS = 1;
 export const MAX_BOOKING_DAYS = 60;
+// Shortest notice a same-day booking may be made with — the care team needs
+// lead time to plan and travel to the visit, so a slot only a few minutes out
+// isn't actually serviceable. Tune here if operations want it tighter/looser.
+export const MIN_BOOKING_LEAD_MINUTES = 120;
 export const MULTI_DAY_MODE = "consecutive" as const; // GO-6
 
 // ── Auth (GR-2 / GO-4) ───────────────────────────────────────────

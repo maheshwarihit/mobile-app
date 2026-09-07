@@ -10,6 +10,7 @@ import {
   TextareaInput,
   TimeField,
   PrimaryButton,
+  OutlineButton,
   WarningBanner,
   TextButton,
   LoadingState,
@@ -25,6 +26,7 @@ import {
   todayISODate,
   daysBetween,
   MAX_BOOKING_DAYS,
+  MIN_BOOKING_LEAD_MINUTES,
 } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
@@ -53,6 +55,11 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
     symptom_brief: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Arriving from a tapped service card (route param set) means the service is
+  // already chosen — showing an open dropdown again reads as "why is it asking
+  // me twice?". Start collapsed to a summary row with a Change affordance; only
+  // open as a picker when the user came in without a pre-pick, or taps Change.
+  const [showServicePicker, setShowServicePicker] = useState(!route.params?.serviceId);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   // Picking a later start date shouldn't leave a stale end date before it.
@@ -108,14 +115,18 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
       setErrors({ symptom_brief: t("appointment.error.describeSymptoms") });
       return;
     }
-    // The date picker only blocks past dates, not a past time slot on today's
-    // date — defaults (today + the earliest slot) would otherwise create a
-    // booking that's already "missed" the instant it's submitted.
+    // The date picker only blocks past dates, not a past — or too-soon — time
+    // slot on today's date. A same-day slot must be far enough out that the
+    // care team can actually plan and travel to the visit (a booking 20 min
+    // from now isn't serviceable), so require MIN_BOOKING_LEAD_MINUTES of
+    // notice rather than merely "not in the past".
     if (form.start_date === todayISODate()) {
-      const now = new Date();
-      const nowHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      if (form.time_slot <= nowHHMM) {
-        setErrors({ time_slot: t("appointment.error.timePassed") });
+      const [sh, sm] = form.time_slot.split(":").map(Number);
+      const slot = new Date();
+      slot.setHours(sh || 0, sm || 0, 0, 0);
+      const earliest = Date.now() + MIN_BOOKING_LEAD_MINUTES * 60_000;
+      if (slot.getTime() < earliest) {
+        setErrors({ time_slot: t("appointment.error.leadTime", { hours: MIN_BOOKING_LEAD_MINUTES / 60 }) });
         return;
       }
     }
@@ -153,7 +164,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
           <PageHeader
             title={t("appointment.title")}
             subtitle={t("appointment.subtitle")}
-            onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+            onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Services"))}
           />
 
           {!profileComplete ? (
@@ -167,7 +178,19 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
 
           <SectionCard icon={CalendarClock} title={t("appointment.sectionTitle")}>
             <View className="gap-4">
-              <SelectSheet label={t("appointment.service")} value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
+              {showServicePicker ? (
+                <SelectSheet label={t("appointment.service")} value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
+              ) : (
+                <View>
+                  <Text className="mb-1.5 text-sm font-medium text-gray-700">{t("appointment.service")}</Text>
+                  <View className="flex-row items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                    <Text className="flex-1 text-base text-gray-900">
+                      {selectedService ? translateServiceName(t, selectedService.name) : "—"}
+                    </Text>
+                    <TextButton onPress={() => setShowServicePicker(true)}>{t("appointment.changeService")}</TextButton>
+                  </View>
+                </View>
+              )}
               <SelectSheet label={t("appointment.careFor")} value={form.family_member_id} onValueChange={set("family_member_id")} options={subjectOptions} />
               <View className="flex-row gap-3">
                 <View className="flex-1">
@@ -184,7 +207,14 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
                   />
                 </View>
               </View>
-              <TimeField label={t("appointment.preferredTime")} value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
+              <View>
+                <TimeField label={t("appointment.preferredTime")} value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
+                {form.start_date === todayISODate() ? (
+                  <Text className="mt-1.5 text-xs text-gray-400">
+                    {t("appointment.leadTimeHint", { hours: MIN_BOOKING_LEAD_MINUTES / 60 })}
+                  </Text>
+                ) : null}
+              </View>
               <TextareaInput
                 label={t("appointment.problemLabel")}
                 value={form.symptom_brief}
@@ -205,6 +235,14 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
           <PrimaryButton fullWidth disabled={!profileComplete} onPress={submit}>
             {t("appointment.continueToPayment")}
           </PrimaryButton>
+          <View className="mt-3">
+            <OutlineButton
+              fullWidth
+              onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Services"))}
+            >
+              {t("appointment.cancel")}
+            </OutlineButton>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

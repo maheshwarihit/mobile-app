@@ -71,7 +71,20 @@ export function PaymentScreen({ navigation, route }: ServicesStackScreenProps<"P
             <Row label={t("payment.row.endDate")} value={formatDate(draft.end_date)} />
           </View>
           <View className="mt-6 w-full">
-            <PrimaryButton fullWidth onPress={() => navigation.navigate("AppointmentsTab")}>
+            <PrimaryButton
+              fullWidth
+              onPress={() => {
+                // Force the appointments list to pull the just-created booking
+                // (the Dashboard also refetches on focus, but invalidating here
+                // means the new row is already in flight before the tab mounts).
+                void qc.invalidateQueries({ queryKey: qk.bookings("mine") });
+                navigation.navigate("AppointmentsTab");
+                // Leave the Services stack back on its list screen — otherwise
+                // returning to that tab drops the user back onto this "booked"
+                // confirmation, which looks like the booking never cleared.
+                navigation.popToTop();
+              }}
+            >
               {t("payment.viewAppointments")}
             </PrimaryButton>
           </View>

@@ -1,6 +1,6 @@
 export const en = {
   "payment.booked.title": "Appointment booked",
-  "payment.booked.direct": "Our team will confirm your schedule and share the charges after your visit — pay the care staff directly at that time.",
+  "payment.booked.direct": "Your request is in. Our team will call to confirm the date and time, then share the charges after the visit — you pay the care staff directly then. No payment now.",
   "payment.row.service": "Service",
   "payment.row.careFor": "Care for",
   "payment.row.when": "When",
@@ -20,7 +20,7 @@ export const en = {
 
 export const ta: Record<keyof typeof en, string> = {
   "payment.booked.title": "சந்திப்பு முன்பதிவு செய்யப்பட்டது",
-  "payment.booked.direct": "எங்கள் அணி உங்கள் அட்டவணையை உறுதிசெய்து, உங்கள் வருகைக்குப் பிறகு கட்டணத்தைத் தெரிவிக்கும் — அப்போது கவனிப்பு பணியாளரிடம் நேரடியாகச் செலுத்துங்கள்.",
+  "payment.booked.direct": "உங்கள் கோரிக்கை பதிவாகிவிட்டது. எங்கள் அணி அழைத்து தேதி மற்றும் நேரத்தை உறுதிசெய்யும், வருகைக்குப் பிறகு கட்டணத்தைத் தெரிவிக்கும் — அப்போது கவனிப்பு பணியாளரிடம் நேரடியாகச் செலுத்துங்கள். இப்போது பணம் தேவையில்லை.",
   "payment.row.service": "சேவை",
   "payment.row.careFor": "யாருக்காக",
   "payment.row.when": "எப்போது",
