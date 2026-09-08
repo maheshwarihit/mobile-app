@@ -3,7 +3,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
-import { Toaster } from "sonner-native";
 import * as WebBrowser from "expo-web-browser";
 import {
   useFonts,
@@ -17,6 +16,7 @@ import { toast } from "@/lib/toast";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { LanguageProvider } from "@/lib/i18n";
 import { RootNavigator } from "@/navigation/RootNavigator";
+import { NotificationHost } from "@/components/ui/NotificationHost";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import "./global.css";
 
@@ -65,13 +65,10 @@ export default function App() {
               >
                 <RootNavigator />
               </NavigationContainer>
-              {/* position: notifications used to slam into the very top edge,
-                  under the status bar/notch — reported as hard to notice and
-                  visually jarring. bottom-center floats them clear of both the
-                  top edge and the tab bar. closeButton: a manual X on every
-                  toast — belt-and-braces so an error is always dismissible by
-                  hand, not just by its 4s auto-close timer. */}
-              <Toaster position="bottom-center" closeButton />
+              {/* Notifications render as one centered dialog card (same box as
+                  every other dialog), not an edge strip — see NotificationHost
+                  / lib/notify.ts. Replaces sonner-native's <Toaster/>. */}
+              <NotificationHost />
               <StatusBar style="dark" />
             </AuthProvider>
           </LanguageProvider>

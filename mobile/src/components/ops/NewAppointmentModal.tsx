@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner-native";
+import { toast } from "@/lib/toast";
 import { ChevronLeft } from "lucide-react-native";
 import {
   useAllProfiles,

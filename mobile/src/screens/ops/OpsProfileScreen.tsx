@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, Image, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { toast } from "sonner-native";
+import { toast } from "@/lib/toast";
 import { User, Camera, LogOut, QrCode } from "lucide-react-native";
 import {
   useUpdateProfile,
