@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { toast } from "sonner-native";
+import { toast } from "@/lib/toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, ShieldCheck, CheckCircle2 } from "lucide-react-native";
 import { PageHeader, SectionCard, PrimaryButton, ErrorBanner } from "@/components/ui";

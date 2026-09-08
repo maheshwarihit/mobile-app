@@ -1,12 +1,11 @@
-import { toast as sonner } from "sonner-native";
-import type { ToastApi } from "@vagewell/shared";
+import { notify, type NotifyApi } from "./notify";
 
-/** Adapts sonner-native to the shared ToastApi injected via configureCore(). */
-export const toast: ToastApi = {
-  // Passing `id` makes a repeated call (e.g. retrying a failed upload)
-  // update the existing toast in place — resetting its auto-dismiss timer —
-  // instead of stacking a fresh duplicate every time, which is what made a
-  // repeatedly-retried error look like it "never clears".
-  success: (message, opts) => sonner.success(message, opts),
-  error: (message, opts) => sonner.error(message, opts),
-};
+/**
+ * The mobile toast surface injected into the shared data layer via
+ * configureCore(). Backed by the centered-dialog NotificationHost (see
+ * lib/notify.ts) rather than sonner-native, so every `toast.*` call — from
+ * shared mutations and from screens alike — surfaces as the same centered
+ * box of text. Typed as NotifyApi (ToastApi + `warning`); `configureCore`
+ * only reads the `success`/`error` it needs.
+ */
+export const toast: NotifyApi = notify;

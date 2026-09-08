@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { useFocusEffect } from "@react-navigation/native";
-import { toast } from "sonner-native";
+import { toast } from "@/lib/toast";
 import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download, Camera } from "lucide-react-native";
 import {
   PageHeader,

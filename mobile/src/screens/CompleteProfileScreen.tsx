@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { toast } from "sonner-native";
+import { toast } from "@/lib/toast";
 import { BrandLogo, FormInput, ChoiceChips, TextareaInput, PrimaryButton, OutlineButton } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";

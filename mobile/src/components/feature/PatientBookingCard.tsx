@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { toast } from "sonner-native";
+import { toast } from "@/lib/toast";
 import { CalendarClock, Upload, AlertTriangle, RotateCcw } from "lucide-react-native";
 import { Pill, DangerButton, SmallPrimaryButton, ConfirmModal, Card } from "@/components/ui";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
