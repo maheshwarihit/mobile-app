@@ -67,7 +67,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           ListFooterComponent={
             (services?.length ?? 0) > 0 ? (
               <View className="mt-2 gap-3">
-                <View className="rounded-xl bg-[#63A147] p-4">
+                <View className="rounded-xl bg-accent p-4">
                   <Text className="text-center text-sm font-bold text-white">
                     {t("services.pricesFromNote", { price: money(Math.min(...(services ?? []).map((s) => s.price_per_day))) })}
                   </Text>
