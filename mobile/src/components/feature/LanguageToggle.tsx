@@ -49,7 +49,7 @@ export function LanguageToggle({ dark = false }: { dark?: boolean }) {
                   <Text className={`text-base ${active ? "font-semibold text-teal-700" : "text-gray-700"}`}>
                     {LABELS[lang]}
                   </Text>
-                  {active ? <Check size={18} color="#0d9488" /> : null}
+                  {active ? <Check size={18} color="#1C7CBE" /> : null}
                 </Pressable>
               );
             })}

@@ -185,12 +185,12 @@ export function AdminSidebar({
                       isActive ? "bg-teal-50 dark:bg-teal-400/10" : ""
                     }`}
                   >
-                    <Icon size={18} color={isActive ? "#12809E" : "#6b7280"} />
+                    <Icon size={18} color={isActive ? "#1C7CBE" : "#6b7280"} />
                     <Text
                       className={`flex-1 text-sm ${
                         isActive ? "font-semibold" : "font-medium text-gray-700 dark:text-gray-300"
                       }`}
-                      style={isActive ? { color: "#12809E" } : undefined}
+                      style={isActive ? { color: "#1C7CBE" } : undefined}
                     >
                       {item.label}
                     </Text>

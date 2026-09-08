@@ -79,7 +79,7 @@ export function HomeScreen() {
           })}
         </View>
 
-        <View className="mt-3 rounded-xl bg-[#63A147] p-4">
+        <View className="mt-3 rounded-xl bg-accent p-4">
           <Text className="text-center text-sm font-bold text-white">
             {t("services.pricesFromNote", { price: money(Math.min(...SEED_SERVICES.map((s) => s.price_per_day))) })}
           </Text>

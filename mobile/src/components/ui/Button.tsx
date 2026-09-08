@@ -105,7 +105,7 @@ export function GradientButton({ children, onPress, disabled, loading, fullWidth
       className={`overflow-hidden rounded-lg ${fullWidth ? "w-full" : "self-start"} ${off ? "opacity-60" : ""}`}
     >
       <LinearGradient
-        colors={[BRAND, "#0A6B5C"]}
+        colors={[BRAND, "#155E92"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{

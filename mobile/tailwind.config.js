@@ -1,8 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 // NativeWind theme. Screens use Tailwind's `purple-*` utility classes for the brand
-// accent. To re-theme the whole app to teal in one place we REMAP the `purple` scale
-// (extend.colors merges shade-by-shade) to the teal ramp — every existing
-// `bg-purple-600` / `text-purple-700` etc. becomes teal with no per-screen edits.
+// accent. To re-theme the whole app in one place we REMAP the `purple` scale
+// (extend.colors merges shade-by-shade) to the VAgeWell logo blue ramp — every
+// existing `bg-purple-600` / `text-purple-700` etc. becomes that blue with no
+// per-screen edits. The logo green is exposed separately as `accent`.
 // Inline hex props (color="…") that bypass Tailwind are handled via src/theme.ts.
 module.exports = {
   // `../shared/src` is included too: PAYMENT_STATUS_META/BOOKING_STATUS_META
@@ -25,33 +26,41 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Teal brand ramp — remaps the `purple` shades the app actually uses.
+        // Logo-blue brand ramp — remaps the `purple` shades the app actually uses.
         // Provide EVERY shade in use (50/100/400/500/600/700) or a stray default
         // purple would leak through.
         purple: {
-          50: "#E1F3F6", // primary-light: icon chips, total banner, active cards
-          100: "#C3E7EC", // light borders / avatar bg
-          400: "#35A0BE", // dashed upload active border
-          500: "#12809E", // input focus borders
-          600: "#12809E", // primary buttons, active tab
-          700: "#0C5F74", // primary-dark: active labels, totals
+          50: "#E3F1FB", // primary-light: icon chips, total banner, active cards
+          100: "#C7E2F5", // light borders / avatar bg
+          400: "#3E9BD6", // dashed upload active border
+          500: "#1C7CBE", // input focus borders
+          600: "#1C7CBE", // primary buttons, active tab
+          700: "#155E92", // primary-dark: active labels, totals
         },
         // Semantic brand accent (exact-match usages).
         primary: {
-          DEFAULT: "#12809E",
-          dark: "#0C5F74",
-          light: "#E1F3F6",
-          50: "#E1F3F6",
-          100: "#C3E7EC",
-          500: "#12809E",
-          600: "#12809E",
-          700: "#0C5F74",
+          DEFAULT: "#1C7CBE",
+          dark: "#155E92",
+          light: "#E3F1FB",
+          50: "#E3F1FB",
+          100: "#C7E2F5",
+          500: "#1C7CBE",
+          600: "#1C7CBE",
+          700: "#155E92",
         },
-        // Page background — soft, faintly cool off-white. One token re-themes all
-        // screens; sits cleaner behind the teal brand accents than the old warm
-        // cream, which read slightly muddy next to #12809E.
-        authbg: "#EFF3F4",
-        cream: "#EFF3F4",
+        // Logo green — the accent (price banner, positive highlights). Kept
+        // separate from the blue `primary` ramp so the two logo colours don't
+        // bleed into each other.
+        accent: {
+          DEFAULT: "#5FA83C",
+          dark: "#4C8A2F",
+          light: "#E7F4DE",
+        },
+        // Page background — a very light tint of the logo blue. One token
+        // re-themes every screen; reads as on-brand without the muddy warmth
+        // of the old cream next to the blue/green marks.
+        authbg: "#EDF3F9",
+        cream: "#EDF3F9",
         danger: "#A32D2D",
         warn: "#854F0B",
       },
