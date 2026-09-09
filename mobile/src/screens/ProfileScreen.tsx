@@ -26,6 +26,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { supabase } from "@/lib/supabase";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
+import { loadRescheduledIds } from "@/lib/rescheduledBookings";
 import { translateServiceName } from "@/lib/serviceI18n";
 import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
@@ -178,11 +179,13 @@ export function ProfileScreen() {
   // report could sit invisible here indefinitely even though the server-side
   // state is already correct, exactly the same class of bug already fixed
   // once for the Dashboard tab's bookings.
+  const [rescheduledIds, setRescheduledIds] = useState<Set<string>>(new Set());
   useFocusEffect(
     useCallback(() => {
       void refetchReports();
       void refetchBookings();
       void refetchVitals();
+      loadRescheduledIds().then(setRescheduledIds);
     }, [refetchReports, refetchBookings, refetchVitals])
   );
   const bookingsForSubject = useMemo(
@@ -373,11 +376,14 @@ export function ProfileScreen() {
             </View>
           )}
           {(dependents?.length ?? 0) > 0 ? (
-            <View className="mt-4">
-              <OutlineButton icon={Plus} onPress={() => { setEditingDep(null); setDepModalOpen(true); }}>
-                {t("profile.dependents.addAction")}
-              </OutlineButton>
-            </View>
+            <>
+              <Text className="mt-2 text-[11px] leading-4 text-gray-400">{t("profile.dependents.loginHint")}</Text>
+              <View className="mt-4">
+                <OutlineButton icon={Plus} onPress={() => { setEditingDep(null); setDepModalOpen(true); }}>
+                  {t("profile.dependents.addAction")}
+                </OutlineButton>
+              </View>
+            </>
           ) : null}
         </SectionCard>
 
@@ -436,7 +442,7 @@ export function ProfileScreen() {
             ) : (
               <View className="gap-2">
                 {checkupHistory.map((b) => (
-                  <CheckupRow key={b.id} booking={b} />
+                  <CheckupRow key={b.id} booking={b} rescheduled={rescheduledIds.has(b.id)} />
                 ))}
               </View>
             )}
@@ -484,12 +490,17 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CheckupRow({ booking: b }: { booking: Booking }) {
+function CheckupRow({ booking: b, rescheduled = false }: { booking: Booking; rescheduled?: boolean }) {
   const { t } = useLanguage();
   const missed = isBookingMissed(b.booking_status, b.start_date, b.time_slot);
-  const status = missed
-    ? { label: t("profile.checkupHistory.missed"), bg: "bg-red-100", text: "text-red-700" }
-    : bookingStatusMeta(b.booking_status);
+  // A booking the patient rescheduled is `cancelled` server-side but that
+  // label misreads as "we dropped your visit" — show "Rescheduled" instead.
+  const status =
+    rescheduled && b.booking_status === "cancelled"
+      ? { label: t("profile.checkupHistory.rescheduled"), bg: "bg-amber-100", text: "text-amber-700" }
+      : missed
+        ? { label: t("profile.checkupHistory.missed"), bg: "bg-red-100", text: "text-red-700" }
+        : bookingStatusMeta(b.booking_status);
   return (
     <View className="flex-row items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
       <View className="h-8 w-8 items-center justify-center rounded-lg bg-gray-200">

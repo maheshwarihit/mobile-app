@@ -7,6 +7,7 @@ import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@
 import { useAuth } from "@/providers/AuthProvider";
 import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
 import { loadDismissedMissedIds, dismissMissedBooking } from "@/lib/dismissedMissed";
+import { markBookingRescheduled } from "@/lib/rescheduledBookings";
 import { translateServiceName } from "@/lib/serviceI18n";
 import { useLanguage } from "@/lib/i18n";
 import {
@@ -73,6 +74,9 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
     }
     setDismissedMissed((prev) => new Set(prev).add(b.id));
     void dismissMissedBooking(b.id);
+    // Remember this was a reschedule, not a plain cancel, so the Checkup
+    // history labels the released row "Rescheduled" instead of "Cancelled".
+    void markBookingRescheduled(b.id);
     navigation.navigate("ServicesTab", { screen: "Appointment", params: { serviceId: b.service_id } });
   };
 

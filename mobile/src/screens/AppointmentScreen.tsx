@@ -16,7 +16,8 @@ import {
   LoadingState,
 } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
-import { translateServiceName } from "@/lib/serviceI18n";
+import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
+import { ServiceDescription } from "@/components/feature/ServiceDescription";
 import { useLanguage } from "@/lib/i18n";
 import {
   useServices,
@@ -53,6 +54,10 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
     end_date: todayISODate(),
     time_slot: SLOTS[0].value,
     symptom_brief: "",
+    // Which of the selected service's listed areas the visit is about — makes
+    // each service's booking screen genuinely specific to that service rather
+    // than an identical form (QA row 24). Optional; folded into the brief.
+    focus_area: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Arriving from a tapped service card (route param set) means the service is
@@ -62,12 +67,26 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
   const [showServicePicker, setShowServicePicker] = useState(!route.params?.serviceId);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  // Switching service invalidates any focus area picked for the previous one.
+  const setService = (v: string) => setForm((f) => ({ ...f, service_id: v, focus_area: "" }));
   // Picking a later start date shouldn't leave a stale end date before it.
   const setStartDate = (v: string) => setForm((f) => ({ ...f, start_date: v, end_date: f.end_date < v ? v : f.end_date }));
 
   const serviceId = form.service_id || services?.[0]?.id || "";
   const selectedService = useMemo(() => services?.find((s) => s.id === serviceId) ?? null, [services, serviceId]);
   const profileComplete = !!profile?.full_name;
+
+  // The service description is "summary\n• area\n• area…" — offer those areas
+  // as an optional picker so the form reflects the specific service chosen.
+  const serviceDescription = selectedService ? translateServiceDescription(t, selectedService.description) : "";
+  const focusOptions = useMemo(() => {
+    const areas = serviceDescription
+      .split("\n")
+      .filter((l) => l.trim().startsWith("•"))
+      .map((l) => l.replace(/^[•\s]+/, "").trim())
+      .filter(Boolean);
+    return [{ value: "", label: t("appointment.focusAreaNone") }, ...areas.map((a) => ({ value: a, label: a }))];
+  }, [serviceDescription, t]);
 
   // No price shown on the service picker — the amount is decided by the
   // care assistant/admin after the visit, not calculated at booking time.
@@ -139,6 +158,10 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
         ? profile?.full_name ?? t("appointment.myself")
         : dependents?.find((d) => d.id === form.family_member_id)?.full_name ?? t("appointment.dependent");
 
+    // Prepend the chosen focus area so it reaches ops with the brief (no
+    // schema change needed — it rides along in symptom_brief).
+    const brief = form.focus_area ? `${form.focus_area}: ${form.symptom_brief}` : form.symptom_brief;
+
     navigation.navigate("Payment", {
       draft: {
         service_id: selectedService.id,
@@ -150,7 +173,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
         end_date: form.end_date,
         num_days: days,
         time_slot: form.time_slot,
-        symptom_brief: form.symptom_brief,
+        symptom_brief: brief,
       },
     });
   };
@@ -179,7 +202,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
           <SectionCard icon={CalendarClock} title={t("appointment.sectionTitle")}>
             <View className="gap-4">
               {showServicePicker ? (
-                <SelectSheet label={t("appointment.service")} value={serviceId} onValueChange={set("service_id")} options={serviceOptions} />
+                <SelectSheet label={t("appointment.service")} value={serviceId} onValueChange={setService} options={serviceOptions} />
               ) : (
                 <View>
                   <Text className="mb-1.5 text-sm font-medium text-gray-700">{t("appointment.service")}</Text>
@@ -191,6 +214,22 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
                   </View>
                 </View>
               )}
+              {selectedService && serviceDescription ? (
+                <View className="-mt-1 rounded-xl border border-purple-100 bg-purple-50/60 px-4 py-3">
+                  <Text className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-purple-700">
+                    {t("appointment.serviceCovers")}
+                  </Text>
+                  <ServiceDescription text={serviceDescription} />
+                </View>
+              ) : null}
+              {focusOptions.length > 1 ? (
+                <SelectSheet
+                  label={t("appointment.focusArea")}
+                  value={form.focus_area}
+                  onValueChange={set("focus_area")}
+                  options={focusOptions}
+                />
+              ) : null}
               <SelectSheet label={t("appointment.careFor")} value={form.family_member_id} onValueChange={set("family_member_id")} options={subjectOptions} />
               <View className="flex-row gap-3">
                 <View className="flex-1">
