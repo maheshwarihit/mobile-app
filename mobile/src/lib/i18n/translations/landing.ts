@@ -8,7 +8,7 @@ export const en = {
   "landing.alreadyHaveAccount": "Already have account? ",
   "landing.logIn": "Log In",
   "landing.visitAs.title": "Visit as",
-  "landing.visitAs.careSeeker": "Clients",
+  "landing.visitAs.careSeeker": "Client",
   "landing.visitAs.caregiver": "Care Giver / Admin",
   "landing.visitAs.continue": "Continue",
 } as const;
