@@ -23,7 +23,7 @@ export const ta: Record<keyof typeof en, string> = {
   "landing.alreadyHaveAccount": "ஏற்கனவே கணக்கு உள்ளதா? ",
   "landing.logIn": "உள்நுழைக",
   "landing.visitAs.title": "எவ்வாறு நுழைய விரும்புகிறீர்கள்",
-  "landing.visitAs.careSeeker": "வாடிக்கையாளர்கள்",
+  "landing.visitAs.careSeeker": "வாடிக்கையாளர்",
   "landing.visitAs.caregiver": "கேர் கிவர் / நிர்வாகி",
   "landing.visitAs.continue": "தொடரவும்",
 };
