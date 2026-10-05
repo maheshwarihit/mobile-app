@@ -3,6 +3,7 @@ import * as enums from "./enums";
 import * as chooseLanguage from "./chooseLanguage";
 import * as onboarding from "./onboarding";
 import * as landing from "./landing";
+import * as bmi from "./bmi";
 import * as home from "./home";
 import * as services from "./services";
 import * as appointment from "./appointment";
@@ -45,6 +46,7 @@ export const en = {
   ...chooseLanguage.en,
   ...onboarding.en,
   ...landing.en,
+  ...bmi.en,
   ...home.en,
   ...services.en,
   ...appointment.en,
@@ -82,6 +84,7 @@ export const ta: Record<keyof typeof en, string> = {
   ...chooseLanguage.ta,
   ...onboarding.ta,
   ...landing.ta,
+  ...bmi.ta,
   ...home.ta,
   ...services.ta,
   ...appointment.ta,
