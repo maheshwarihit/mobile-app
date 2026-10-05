@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { View, Text } from "react-native";
 import { Scale } from "lucide-react-native";
-import { AppModal, Card, FormInput, PrimaryButton, OutlineButton, ErrorBanner } from "@/components/ui";
+import { AppModal, Card, FormInput, PrimaryButton, OutlineButton, ErrorBanner, SelectSheet } from "@/components/ui";
+import { useFamilyMembersByAccount } from "@vagewell/shared";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 import { computeBmi, bmiCategory, bmiScalePercent, type BmiCategory } from "@/lib/bmi";
@@ -51,7 +52,8 @@ export function BmiCard() {
 
       {open ? (
         <BmiForm
-          defaultName={profile?.full_name ?? ""}
+          accountId={profile?.id ?? null}
+          accountName={profile?.full_name ?? ""}
           onClose={() => setOpen(false)}
           onCalculated={(r) => {
             setResult(r);
@@ -64,19 +66,31 @@ export function BmiCard() {
 }
 
 function BmiForm({
-  defaultName,
+  accountId,
+  accountName,
   onClose,
   onCalculated,
 }: {
-  defaultName: string;
+  accountId: string | null;
+  accountName: string;
   onClose: () => void;
   onCalculated: (r: Result) => void;
 }) {
   const { t } = useLanguage();
-  const [name, setName] = useState(defaultName);
+  const { data: dependents } = useFamilyMembersByAccount(accountId);
+  const people = accountId
+    ? [
+        { value: "self", label: accountName },
+        ...(dependents ?? []).map((d) => ({ value: d.id, label: d.full_name })),
+      ]
+    : [];
+  const [personId, setPersonId] = useState("self");
+  const [typedName, setTypedName] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [err, setErr] = useState<string | null>(null);
+
+  const name = people.length ? (people.find((p) => p.value === personId)?.label ?? "") : typedName;
 
   const calculate = () => {
     const h = Number(height);
@@ -91,7 +105,11 @@ function BmiForm({
   return (
     <AppModal visible onClose={onClose} title={t("bmi.modal.title")}>
       <View className="gap-4">
-        <FormInput label={t("bmi.field.name")} value={name} onChangeText={setName} autoCapitalize="words" required />
+        {people.length ? (
+          <SelectSheet label={t("bmi.field.name")} value={personId} onValueChange={setPersonId} options={people} required />
+        ) : (
+          <FormInput label={t("bmi.field.name")} value={typedName} onChangeText={setTypedName} autoCapitalize="words" required />
+        )}
         <FormInput
           label={t("bmi.field.height")}
           value={height}
