@@ -160,7 +160,6 @@ function BmiResult({ result, onRecalculate }: { result: Result; onRecalculate: (
       </View>
 
       <Text className="text-sm text-gray-700">{t(ADVICE_KEYS[category])}</Text>
-      <Text className="text-xs text-gray-400">{t("bmi.disclaimer")}</Text>
 
       <OutlineButton onPress={onRecalculate}>{t("bmi.result.recalculate")}</OutlineButton>
     </View>

@@ -20,7 +20,6 @@ export const en = {
   "bmi.advice.normal": "In the healthy range. Keep up balanced meals and regular physical activity.",
   "bmi.advice.overweight": "Above the healthy range. Cut back on sugar and fried food, add a daily walk, and consider a dietitian consultation.",
   "bmi.advice.obese": "In the obese range, which raises health risks. Please consult a doctor or dietitian for a personalised plan.",
-  "bmi.disclaimer": "BMI is a screening estimate, not a diagnosis.",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -45,5 +44,4 @@ export const ta: Record<keyof typeof en, string> = {
   "bmi.advice.normal": "ஆரோக்கிய வரம்பில் உள்ளது. சமநிலையான உணவு மற்றும் தினசரி உடற்பயிற்சியை தொடரவும்.",
   "bmi.advice.overweight": "ஆரோக்கிய வரம்புக்கு மேலே. சர்க்கரை மற்றும் பொரித்த உணவைக் குறைத்து, தினமும் நடைபயிற்சி செய்யவும்; உணவியல் நிபுணரை அணுகலாம்.",
   "bmi.advice.obese": "உடல் பருமன் வரம்பில் உள்ளது, இது உடல்நல அபாயங்களை அதிகரிக்கும். தனிப்பட்ட திட்டத்திற்கு மருத்துவர் அல்லது உணவியல் நிபுணரை அணுகவும்.",
-  "bmi.disclaimer": "BMI ஒரு மதிப்பீடு மட்டுமே, மருத்துவ நோயறிதல் அல்ல.",
 };
