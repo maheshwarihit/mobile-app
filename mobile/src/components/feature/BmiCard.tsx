@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Scale } from "lucide-react-native";
 import { AppModal, Card, FormInput, PrimaryButton, OutlineButton, ErrorBanner, SelectSheet } from "@/components/ui";
 import { useFamilyMembersByAccount } from "@vagewell/shared";
@@ -27,8 +27,10 @@ const SEGMENTS: { category: BmiCategory; color: string; labelKey: "bmi.scale.und
 export function BmiCard() {
   const { t } = useLanguage();
   const { profile } = useAuth();
-  const [result, setResult] = useState<Result | null>(null);
+  const [results, setResults] = useState<Result[]>([]);
+  const [activeName, setActiveName] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const result = results.find((r) => r.name === activeName) ?? results[results.length - 1] ?? null;
 
   return (
     <>
@@ -41,7 +43,26 @@ export function BmiCard() {
         </View>
 
         {result ? (
-          <BmiResult result={result} onRecalculate={() => setOpen(true)} />
+          <View className="gap-4">
+            {results.length > 1 ? (
+              <View className="flex-row flex-wrap gap-2">
+                {results.map((r) => (
+                  <Pressable
+                    key={r.name}
+                    onPress={() => setActiveName(r.name)}
+                    className={`rounded-full border px-3 py-1 ${
+                      r.name === result.name ? "border-purple-600 bg-purple-600" : "border-gray-300 bg-white"
+                    }`}
+                  >
+                    <Text className={`text-xs font-semibold ${r.name === result.name ? "text-white" : "text-gray-600"}`}>
+                      {r.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+            <BmiResult result={result} onNext={() => setOpen(true)} />
+          </View>
         ) : (
           <View className="gap-3">
             <Text className="text-sm text-gray-500">{t("bmi.subtitle")}</Text>
@@ -56,7 +77,8 @@ export function BmiCard() {
           accountName={profile?.full_name ?? ""}
           onClose={() => setOpen(false)}
           onCalculated={(r) => {
-            setResult(r);
+            setResults((prev) => [...prev.filter((p) => p.name !== r.name), r]);
+            setActiveName(r.name);
             setOpen(false);
           }}
         />
@@ -138,7 +160,7 @@ function BmiForm({
   );
 }
 
-function BmiResult({ result, onRecalculate }: { result: Result; onRecalculate: () => void }) {
+function BmiResult({ result, onNext }: { result: Result; onNext: () => void }) {
   const { t } = useLanguage();
   const category = bmiCategory(result.bmi);
   const meta = SEGMENTS.find((s) => s.category === category)!;
@@ -179,7 +201,7 @@ function BmiResult({ result, onRecalculate }: { result: Result; onRecalculate: (
 
       <Text className="text-sm text-gray-700">{t(ADVICE_KEYS[category])}</Text>
 
-      <OutlineButton onPress={onRecalculate}>{t("bmi.result.recalculate")}</OutlineButton>
+      <OutlineButton onPress={onNext}>{t("bmi.result.checkAnother")}</OutlineButton>
     </View>
   );
 }
