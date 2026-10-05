@@ -166,6 +166,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
   // user could only move slides with the arrows/dots. Native keeps its own
   // touch scrolling (a responder here would steal those touches).
   const offsetRef = useRef(0);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStartX = useRef(0);
   const panResponder = useMemo(() => {
     const finishDrag = (dx: number) => {
@@ -193,16 +194,48 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
     });
   }, [width, SLIDES.length]);
 
+  const wrapperRef = useRef<View>(null);
+  const stepRef = useRef<(dir: number) => void>(() => {});
+  stepRef.current = (dir: number) => goTo(index + dir);
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const node = wrapperRef.current as unknown as HTMLElement | null;
+    if (!node) return;
+    let acc = 0;
+    let locked = false;
+    let idle: ReturnType<typeof setTimeout> | null = null;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(() => {
+        acc = 0;
+        locked = false;
+      }, 250);
+      if (locked) return;
+      acc += e.deltaX;
+      if (Math.abs(acc) > 50) {
+        stepRef.current(acc > 0 ? 1 : -1);
+        acc = 0;
+        locked = true;
+      }
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, []);
+
   return (
     <View className="flex-1 bg-black">
       <StatusBar style="light" />
       {/* Full-bleed photo + scrim behind the whole screen; swaps with `index`. */}
-      <Image
-        key={index}
-        source={SLIDES[index].image}
-        style={[StyleSheet.absoluteFill, { width: "100%", height: "100%" }]}
-        resizeMode="cover"
-      />
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Image
+          key={index}
+          source={SLIDES[index].image}
+          style={[StyleSheet.absoluteFill, { width: "100%", height: "100%" }]}
+          resizeMode="cover"
+        />
+      </View>
       <LinearGradient
         pointerEvents="none"
         colors={["transparent", "rgba(2,10,13,0.5)", "rgba(2,10,13,0.92)"]}
@@ -218,14 +251,17 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
           <LanguageToggle dark />
         </View>
 
-        <View className="flex-1" {...(Platform.OS === "web" ? panResponder.panHandlers : {})}>
+        <View ref={wrapperRef} className="flex-1" {...(Platform.OS === "web" ? panResponder.panHandlers : {})}>
           <ScrollView
             ref={scrollRef}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onScroll={(e) => {
-              offsetRef.current = e.nativeEvent.contentOffset.x;
+              const x = e.nativeEvent.contentOffset.x;
+              offsetRef.current = x;
+              if (settleTimer.current) clearTimeout(settleTimer.current);
+              settleTimer.current = setTimeout(() => setIndex(Math.round(x / width)), 120);
             }}
             scrollEventThrottle={16}
             onMomentumScrollEnd={onScrollEnd}
