@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Scale } from "lucide-react-native";
 import { AppModal, Card, FormInput, PrimaryButton, OutlineButton, ErrorBanner, SelectSheet } from "@/components/ui";
@@ -6,6 +6,7 @@ import { useFamilyMembersByAccount } from "@vagewell/shared";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 import { computeBmi, bmiCategory, bmiScalePercent, type BmiCategory } from "@/lib/bmi";
+import { loadBmiResults, saveBmiResults } from "@/lib/bmiStorage";
 import { BRAND, ACCENT_GREEN, WARN, DANGER } from "@/theme";
 
 type Result = { name: string; bmi: number };
@@ -27,10 +28,30 @@ const SEGMENTS: { category: BmiCategory; color: string; labelKey: "bmi.scale.und
 export function BmiCard() {
   const { t } = useLanguage();
   const { profile } = useAuth();
+  const userId = profile?.id ?? null;
   const [results, setResults] = useState<Result[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [activeName, setActiveName] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const result = results.find((r) => r.name === activeName) ?? results[results.length - 1] ?? null;
+
+  useEffect(() => {
+    let active = true;
+    setLoaded(false);
+    void loadBmiResults(userId).then((saved) => {
+      if (!active) return;
+      setResults(saved);
+      setActiveName(null);
+      setLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (loaded) void saveBmiResults(userId, results);
+  }, [results, loaded, userId]);
 
   return (
     <>
