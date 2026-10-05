@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   Image,
   ScrollView,
   Pressable,
+  PanResponder,
+  Platform,
   StyleSheet,
   useWindowDimensions,
   type ImageSourcePropType,
@@ -160,16 +162,41 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
     setIndex(Math.round(e.nativeEvent.contentOffset.x / width));
   };
 
+  // Web only: react-native-web's ScrollView ignores mouse drag, so a desktop
+  // user could only move slides with the arrows/dots. Native keeps its own
+  // touch scrolling (a responder here would steal those touches).
+  const offsetRef = useRef(0);
+  const dragStartX = useRef(0);
+  const panResponder = useMemo(() => {
+    const finishDrag = (dx: number) => {
+      const flicked = Math.abs(dx) > width * 0.15;
+      const start = Math.round(dragStartX.current / width);
+      const target = Math.min(
+        SLIDES.length - 1,
+        Math.max(0, flicked ? (dx < 0 ? start + 1 : start - 1) : Math.round(offsetRef.current / width))
+      );
+      scrollRef.current?.scrollTo({ x: width * target, animated: true });
+      setIndex(target);
+    };
+    return PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 4,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => {
+        dragStartX.current = offsetRef.current;
+      },
+      onPanResponderMove: (_, g) => {
+        scrollRef.current?.scrollTo({ x: Math.max(0, dragStartX.current - g.dx), animated: false });
+      },
+      onPanResponderRelease: (_, g) => finishDrag(g.dx),
+      onPanResponderTerminate: (_, g) => finishDrag(g.dx),
+    });
+  }, [width, SLIDES.length]);
+
   return (
     <View className="flex-1 bg-black">
       <StatusBar style="light" />
-      {/* True full-bleed: the current slide's photo + scrim sit behind the
-          ENTIRE screen (including the logo row and the bottom Skip/dots/Next
-          bar), not just behind the scrollable slide content — otherwise the
-          logo row rendered on a flat solid-black strip above the photo
-          instead of the photo running edge to edge, which is what "full
-          bleed" is supposed to mean. Swaps with `index` since only one photo
-          shows at a time regardless of which slide the ScrollView is on. */}
+      {/* Full-bleed photo + scrim behind the whole screen; swaps with `index`. */}
       <Image
         key={index}
         source={SLIDES[index].image}
@@ -191,58 +218,50 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
           <LanguageToggle dark />
         </View>
 
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={onScrollEnd}
-          className="flex-1"
-        >
-          {SLIDES.map((s, slideIndex) => (
-            <View key={slideIndex} style={{ width }} className="flex-1 justify-end px-8 pb-6">
-              <View className="mb-8 h-24 w-24 items-center justify-center rounded-full bg-white/15">
-                <s.icon size={40} color="#ffffff" />
-              </View>
-              {s.stackedTitle ? (
-                <View className="mb-1">
-                  {s.stackedTitle.map((word, i) => (
-                    <Text
-                      key={i}
-                      className={`text-4xl font-extrabold leading-tight ${
-                        i === s.stackedTitle!.length - 1 ? "text-white" : "text-teal-300"
-                      }`}
-                    >
-                      {word}
-                    </Text>
-                  ))}
+        <View className="flex-1" {...(Platform.OS === "web" ? panResponder.panHandlers : {})}>
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(e) => {
+              offsetRef.current = e.nativeEvent.contentOffset.x;
+            }}
+            scrollEventThrottle={16}
+            onMomentumScrollEnd={onScrollEnd}
+            className="flex-1"
+          >
+            {SLIDES.map((s, slideIndex) => (
+              <View key={slideIndex} style={{ width }} className="flex-1 justify-end px-8 pb-6">
+                <View className="mb-8 h-24 w-24 items-center justify-center rounded-full bg-white/15">
+                  <s.icon size={40} color="#ffffff" />
                 </View>
-              ) : (
-                <Text className="text-3xl font-bold leading-tight text-white">
-                  {s.titleBefore}
-                  <Text className="text-teal-300">{s.titleHighlight}</Text>
-                  {s.titleAfter}
-                </Text>
-              )}
-              <Text className="mt-3 text-base text-gray-300">{s.description}</Text>
-            </View>
-          ))}
-        </ScrollView>
+                {s.stackedTitle ? (
+                  <View className="mb-1">
+                    {s.stackedTitle.map((word, i) => (
+                      <Text
+                        key={i}
+                        className={`text-4xl font-extrabold leading-tight ${
+                          i === s.stackedTitle!.length - 1 ? "text-white" : "text-teal-300"
+                        }`}
+                      >
+                        {word}
+                      </Text>
+                    ))}
+                  </View>
+                ) : (
+                  <Text className="text-3xl font-bold leading-tight text-white">
+                    {s.titleBefore}
+                    <Text className="text-teal-300">{s.titleHighlight}</Text>
+                    {s.titleAfter}
+                  </Text>
+                )}
+                <Text className="mt-3 text-base text-gray-300">{s.description}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
 
-        {/*
-          Matches the reference design's layout: Skip bottom-left, dots
-          centered, a small circular Next/Check button bottom-right (Back to
-          its left once past slide 1). px-10 (not px-6) and each
-          HeroCircleButton's hitSlop/size stay as they were hardened to —
-          Android's edge-swipe-back gesture claims a strip along both screen
-          edges, and Google's own guidance is to keep interactive controls
-          ≥24dp clear of them, so this row gets real clearance even though
-          the earlier "buttons are unresponsive" reports turned out to be a
-          different bug entirely (DarkHeroBackground's LinearGradient layers
-          silently absorbing all touches — see that fix). That root cause is
-          now fixed, so it's safe to go back to this compact layout instead
-          of the full-width button substituted while it was still suspected.
-        */}
         <View className="flex-row items-center justify-between px-10 pb-8 pt-4">
           <Pressable onPress={finish} hitSlop={12} className="active:opacity-70">
             <Text className="text-sm font-semibold text-teal-300">{t("common.skip")}</Text>
@@ -310,3 +329,4 @@ function HeroCircleButton({
     </Pressable>
   );
 }
+
