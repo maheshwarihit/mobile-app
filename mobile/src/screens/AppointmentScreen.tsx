@@ -28,6 +28,7 @@ import {
   daysBetween,
   MAX_BOOKING_DAYS,
   MIN_BOOKING_LEAD_MINUTES,
+  NUTRITION_SERVICE,
 } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
@@ -44,7 +45,9 @@ function parseISODate(iso: string): Date {
 export function AppointmentScreen({ navigation, route }: ServicesStackScreenProps<"Appointment">) {
   const { t } = useLanguage();
   const { profile } = useAuth();
-  const { data: services, isLoading } = useServices();
+  const { data: allServices, isLoading } = useServices();
+  // Nutrition isn't booked as an appointment — its card opens the Nutrition modules instead.
+  const services = useMemo(() => allServices?.filter((s) => s.name !== NUTRITION_SERVICE), [allServices]);
   const { data: dependents } = useFamilyMembers();
 
   const [form, setForm] = useState({
@@ -72,7 +75,9 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
   // Picking a later start date shouldn't leave a stale end date before it.
   const setStartDate = (v: string) => setForm((f) => ({ ...f, start_date: v, end_date: f.end_date < v ? v : f.end_date }));
 
-  const serviceId = form.service_id || services?.[0]?.id || "";
+  // Falls back to the first bookable service when nothing is picked, or when the
+  // id passed in is one that can't be booked (a reschedule of an old Nutrition visit).
+  const serviceId = services?.find((s) => s.id === form.service_id)?.id ?? services?.[0]?.id ?? "";
   const selectedService = useMemo(() => services?.find((s) => s.id === serviceId) ?? null, [services, serviceId]);
   const profileComplete = !!profile?.full_name;
 

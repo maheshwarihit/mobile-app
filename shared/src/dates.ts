@@ -31,6 +31,14 @@ export function formatDate(dateStr: string | null | undefined): string {
   return dt.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/** "2003-02-16" → "16/02/2003" — numeric DD/MM/YYYY, used for dates of birth. */
+export function formatDateDMY(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  const [y, m, d] = dateStr.split("T")[0].split("-");
+  if (!y || !m || !d) return dateStr;
+  return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+}
+
 /** "13:45:00" or "13:45" → "01:45 PM" */
 export function formatSlot(slot: string | null | undefined): string {
   if (!slot) return "—";

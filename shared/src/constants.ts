@@ -152,11 +152,31 @@ export const ALLOWED_REPORT_MIME = ["image/png", "image/jpeg", "image/webp", "ap
 // `description`'s first line is the short summary; the "• " lines after it are
 // the feature bullets (migration 0030) — rendered as a bullet list in the app,
 // same \n-joined string other display code (translateServiceDescription) splits on.
-// Array order = display order (Para-Medical, Mental Wellbeing, Nutrition, Physio
-// Therapy) — matched by SERVICE_DISPLAY_ORDER below, which useServices() sorts
+// Array order = display order (Nutrition, Physio Therapy, Para-Medical, Mental
+// Wellbeing) — matched by SERVICE_DISPLAY_ORDER below, which useServices() sorts
 // the live DB result by, so the guest Home screen (reads this array directly)
 // and the authenticated Services screen (reads the live query) never disagree.
 export const SEED_SERVICES = [
+  {
+    name: "Nutrition",
+    price_per_day: 2000,
+    pricing_model: "flat_advance",
+    description:
+      "Diet adherence (supported by strategic meal provider partnerships).\n" +
+      "• Individualized diet planning & support\n" +
+      "• Ryles tube feeding guidance\n" +
+      "• Dietitian consultation",
+  },
+  {
+    name: "Physio Therapy",
+    price_per_day: 2000,
+    pricing_model: "flat_advance",
+    description:
+      "Exercise completion, mobility scores.\n" +
+      "• Mobility training\n" +
+      "• Post-surgery physio care\n" +
+      "• Therapeutic exercise",
+  },
   {
     name: "Para-Medical",
     price_per_day: 800,
@@ -181,32 +201,16 @@ export const SEED_SERVICES = [
       "• Spiritual care\n" +
       "• Rehabilitation / relaxation care",
   },
-  {
-    name: "Nutrition",
-    price_per_day: 2000,
-    pricing_model: "flat_advance",
-    description:
-      "Diet adherence (supported by strategic meal provider partnerships).\n" +
-      "• Individualized diet planning & support\n" +
-      "• Ryles tube feeding guidance\n" +
-      "• Dietitian consultation",
-  },
-  {
-    name: "Physio Therapy",
-    price_per_day: 2000,
-    pricing_model: "flat_advance",
-    description:
-      "Exercise completion, mobility scores.\n" +
-      "• Mobility training\n" +
-      "• Post-surgery physio care\n" +
-      "• Therapeutic exercise",
-  },
 ] as const;
 
 // Fixed display order for the service list, independent of price — the
 // authenticated Services screen's live query sorts by this (see useServices()
 // in hooks.ts) so it always matches SEED_SERVICES' order above.
-export const SERVICE_DISPLAY_ORDER = ["Para-Medical", "Mental Wellbeing", "Nutrition", "Physio Therapy"] as const;
+export const SERVICE_DISPLAY_ORDER = ["Nutrition", "Physio Therapy", "Para-Medical", "Mental Wellbeing"] as const;
+
+// Nutrition is no longer booked as an appointment by the customer — its card
+// opens the in-app Nutrition modules (BMI, body metrics, …) instead.
+export const NUTRITION_SERVICE = "Nutrition";
 
 // Service whose booking unlocks staff vitals entry (patient-facing panel shows Sugar + Blood Group).
 export const PARA_MEDICAL_SERVICE = "Para-Medical";

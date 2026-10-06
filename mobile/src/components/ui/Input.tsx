@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, TextInput, Pressable, type KeyboardTypeOptions } from "react-native";
 import { Eye, EyeOff, type LucideIcon } from "lucide-react-native";
+import { useLanguage } from "@/lib/i18n";
 
 type FieldWrap = { label?: string; error?: string; required?: boolean; children: React.ReactNode };
 
@@ -121,8 +122,11 @@ export function TextareaInput({
   maxLength,
   rows = 5,
 }: TextareaProps) {
+  const { t } = useLanguage();
   const [focused, setFocused] = useState(false);
-  const border = focused ? "border-purple-500" : "border-gray-300 dark:border-slate-600";
+  // `maxLength` silently swallows further typing, so say why it stopped.
+  const atLimit = !!maxLength && (value?.length ?? 0) >= maxLength;
+  const border = atLimit ? "border-red-500" : focused ? "border-purple-500" : "border-gray-300 dark:border-slate-600";
   return (
     <Field label={label} error={error} required={required}>
       <TextInput
@@ -139,9 +143,12 @@ export function TextareaInput({
         className={`rounded-lg border ${border} bg-white px-3 py-3 text-sm text-gray-900 dark:bg-slate-800 dark:text-white`}
       />
       {maxLength ? (
-        <Text className="mt-1 self-end text-xs text-gray-400 dark:text-gray-500">
-          {value?.length ?? 0}/{maxLength}
-        </Text>
+        <View className="mt-1 flex-row items-start justify-between gap-3">
+          <Text className="flex-1 text-xs text-red-500">{atLimit ? t("common.maxCharsReached", { max: maxLength }) : ""}</Text>
+          <Text className={`text-xs ${atLimit ? "font-semibold text-red-500" : "text-gray-400 dark:text-gray-500"}`}>
+            {value?.length ?? 0}/{maxLength}
+          </Text>
+        </View>
       ) : null}
     </Field>
   );

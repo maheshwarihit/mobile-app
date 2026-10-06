@@ -7,6 +7,7 @@ import { AppTabBar } from "@/navigation/AppTabBar";
 import { ServicesScreen } from "@/screens/ServicesScreen";
 import { AppointmentScreen } from "@/screens/AppointmentScreen";
 import { PaymentScreen } from "@/screens/PaymentScreen";
+import { NutritionScreen } from "@/screens/NutritionScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { useLanguage } from "@/lib/i18n";
@@ -19,6 +20,7 @@ function ServicesStackNavigator() {
       <Stack.Screen name="Services" component={ServicesScreen} />
       <Stack.Screen name="Appointment" component={AppointmentScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
+      <Stack.Screen name="Nutrition" component={NutritionScreen} />
     </Stack.Navigator>
   );
 }

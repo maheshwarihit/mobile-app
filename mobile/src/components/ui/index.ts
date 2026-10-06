@@ -2,6 +2,7 @@ export * from "./Button";
 export * from "./Input";
 export * from "./SelectSheet";
 export * from "./DateField";
+export * from "./BirthDateField";
 export * from "./ImagePickerField";
 export * from "./BrandLogo";
 export * from "./Card";
