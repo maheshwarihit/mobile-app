@@ -14,7 +14,7 @@ import {
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
-import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
+import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE, NUTRITION_SERVICE } from "@vagewell/shared";
 import { iconForService } from "@/lib/serviceIcon";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceDescription } from "@/components/feature/ServiceDescription";
@@ -96,7 +96,12 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           renderItem={({ item: s }) => {
             const Icon = iconForService(s.name);
             return (
-            <Pressable onPress={() => navigation.navigate("Appointment", { serviceId: s.id })} className="active:opacity-70">
+            <Pressable
+              onPress={() =>
+                s.name === NUTRITION_SERVICE ? navigation.navigate("Nutrition") : navigation.navigate("Appointment", { serviceId: s.id })
+              }
+              className="active:opacity-70"
+            >
               <Card className="p-4">
                 <View className="flex-row items-start gap-3">
                   <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">

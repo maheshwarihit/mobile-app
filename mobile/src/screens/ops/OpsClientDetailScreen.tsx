@@ -13,6 +13,7 @@ import {
   profileSchema,
   money,
   formatDate,
+  formatDateDMY,
   formatSlot,
   formatLocalTime,
   groupByLocalDate,
@@ -34,9 +35,9 @@ import {
   LoadingState,
   EmptyState,
   FormInput,
-  DateField,
+  BirthDateField,
+  AgeField,
   ChoiceChips,
-  TextareaInput,
   PrimaryButton,
   OutlineButton,
   Avatar,
@@ -44,6 +45,7 @@ import {
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
 import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
 import { DependentModal } from "@/components/feature/DependentModal";
+import { AddressFields } from "@/components/feature/AddressFields";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
 import { useAuth } from "@/providers/AuthProvider";
 import { translateServiceName } from "@/lib/serviceI18n";
@@ -199,7 +201,7 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
               <InfoRow label={t("ops.clientDetail.gender")} value={focusedDependent.gender ? genderLabel(t, focusedDependent.gender) : "—"} />
               <InfoRow
                 label={t("ops.clientDetail.dob")}
-                value={focusedDependent.date_of_birth ? formatDate(focusedDependent.date_of_birth) : "—"}
+                value={focusedDependent.date_of_birth ? formatDateDMY(focusedDependent.date_of_birth) : "—"}
               />
               {focusedDependent.linked_profile_id ? (
                 <InfoRow label="Login" value={t("ops.clientDetail.hasOwnLogin")} />
@@ -225,8 +227,12 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
               <InfoRow label={t("ops.clientDetail.mobile")} value={localPhone(profile.phone) || "—"} />
               <InfoRow label={t("ops.clientDetail.age")} value={profile.age != null ? String(profile.age) : "—"} />
               <InfoRow label={t("ops.clientDetail.gender")} value={profile.gender ? genderLabel(t, profile.gender) : "—"} />
-              <InfoRow label={t("ops.clientDetail.dob")} value={profile.date_of_birth ? formatDate(profile.date_of_birth) : "—"} />
-              <InfoRow label={t("ops.clientDetail.address")} value={profile.address || "—"} />
+              <InfoRow label={t("ops.clientDetail.dob")} value={profile.date_of_birth ? formatDateDMY(profile.date_of_birth) : "—"} />
+              {/* Stacked, not a right-aligned InfoRow: an address runs to several lines. */}
+              <View className="gap-1">
+                <Text className="text-sm text-gray-500 dark:text-gray-400">{t("ops.clientDetail.address")}</Text>
+                <Text className="text-sm font-medium leading-5 text-gray-900 dark:text-white">{profile.address || "—"}</Text>
+              </View>
               <InfoRow label={t("ops.clientDetail.joined")} value={formatDate(profile.created_at)} />
             </View>
           ) : (
@@ -439,10 +445,10 @@ function EditProfileModal({
               </View>
               <View className="gap-4">
                 <FormInput label={t("ops.clientDetail.editModal.fullName")} value={form.full_name} onChangeText={set("full_name")} error={errors.full_name} autoCapitalize="words" required />
-                <FormInput label={t("ops.clientDetail.editModal.age")} value={form.age} onChangeText={set("age")} placeholder={t("ops.clientDetail.age")} keyboardType="number-pad" error={errors.age} />
-                <DateField label={t("ops.clientDetail.editModal.dob")} value={form.date_of_birth} onChange={set("date_of_birth")} />
+                <AgeField label={t("ops.clientDetail.editModal.age")} value={form.age} onChange={set("age")} placeholder={t("ops.clientDetail.age")} error={errors.age} submitLabel={t("common.submit")} />
+                <BirthDateField label={t("ops.clientDetail.editModal.dob")} value={form.date_of_birth} onChange={set("date_of_birth")} submitLabel={t("common.submit")} />
                 <ChoiceChips label={t("ops.clientDetail.editModal.gender")} value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} />
-                <TextareaInput label={t("ops.clientDetail.editModal.address")} value={form.address} onChangeText={set("address")} placeholder={t("ops.clientDetail.editModal.addressPlaceholder")} rows={2} maxLength={500} />
+                <AddressFields label={t("ops.clientDetail.editModal.address")} value={form.address} onChange={set("address")} error={errors.address} />
               </View>
               <View className="mt-6 flex-row justify-end gap-2">
                 <OutlineButton onPress={onClose}>{t("ops.cancel")}</OutlineButton>

@@ -5,14 +5,14 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { useFocusEffect } from "@react-navigation/native";
 import { toast } from "@/lib/toast";
-import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download, Camera } from "lucide-react-native";
+import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download, Camera, X } from "lucide-react-native";
 import {
   PageHeader,
   SectionCard,
   SelectSheet,
   FormInput,
-  TextareaInput,
-  DateField,
+  BirthDateField,
+  AgeField,
   ChoiceChips,
   PrimaryButton,
   OutlineButton,
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { DependentModal } from "@/components/feature/DependentModal";
+import { AddressFields } from "@/components/feature/AddressFields";
 import { supabase } from "@/lib/supabase";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
 import { loadRescheduledIds } from "@/lib/rescheduledBookings";
@@ -40,7 +41,9 @@ import {
   useMyBookings,
   useUpdateProfile,
   useUploadProfilePhoto,
+  useRemoveProfilePhoto,
   formatDate,
+  formatDateDMY,
   formatLocalDateTime,
   formatLocalTime,
   groupByLocalDate,
@@ -71,6 +74,8 @@ export function ProfileScreen() {
   const del = useDeleteDependent();
   const updateProfile = useUpdateProfile();
   const uploadPhoto = useUploadProfilePhoto();
+  const removePhoto = useRemoveProfilePhoto();
+  const [confirmRemovePhoto, setConfirmRemovePhoto] = useState(false);
   const [savingBio, setSavingBio] = useState(false);
 
   const [depModalOpen, setDepModalOpen] = useState(false);
@@ -262,7 +267,8 @@ export function ProfileScreen() {
         {/* ── Bio (self-editable) ─────────────────────────── */}
         <SectionCard icon={UserCircle} title={t("profile.yourDetails")}>
           <View className="mb-4 items-center">
-            <Pressable onPress={pickPhoto} disabled={uploadPhoto.isPending} className="relative h-24 w-24 active:opacity-70">
+            <View className="relative h-24 w-24">
+            <Pressable onPress={pickPhoto} disabled={uploadPhoto.isPending} className="h-24 w-24 active:opacity-70">
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} className="h-24 w-24 rounded-full" resizeMode="cover" />
               ) : (
@@ -274,15 +280,28 @@ export function ProfileScreen() {
                 {uploadPhoto.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Camera size={14} color="#fff" />}
               </View>
             </Pressable>
+            {/* A sibling of the photo button, not a child — a button nested in a button misfires on web. */}
+            {avatarUrl ? (
+              <Pressable
+                onPress={() => setConfirmRemovePhoto(true)}
+                disabled={uploadPhoto.isPending || removePhoto.isPending}
+                hitSlop={8}
+                accessibilityLabel={t("profile.removePhoto.action")}
+                className="absolute -right-1 -top-1 h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-red-600 active:opacity-70"
+              >
+                <X size={13} color="#fff" />
+              </Pressable>
+            ) : null}
+            </View>
           </View>
 
           {editingBio ? (
             <View className="gap-4">
               <FormInput label={t("profile.fullName")} value={bioForm.full_name} onChangeText={setBio("full_name")} error={bioErrors.full_name} autoCapitalize="words" required />
-              <FormInput label={t("profile.age")} value={bioForm.age} onChangeText={setBio("age")} placeholder={t("profile.row.age")} keyboardType="number-pad" error={bioErrors.age} />
-              <DateField label={t("profile.dob")} value={bioForm.date_of_birth} onChange={setBio("date_of_birth")} />
+              <AgeField label={t("profile.age")} value={bioForm.age} onChange={setBio("age")} placeholder={t("profile.row.age")} error={bioErrors.age} submitLabel={t("common.submit")} />
+              <BirthDateField label={t("profile.dob")} value={bioForm.date_of_birth} onChange={setBio("date_of_birth")} submitLabel={t("common.submit")} />
               <ChoiceChips label={t("profile.gender")} value={bioForm.gender} onChange={setBio("gender")} options={GENDER_OPTIONS} />
-              <TextareaInput label={t("profile.address")} value={bioForm.address} onChangeText={setBio("address")} placeholder={t("profile.addressPlaceholder")} rows={2} maxLength={500} />
+              <AddressFields label={t("profile.address")} value={bioForm.address} onChange={setBio("address")} error={bioErrors.address} />
               <View className="flex-row gap-3">
                 <View className="flex-1">
                   <OutlineButton fullWidth onPress={() => setEditingBio(false)}>
@@ -302,9 +321,13 @@ export function ProfileScreen() {
                 <Row label={t("profile.row.name")} value={profile?.full_name ?? "—"} />
                 <Row label={t("profile.row.mobile")} value={localPhone(profile?.phone) || "—"} />
                 <Row label={t("profile.row.age")} value={profile?.age?.toString() ?? "—"} />
-                <Row label={t("profile.row.dob")} value={profile?.date_of_birth ? formatDate(profile.date_of_birth) : "—"} />
+                <Row label={t("profile.row.dob")} value={profile?.date_of_birth ? formatDateDMY(profile.date_of_birth) : "—"} />
                 <Row label={t("profile.row.gender")} value={profile?.gender ? genderLabel(t, profile.gender) : "—"} />
-                <Row label={t("profile.row.address")} value={profile?.address ?? "—"} />
+                {/* Stacked, not a right-aligned Row: an address runs to several lines. */}
+                <View className="gap-1">
+                  <Text className="text-sm text-gray-500">{t("profile.row.address")}</Text>
+                  <Text className="text-sm font-medium leading-5 text-gray-900">{profile?.address || "—"}</Text>
+                </View>
               </View>
               <View className="mt-3">
                 <OutlineButton icon={Pencil} onPress={startEditBio}>
@@ -476,6 +499,22 @@ export function ProfileScreen() {
         <Text className="text-sm text-gray-600">
           {t("profile.removeDependent.body", { name: deleteDep?.full_name ?? "" })}
         </Text>
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={confirmRemovePhoto}
+        title={t("profile.removePhoto.title")}
+        onClose={() => setConfirmRemovePhoto(false)}
+        onConfirm={() => {
+          if (user && profile?.avatar_path)
+            removePhoto.mutate({ userId: user.id, path: profile.avatar_path }, { onSuccess: () => refreshProfile() });
+          setConfirmRemovePhoto(false);
+        }}
+        confirmLabel={t("profile.removeDependent.confirm")}
+        cancelLabel={t("profile.removeDependent.cancel")}
+        confirmDanger
+      >
+        <Text className="text-sm text-gray-600">{t("profile.removePhoto.body")}</Text>
       </ConfirmModal>
     </SafeAreaView>
   );

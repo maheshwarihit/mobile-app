@@ -32,7 +32,8 @@ export function BmiCard() {
   const [results, setResults] = useState<Result[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [activeName, setActiveName] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
+  // null = closed; otherwise the name to preselect ("" for a fresh check).
+  const [formFor, setFormFor] = useState<string | null>(null);
   const result = results.find((r) => r.name === activeName) ?? results[results.length - 1] ?? null;
 
   useEffect(() => {
@@ -82,25 +83,26 @@ export function BmiCard() {
                 ))}
               </View>
             ) : null}
-            <BmiResult result={result} onNext={() => setOpen(true)} />
+            <BmiResult result={result} onRecheck={() => setFormFor(result.name)} onNext={() => setFormFor("")} />
           </View>
         ) : (
           <View className="gap-3">
             <Text className="text-sm text-gray-500">{t("bmi.subtitle")}</Text>
-            <PrimaryButton onPress={() => setOpen(true)}>{t("bmi.checkButton")}</PrimaryButton>
+            <PrimaryButton onPress={() => setFormFor("")}>{t("bmi.checkButton")}</PrimaryButton>
           </View>
         )}
       </Card>
 
-      {open ? (
+      {formFor !== null ? (
         <BmiForm
           accountId={profile?.id ?? null}
           accountName={profile?.full_name ?? ""}
-          onClose={() => setOpen(false)}
+          initialName={formFor}
+          onClose={() => setFormFor(null)}
           onCalculated={(r) => {
             setResults((prev) => [...prev.filter((p) => p.name !== r.name), r]);
             setActiveName(r.name);
-            setOpen(false);
+            setFormFor(null);
           }}
         />
       ) : null}
@@ -111,11 +113,13 @@ export function BmiCard() {
 function BmiForm({
   accountId,
   accountName,
+  initialName,
   onClose,
   onCalculated,
 }: {
   accountId: string | null;
   accountName: string;
+  initialName: string;
   onClose: () => void;
   onCalculated: (r: Result) => void;
 }) {
@@ -127,8 +131,11 @@ function BmiForm({
         ...(dependents ?? []).map((d) => ({ value: d.id, label: d.full_name })),
       ]
     : [];
-  const [personId, setPersonId] = useState("self");
-  const [typedName, setTypedName] = useState("");
+  // Unset until the user picks: dependents load async, so the recheck
+  // preselection is resolved by name on each render rather than once at mount.
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const personId = pickedId ?? people.find((p) => p.label === initialName)?.value ?? "self";
+  const [typedName, setTypedName] = useState(initialName);
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -149,7 +156,7 @@ function BmiForm({
     <AppModal visible onClose={onClose} title={t("bmi.modal.title")}>
       <View className="gap-4">
         {people.length ? (
-          <SelectSheet label={t("bmi.field.name")} value={personId} onValueChange={setPersonId} options={people} required />
+          <SelectSheet label={t("bmi.field.name")} value={personId} onValueChange={setPickedId} options={people} required />
         ) : (
           <FormInput label={t("bmi.field.name")} value={typedName} onChangeText={setTypedName} autoCapitalize="words" required />
         )}
@@ -181,7 +188,7 @@ function BmiForm({
   );
 }
 
-function BmiResult({ result, onNext }: { result: Result; onNext: () => void }) {
+function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck: () => void; onNext: () => void }) {
   const { t } = useLanguage();
   const category = bmiCategory(result.bmi);
   const meta = SEGMENTS.find((s) => s.category === category)!;
@@ -222,7 +229,10 @@ function BmiResult({ result, onNext }: { result: Result; onNext: () => void }) {
 
       <Text className="text-sm text-gray-700">{t(ADVICE_KEYS[category])}</Text>
 
-      <OutlineButton onPress={onNext}>{t("bmi.result.checkAnother")}</OutlineButton>
+      <View className="flex-row flex-wrap gap-3">
+        <OutlineButton onPress={onRecheck}>{t("bmi.result.recheck")}</OutlineButton>
+        <OutlineButton onPress={onNext}>{t("bmi.result.checkAnother")}</OutlineButton>
+      </View>
     </View>
   );
 }

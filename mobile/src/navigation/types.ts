@@ -24,6 +24,7 @@ export interface BookingDraft {
 export type ServicesStackParamList = {
   Services: undefined;
   Appointment: { serviceId?: string } | undefined;
+  Nutrition: undefined;
   Payment: { draft: BookingDraft };
 };
 

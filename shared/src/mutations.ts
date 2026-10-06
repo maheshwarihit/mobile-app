@@ -371,6 +371,25 @@ export function useUploadProfilePhoto() {
   });
 }
 
+export function useRemoveProfilePhoto() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ userId, path }: { userId: string; path: string }) => {
+      const sb = getSupabase();
+      const { error } = await sb.from("profiles").update({ avatar_path: null }).eq("id", userId);
+      if (error) throw error;
+      // Best-effort: the profile no longer points at the file either way, so a
+      // failed storage delete only leaves an orphan, not a visible photo.
+      await sb.storage.from(PROFILE_PHOTO_BUCKET).remove([path]);
+    },
+    onSuccess: () => {
+      invalidate([qk.profile]);
+      toast.success("Photo removed");
+    },
+    onError: (e: Error) => toast.error(e.message, { id: "profile-photo-remove" }),
+  });
+}
+
 /** A Care Giver's own UPI QR (shown on their own Profile, scanned by the client at a home visit). Same upload shape as useUploadProfilePhoto, different bucket/column. */
 export function useUploadPaymentQr() {
   const invalidate = useInvalidate();
