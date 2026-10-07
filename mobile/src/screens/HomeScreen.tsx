@@ -7,7 +7,6 @@ import { AuthModal } from "@/components/feature/AuthModal";
 import { LanguageToggle } from "@/components/feature/LanguageToggle";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceDescription } from "@/components/feature/ServiceDescription";
-import { BmiCard } from "@/components/feature/BmiCard";
 import { iconForService } from "@/lib/serviceIcon";
 import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
@@ -48,8 +47,6 @@ export function HomeScreen() {
             </GradientButton>
           </View>
         </Card>
-
-        <BmiCard />
 
         <View className="mb-4 flex-row items-center justify-between">
           <Text className="text-lg font-bold text-gray-900">{t("home.ourServices")}</Text>

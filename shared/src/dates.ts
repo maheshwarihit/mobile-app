@@ -39,6 +39,15 @@ export function formatDateDMY(dateStr: string | null | undefined): string {
   return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
 }
 
+/** Completed years since a "YYYY-MM-DD" birth date, as of today (local date, no TZ shift). */
+export function ageFromDob(dobISO: string, today: string = todayISODate()): number | null {
+  const [y, m, d] = dobISO.split("T")[0].split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  if (!y || !m || !d || !ty) return null;
+  const hadBirthday = tm > m || (tm === m && td >= d);
+  return ty - y - (hadBirthday ? 0 : 1);
+}
+
 /** "13:45:00" or "13:45" → "01:45 PM" */
 export function formatSlot(slot: string | null | undefined): string {
   if (!slot) return "—";

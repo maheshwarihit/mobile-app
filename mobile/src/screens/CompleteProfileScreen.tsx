@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "@/lib/toast";
-import { BrandLogo, FormInput, ChoiceChips, TextareaInput, PrimaryButton, OutlineButton } from "@/components/ui";
+import { BrandLogo, AgeField, ChoiceChips, TextareaInput, PrimaryButton, OutlineButton } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 import { genderLabel } from "@/lib/enumI18n";
@@ -36,8 +36,12 @@ export function CompleteProfileScreen() {
       setErrors({ address: t("completeProfile.error.enterAddress") });
       return;
     }
-    const ageNum = age.trim() === "" ? null : Number(age);
-    if (age.trim() !== "" && (isNaN(ageNum as number) || (ageNum as number) < 0 || (ageNum as number) > 150)) {
+    if (age.trim() === "") {
+      setErrors({ age: t("completeProfile.error.enterAge") });
+      return;
+    }
+    const ageNum = Number(age);
+    if (isNaN(ageNum) || ageNum < 0 || ageNum > 150) {
       setErrors({ age: t("completeProfile.error.invalidAge") });
       return;
     }
@@ -77,14 +81,7 @@ export function CompleteProfileScreen() {
 
           <View className="rounded-2xl border border-gray-100 bg-white p-6">
             <View className="gap-4">
-              <FormInput
-                label={t("completeProfile.age")}
-                value={age}
-                onChangeText={setAge}
-                placeholder={t("completeProfile.age")}
-                keyboardType="number-pad"
-                error={errors.age}
-              />
+              <AgeField label={t("completeProfile.age")} value={age} onChange={setAge} error={errors.age} required />
               <ChoiceChips label={t("completeProfile.gender")} value={gender} onChange={setGender} options={GENDER_OPTIONS} />
               <TextareaInput
                 label={t("completeProfile.address")}

@@ -25,7 +25,12 @@ const SEGMENTS: { category: BmiCategory; color: string; labelKey: "bmi.scale.und
   { category: "obese", color: DANGER, labelKey: "bmi.scale.obese" },
 ];
 
-export function BmiCard() {
+/**
+ * `personName` set: the card is scoped to that one person (the Nutrition
+ * screen's Self / Dependents pick) — only their result shows, the form is
+ * locked to them, and there's no "check another person".
+ */
+export function BmiCard({ personName }: { personName?: string } = {}) {
   const { t } = useLanguage();
   const { profile } = useAuth();
   const userId = profile?.id ?? null;
@@ -34,7 +39,9 @@ export function BmiCard() {
   const [activeName, setActiveName] = useState<string | null>(null);
   // null = closed; otherwise the name to preselect ("" for a fresh check).
   const [formFor, setFormFor] = useState<string | null>(null);
-  const result = results.find((r) => r.name === activeName) ?? results[results.length - 1] ?? null;
+  const result = personName
+    ? (results.find((r) => r.name === personName) ?? null)
+    : (results.find((r) => r.name === activeName) ?? results[results.length - 1] ?? null);
 
   useEffect(() => {
     let active = true;
@@ -66,7 +73,7 @@ export function BmiCard() {
 
         {result ? (
           <View className="gap-4">
-            {results.length > 1 ? (
+            {!personName && results.length > 1 ? (
               <View className="flex-row flex-wrap gap-2">
                 {results.map((r) => (
                   <Pressable
@@ -83,12 +90,16 @@ export function BmiCard() {
                 ))}
               </View>
             ) : null}
-            <BmiResult result={result} onRecheck={() => setFormFor(result.name)} onNext={() => setFormFor("")} />
+            <BmiResult
+              result={result}
+              onRecheck={() => setFormFor(result.name)}
+              onNext={personName ? undefined : () => setFormFor("")}
+            />
           </View>
         ) : (
           <View className="gap-3">
             <Text className="text-sm text-gray-500">{t("bmi.subtitle")}</Text>
-            <PrimaryButton onPress={() => setFormFor("")}>{t("bmi.checkButton")}</PrimaryButton>
+            <PrimaryButton onPress={() => setFormFor(personName ?? "")}>{t("bmi.checkButton")}</PrimaryButton>
           </View>
         )}
       </Card>
@@ -98,6 +109,7 @@ export function BmiCard() {
           accountId={profile?.id ?? null}
           accountName={profile?.full_name ?? ""}
           initialName={formFor}
+          locked={!!personName}
           onClose={() => setFormFor(null)}
           onCalculated={(r) => {
             setResults((prev) => [...prev.filter((p) => p.name !== r.name), r]);
@@ -114,12 +126,14 @@ function BmiForm({
   accountId,
   accountName,
   initialName,
+  locked,
   onClose,
   onCalculated,
 }: {
   accountId: string | null;
   accountName: string;
   initialName: string;
+  locked?: boolean;
   onClose: () => void;
   onCalculated: (r: Result) => void;
 }) {
@@ -140,7 +154,7 @@ function BmiForm({
   const [weight, setWeight] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
-  const name = people.length ? (people.find((p) => p.value === personId)?.label ?? "") : typedName;
+  const name = locked ? initialName : people.length ? (people.find((p) => p.value === personId)?.label ?? "") : typedName;
 
   const calculate = () => {
     const h = Number(height);
@@ -155,7 +169,9 @@ function BmiForm({
   return (
     <AppModal visible onClose={onClose} title={t("bmi.modal.title")}>
       <View className="gap-4">
-        {people.length ? (
+        {locked ? (
+          <FormInput label={t("bmi.field.name")} value={initialName} onChangeText={() => {}} editable={false} />
+        ) : people.length ? (
           <SelectSheet label={t("bmi.field.name")} value={personId} onValueChange={setPickedId} options={people} required />
         ) : (
           <FormInput label={t("bmi.field.name")} value={typedName} onChangeText={setTypedName} autoCapitalize="words" required />
@@ -188,7 +204,7 @@ function BmiForm({
   );
 }
 
-function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck: () => void; onNext: () => void }) {
+function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck: () => void; onNext?: () => void }) {
   const { t } = useLanguage();
   const category = bmiCategory(result.bmi);
   const meta = SEGMENTS.find((s) => s.category === category)!;
@@ -231,7 +247,7 @@ function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck: (
 
       <View className="flex-row flex-wrap gap-3">
         <OutlineButton onPress={onRecheck}>{t("bmi.result.recheck")}</OutlineButton>
-        <OutlineButton onPress={onNext}>{t("bmi.result.checkAnother")}</OutlineButton>
+        {onNext ? <OutlineButton onPress={onNext}>{t("bmi.result.checkAnother")}</OutlineButton> : null}
       </View>
     </View>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, KeyboardAvoidingView, Platform, useWindowDimensions } from "react-native";
 import { X } from "lucide-react-native";
-import { FormInput, SelectSheet, PrimaryButton, OutlineButton } from "@/components/ui";
+import { FormInput, SelectSheet, PrimaryButton, OutlineButton, AgeField, BirthDateField } from "@/components/ui";
 import { useLanguage } from "@/lib/i18n";
 import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
@@ -9,12 +9,13 @@ import {
   useSaveDependent,
   dependentSchema,
   normalizePhone,
+  ageFromDob,
   RELATIONSHIPS,
   GENDERS,
   type FamilyMember,
 } from "@vagewell/shared";
 
-const EMPTY = { full_name: "", age: "", relationship: RELATIONSHIPS[0] as string, contact_phone: "", gender: "" };
+const EMPTY = { full_name: "", age: "", date_of_birth: "", relationship: RELATIONSHIPS[0] as string, contact_phone: "", gender: "" };
 
 export function DependentModal({
   open,
@@ -29,7 +30,7 @@ export function DependentModal({
 }) {
   const { t } = useLanguage();
   const RELATIONSHIP_OPTIONS = RELATIONSHIPS.map((r) => ({ value: r, label: relationshipLabel(t, r) }));
-  const GENDER_OPTIONS = [{ value: "", label: "—" }, ...GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }))];
+  const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }));
   const { height } = useWindowDimensions();
   const save = useSaveDependent();
   const [form, setForm] = useState(EMPTY);
@@ -44,6 +45,7 @@ export function DependentModal({
           ? {
               full_name: dependent.full_name,
               age: dependent.age?.toString() ?? "",
+              date_of_birth: dependent.date_of_birth ?? "",
               relationship: dependent.relationship,
               contact_phone: dependent.contact_phone ?? "",
               gender: dependent.gender ?? "",
@@ -54,6 +56,13 @@ export function DependentModal({
   }, [open, dependent]);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  // Picking a date of birth fills in the matching age (and clears any old
+  // age error), so the two can't disagree unless the age is changed after.
+  const setDob = (v: string) => {
+    const age = ageFromDob(v);
+    setForm((f) => ({ ...f, date_of_birth: v, age: age === null ? f.age : String(age) }));
+    setErrors(({ age: _age, date_of_birth: _dob, ...rest }) => rest);
+  };
 
   const submit = async () => {
     setErrors({});
@@ -73,9 +82,10 @@ export function DependentModal({
         account_id: accountId,
         full_name,
         age: parsed.data.age,
+        date_of_birth: parsed.data.date_of_birth,
         relationship: parsed.data.relationship,
         contact_phone: form.contact_phone ? normalizePhone(form.contact_phone) : null,
-        gender: form.gender || null,
+        gender: parsed.data.gender,
       },
       { onSuccess: onClose }
     );
@@ -102,13 +112,22 @@ export function DependentModal({
                 <FormInput label={t("modal.dependent.fullName")} value={form.full_name} onChangeText={set("full_name")} error={errors.full_name} autoCapitalize="words" required />
                 <View className="flex-row gap-3">
                   <View className="flex-1">
-                    <FormInput label={t("modal.dependent.age")} value={form.age} onChangeText={set("age")} keyboardType="number-pad" error={errors.age} />
+                    <AgeField label={t("modal.dependent.age")} value={form.age} onChange={set("age")} error={errors.age} required />
                   </View>
                   <View className="flex-1">
                     <SelectSheet label={t("modal.dependent.relationship")} value={form.relationship} onValueChange={set("relationship")} options={RELATIONSHIP_OPTIONS} />
                   </View>
                 </View>
-                <SelectSheet label={t("modal.dependent.gender")} value={form.gender} onValueChange={set("gender")} options={GENDER_OPTIONS} />
+                <BirthDateField label={t("modal.dependent.dob")} value={form.date_of_birth} onChange={setDob} error={errors.date_of_birth} required />
+                <SelectSheet
+                  label={t("modal.dependent.gender")}
+                  value={form.gender}
+                  onValueChange={set("gender")}
+                  options={GENDER_OPTIONS}
+                  placeholder={t("modal.dependent.genderPlaceholder")}
+                  error={errors.gender}
+                  required
+                />
                 <FormInput label={t("modal.dependent.contactNumber")} value={form.contact_phone} onChangeText={set("contact_phone")} keyboardType="phone-pad" error={errors.contact_phone} required />
               </View>
 

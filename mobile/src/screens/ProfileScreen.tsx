@@ -44,6 +44,7 @@ import {
   useRemoveProfilePhoto,
   formatDate,
   formatDateDMY,
+  ageFromDob,
   formatLocalDateTime,
   formatLocalTime,
   groupByLocalDate,
@@ -86,6 +87,13 @@ export function ProfileScreen() {
   const [bioForm, setBioForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", address: "" });
   const [bioErrors, setBioErrors] = useState<Record<string, string>>({});
   const setBio = (k: keyof typeof bioForm) => (v: string) => setBioForm((f) => ({ ...f, [k]: v }));
+  // Picking a date of birth fills in the matching age (and clears any old
+  // age error), so the two can't disagree unless the age is changed after.
+  const setBioDob = (v: string) => {
+    const age = ageFromDob(v);
+    setBioForm((f) => ({ ...f, date_of_birth: v, age: age === null ? f.age : String(age) }));
+    setBioErrors(({ age: _age, date_of_birth: _dob, ...rest }) => rest);
+  };
 
   const startEditBio = () => {
     setBioForm({
@@ -298,9 +306,9 @@ export function ProfileScreen() {
           {editingBio ? (
             <View className="gap-4">
               <FormInput label={t("profile.fullName")} value={bioForm.full_name} onChangeText={setBio("full_name")} error={bioErrors.full_name} autoCapitalize="words" required />
-              <AgeField label={t("profile.age")} value={bioForm.age} onChange={setBio("age")} placeholder={t("profile.row.age")} error={bioErrors.age} submitLabel={t("common.submit")} />
-              <BirthDateField label={t("profile.dob")} value={bioForm.date_of_birth} onChange={setBio("date_of_birth")} submitLabel={t("common.submit")} />
-              <ChoiceChips label={t("profile.gender")} value={bioForm.gender} onChange={setBio("gender")} options={GENDER_OPTIONS} />
+              <AgeField label={t("profile.age")} value={bioForm.age} onChange={setBio("age")} placeholder={t("profile.row.age")} error={bioErrors.age} required submitLabel={t("common.submit")} />
+              <BirthDateField label={t("profile.dob")} value={bioForm.date_of_birth} onChange={setBioDob} error={bioErrors.date_of_birth} required submitLabel={t("common.submit")} />
+              <ChoiceChips label={t("profile.gender")} value={bioForm.gender} onChange={setBio("gender")} options={GENDER_OPTIONS} error={bioErrors.gender} required />
               <AddressFields label={t("profile.address")} value={bioForm.address} onChange={setBio("address")} error={bioErrors.address} />
               <View className="flex-row gap-3">
                 <View className="flex-1">

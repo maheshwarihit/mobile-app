@@ -14,6 +14,7 @@ import {
   money,
   formatDate,
   formatDateDMY,
+  ageFromDob,
   formatSlot,
   formatLocalTime,
   groupByLocalDate,
@@ -384,6 +385,13 @@ function EditProfileModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  // Picking a date of birth fills in the matching age (and clears any old
+  // age error), so the two can't disagree unless the age is changed after.
+  const setDob = (v: string) => {
+    const age = ageFromDob(v);
+    setForm((f) => ({ ...f, date_of_birth: v, age: age === null ? f.age : String(age) }));
+    setErrors(({ age: _age, date_of_birth: _dob, ...rest }) => rest);
+  };
 
   useEffect(() => {
     if (open) {
@@ -445,9 +453,9 @@ function EditProfileModal({
               </View>
               <View className="gap-4">
                 <FormInput label={t("ops.clientDetail.editModal.fullName")} value={form.full_name} onChangeText={set("full_name")} error={errors.full_name} autoCapitalize="words" required />
-                <AgeField label={t("ops.clientDetail.editModal.age")} value={form.age} onChange={set("age")} placeholder={t("ops.clientDetail.age")} error={errors.age} submitLabel={t("common.submit")} />
-                <BirthDateField label={t("ops.clientDetail.editModal.dob")} value={form.date_of_birth} onChange={set("date_of_birth")} submitLabel={t("common.submit")} />
-                <ChoiceChips label={t("ops.clientDetail.editModal.gender")} value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} />
+                <AgeField label={t("ops.clientDetail.editModal.age")} value={form.age} onChange={set("age")} placeholder={t("ops.clientDetail.age")} error={errors.age} required submitLabel={t("common.submit")} />
+                <BirthDateField label={t("ops.clientDetail.editModal.dob")} value={form.date_of_birth} onChange={setDob} error={errors.date_of_birth} required submitLabel={t("common.submit")} />
+                <ChoiceChips label={t("ops.clientDetail.editModal.gender")} value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} error={errors.gender} required />
                 <AddressFields label={t("ops.clientDetail.editModal.address")} value={form.address} onChange={set("address")} error={errors.address} />
               </View>
               <View className="mt-6 flex-row justify-end gap-2">

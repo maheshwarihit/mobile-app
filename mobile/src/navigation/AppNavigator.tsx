@@ -41,7 +41,10 @@ export function AppNavigator() {
       <Tabs.Screen
         name="ServicesTab"
         component={ServicesStackNavigator}
-        options={{ title: t("common.tab.services"), tabBarIcon: ({ color, size }) => <Stethoscope size={size} color={color} /> }}
+        // Leaving the tab resets it to the service list, so coming back from
+        // Profile/Appointments never lands on a half-finished inner screen
+        // (Nutrition, a booking form) left open earlier.
+        options={{ title: t("common.tab.services"), popToTopOnBlur: true, tabBarIcon: ({ color, size }) => <Stethoscope size={size} color={color} /> }}
       />
       <Tabs.Screen
         name="AppointmentsTab"
