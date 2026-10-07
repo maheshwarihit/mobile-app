@@ -18,7 +18,6 @@ import { useServices, useCreateBookingRequest, money, profileCompletionPercent, 
 import { iconForService } from "@/lib/serviceIcon";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceDescription } from "@/components/feature/ServiceDescription";
-import { BmiCard } from "@/components/feature/BmiCard";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: SERVICE_LIST
@@ -37,7 +36,6 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
       <View className="flex-1 px-5 pt-4">
-        <BmiCard />
         <PageHeader
           title={t("services.title")}
           subtitle={t("services.subtitle")}

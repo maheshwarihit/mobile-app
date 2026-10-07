@@ -1,7 +1,8 @@
 export const en = {
   "completeProfile.title": "Complete your profile",
   "completeProfile.subtitle": "Your account never collected these — fill them in once to use VAgeWell as a client too.",
-  "completeProfile.age": "Age (optional)",
+  "completeProfile.age": "Age",
+  "completeProfile.error.enterAge": "Select your age",
   "completeProfile.gender": "Gender",
   "completeProfile.address": "Address",
   "completeProfile.addressPlaceholder": "House/street, city, pincode…",
@@ -15,7 +16,8 @@ export const en = {
 export const ta: Record<keyof typeof en, string> = {
   "completeProfile.title": "உங்கள் சுயவிவரத்தை பூர்த்தி செய்யவும்",
   "completeProfile.subtitle": "உங்கள் கணக்கில் இவை இதுவரை சேகரிக்கப்படவில்லை — VAgeWell-ஐ வாடிக்கையாளராகவும் பயன்படுத்த ஒருமுறை நிரப்பவும்.",
-  "completeProfile.age": "வயது (விருப்பத்தேர்வு)",
+  "completeProfile.age": "வயது",
+  "completeProfile.error.enterAge": "உங்கள் வயதைத் தேர்ந்தெடுக்கவும்",
   "completeProfile.gender": "பாலினம்",
   "completeProfile.address": "முகவரி",
   "completeProfile.addressPlaceholder": "வீடு/தெரு, நகரம், பின்கோடு…",

@@ -253,6 +253,7 @@ export function useSaveDependent() {
       account_id: string;
       full_name: string;
       age: number | null;
+      date_of_birth: string | null;
       relationship: string;
       contact_phone: string | null;
       gender: string | null;

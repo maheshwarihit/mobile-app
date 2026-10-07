@@ -8,6 +8,7 @@ import {
   MAX_BOOKING_DAYS,
 } from "./constants";
 import { normalizePhone } from "./phone";
+import { ageFromDob } from "./dates";
 
 const asTuple = <T extends readonly string[]>(a: T) => a as unknown as [string, ...string[]];
 
@@ -15,6 +16,25 @@ const phone = z.string().refine((v) => normalizePhone(v) !== null, "Enter a vali
 const optionalAge = z
   .union([z.literal(""), z.coerce.number().int().min(0, "Invalid age").max(150, "Invalid age")])
   .transform((v) => (v === "" ? null : v));
+// Age is compulsory everywhere it's collected (profile, dependents).
+const requiredAge = optionalAge.refine((v) => v !== null, "Select the age");
+// Gender and date of birth are compulsory alongside age.
+const requiredGender = z.enum(asTuple(GENDERS), { errorMap: () => ({ message: "Select a gender" }) });
+const requiredDob = z.string().min(1, "Select the date of birth");
+
+// Catches a mistyped age: it must equal the age the date of birth gives today.
+// Reported on the Age field so the person sees what it should be.
+function ageMatchesDob(v: { age: number | null; date_of_birth: string }, ctx: z.RefinementCtx) {
+  if (v.age === null || !v.date_of_birth) return;
+  const expected = ageFromDob(v.date_of_birth);
+  if (expected !== null && expected !== v.age) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["age"],
+      message: `Age doesn't match the date of birth — it should be ${expected}`,
+    });
+  }
+}
 
 // ── Registration (quick sign-up: name + phone only, OTP does the rest) ────
 // Everything else (age/gender/address/how_heard/wellness_note) is filled in
@@ -28,25 +48,27 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 // ── Dependent (PROFILE) ──────────────────────────────────────────
 export const dependentSchema = z.object({
   full_name: z.string().trim().min(2, "Enter the dependent's name"),
-  age: optionalAge,
+  age: requiredAge,
+  date_of_birth: requiredDob,
   relationship: z.enum(asTuple(RELATIONSHIPS)),
   contact_phone: z
     .string()
     .trim()
     .min(1, "Enter a contact number")
     .refine((v) => normalizePhone(v) !== null, "Enter a valid mobile number"),
-  gender: z.union([z.enum(asTuple(GENDERS)), z.literal("")]).optional(),
-});
+  gender: requiredGender,
+}).superRefine(ageMatchesDob);
 export type DependentInput = z.infer<typeof dependentSchema>;
 
 // ── Profile bio edit (PROFILE) ───────────────────────────────────
 export const profileSchema = z.object({
   full_name: z.string().trim().min(2, "Enter your full name"),
-  age: optionalAge,
-  date_of_birth: z.string().optional().default(""),
-  gender: z.union([z.enum(asTuple(GENDERS)), z.literal("")]).optional(),
+  // Age, date of birth and gender are compulsory on the profile.
+  age: requiredAge,
+  date_of_birth: requiredDob,
+  gender: requiredGender,
   address: z.string().trim().max(500).optional().default(""),
-});
+}).superRefine(ageMatchesDob);
 export type ProfileInput = z.infer<typeof profileSchema>;
 
 // ── Appointment (APPOINTMENT) ────────────────────────────────────

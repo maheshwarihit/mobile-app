@@ -1,71 +1,85 @@
 import { useState } from "react";
-import { View, Text, Pressable, Modal } from "react-native";
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  X,
-  type LucideIcon,
-} from "lucide-react-native";
+import { View, Text, Pressable } from "react-native";
+import { Calendar } from "lucide-react-native";
 import { formatDate } from "@vagewell/shared";
-import { BRAND } from "@/theme";
+import { useLanguage } from "@/lib/i18n";
+import { Wheel, WheelModal } from "./WheelPicker";
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-const DOW = ["S", "M", "T", "W", "T", "F", "S"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Year span offered when a field sets no limit of its own.
+const DEFAULT_YEARS_BACK = 120;
+const DEFAULT_YEARS_AHEAD = 5;
 const pad = (n: number) => String(n).padStart(2, "0");
 const toISO = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-type Props = {
+export type DateFieldProps = {
   label?: string;
   value: string; // YYYY-MM-DD
   onChange: (v: string) => void;
   error?: string;
   required?: boolean;
   minimumDate?: Date;
+  maximumDate?: Date;
+  /** Where the wheel starts when there's no value yet (default: today). */
+  defaultDate?: Date;
   placeholder?: string;
+  submitLabel?: string;
+  /** How the picked date reads in the field (default: "Feb 16, 2003"). */
+  formatValue?: (iso: string) => string;
 };
 
 /**
- * Date input: a trigger showing the formatted date; tapping opens an in-app month
- * calendar. Built with a plain grid (not the native OS dialog) so it renders and
- * works identically on web/PWA and native. Dates are handled as "YYYY-MM-DD"
- * strings and compared as strings — never `new Date(str)` — to avoid TZ shifting.
+ * Date input: a trigger showing the formatted date; tapping opens a
+ * day / month / year scroll wheel with a Submit button. Plain ScrollViews (no
+ * native picker) so it behaves the same on web/PWA and native. Dates stay
+ * "YYYY-MM-DD" strings and are compared as strings — never `new Date(str)` —
+ * to avoid TZ shifting. A pick outside minimumDate/maximumDate is pulled back
+ * to the nearest allowed day on Submit.
  */
-export function DateField({ label, value, onChange, error, required, minimumDate, placeholder = "Pick a date" }: Props) {
+export function DateField({
+  label,
+  value,
+  onChange,
+  error,
+  required,
+  minimumDate,
+  maximumDate,
+  defaultDate,
+  placeholder = "Pick a date",
+  submitLabel,
+  formatValue = formatDate,
+}: DateFieldProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
-  const minIso = minimumDate ? toISO(minimumDate) : null;
 
-  const startRef = () => {
-    const base = value || minIso || toISO(new Date());
-    const [y, m] = base.split("-").map(Number);
-    return { y, m: m - 1 };
+  const thisYear = new Date().getFullYear();
+  const minIso = minimumDate ? toISO(minimumDate) : null;
+  const maxIso = maximumDate ? toISO(maximumDate) : null;
+  const firstYear = minimumDate ? minimumDate.getFullYear() : thisYear - DEFAULT_YEARS_BACK;
+  const lastYear = Math.max(firstYear, maximumDate ? maximumDate.getFullYear() : thisYear + DEFAULT_YEARS_AHEAD);
+  const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => String(firstYear + i));
+
+  const clamp = (iso: string) => (minIso && iso < minIso ? minIso : maxIso && iso > maxIso ? maxIso : iso);
+
+  const startSel = () => {
+    const [y, m, d] = clamp(value || toISO(defaultDate ?? new Date())).split("-").map(Number);
+    return { y: Math.max(0, Math.min(years.length - 1, y - firstYear)), m: m - 1, d: d - 1 };
   };
-  const [ref, setRef] = useState(startRef);
+  const [sel, setSel] = useState(startSel);
 
   const openPicker = () => {
-    setRef(startRef());
+    setSel(startSel());
     setOpen(true);
   };
 
-  const shiftMonth = (dir: number) => {
-    const total = ref.y * 12 + ref.m + dir;
-    setRef({ y: Math.floor(total / 12), m: ((total % 12) + 12) % 12 });
-  };
-  const shiftYear = (dir: number) => setRef((r) => ({ ...r, y: r.y + dir }));
+  const year = firstYear + sel.y;
+  const daysInMonth = new Date(year, sel.m + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
+  // Derived, not stored: moving from a 31-day month to a shorter one clamps the day.
+  const dayIndex = Math.min(sel.d, daysInMonth - 1);
 
-  const firstDow = new Date(ref.y, ref.m, 1).getDay();
-  const daysInMonth = new Date(ref.y, ref.m + 1, 0).getDate();
-  const cells: (number | null)[] = [];
-  for (let i = 0; i < firstDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-  const pick = (day: number) => {
-    onChange(`${ref.y}-${pad(ref.m + 1)}-${pad(day)}`);
+  const submit = () => {
+    onChange(clamp(`${year}-${pad(sel.m + 1)}-${pad(dayIndex + 1)}`));
     setOpen(false);
   };
 
@@ -82,82 +96,23 @@ export function DateField({ label, value, onChange, error, required, minimumDate
         className="flex-row items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-3 active:bg-gray-50"
       >
         <Text className={`text-sm ${value ? "text-gray-900" : "text-gray-400"}`}>
-          {value ? formatDate(value) : placeholder}
+          {value ? formatValue(value) : placeholder}
         </Text>
         <Calendar size={16} color="#9ca3af" />
       </Pressable>
       {error ? <Text className="mt-1 text-xs text-red-500">{error}</Text> : null}
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable className="flex-1 items-center justify-center bg-black/40 px-6" onPress={() => setOpen(false)}>
-          <Pressable className="w-full max-w-sm rounded-2xl border border-gray-100 bg-white p-4" onPress={() => {}}>
-            <View className="mb-3 flex-row items-center justify-between">
-              <Text className="text-base font-bold text-gray-900">{label ?? "Select date"}</Text>
-              <Pressable onPress={() => setOpen(false)} hitSlop={8}>
-                <X size={18} color="#9ca3af" />
-              </Pressable>
-            </View>
-
-            <View className="mb-2 flex-row items-center justify-between">
-              <View className="flex-row gap-1">
-                <NavBtn icon={ChevronsLeft} onPress={() => shiftYear(-1)} />
-                <NavBtn icon={ChevronLeft} onPress={() => shiftMonth(-1)} />
-              </View>
-              <Text className="text-sm font-bold text-gray-800">
-                {MONTHS[ref.m]} {ref.y}
-              </Text>
-              <View className="flex-row gap-1">
-                <NavBtn icon={ChevronRight} onPress={() => shiftMonth(1)} />
-                <NavBtn icon={ChevronsRight} onPress={() => shiftYear(1)} />
-              </View>
-            </View>
-
-            <View className="flex-row">
-              {DOW.map((d, i) => (
-                <View key={i} className="flex-1 items-center py-1">
-                  <Text className="text-[10px] font-bold text-gray-400">{d}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View className="flex-row flex-wrap">
-              {cells.map((day, i) => {
-                if (day === null) return <View key={i} className="h-10 w-[14.28%]" />;
-                const iso = `${ref.y}-${pad(ref.m + 1)}-${pad(day)}`;
-                const disabled = !!minIso && iso < minIso;
-                const selected = value === iso;
-                return (
-                  <View key={i} className="h-10 w-[14.28%] items-center justify-center">
-                    <Pressable
-                      disabled={disabled}
-                      onPress={() => pick(day)}
-                      className={`h-8 w-8 items-center justify-center rounded-full ${
-                        selected ? "bg-purple-600" : disabled ? "" : "active:bg-gray-100"
-                      }`}
-                    >
-                      <Text
-                        className={`text-sm ${
-                          selected ? "font-bold text-white" : disabled ? "text-gray-300" : "text-gray-800"
-                        }`}
-                      >
-                        {day}
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <WheelModal
+        visible={open}
+        title={label ?? "Select date"}
+        submitLabel={submitLabel ?? t("common.submit")}
+        onClose={() => setOpen(false)}
+        onSubmit={submit}
+      >
+        <Wheel items={days} index={dayIndex} onIndexChange={(d) => setSel((s) => ({ ...s, d }))} />
+        <Wheel items={MONTHS} index={sel.m} onIndexChange={(m) => setSel((s) => ({ ...s, m }))} />
+        <Wheel items={years} index={sel.y} onIndexChange={(y) => setSel((s) => ({ ...s, y }))} />
+      </WheelModal>
     </View>
-  );
-}
-
-function NavBtn({ icon: Icon, onPress }: { icon: LucideIcon; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} hitSlop={6} className="rounded-md border border-gray-200 px-2 py-1 active:bg-gray-50">
-      <Icon size={16} color={BRAND} />
-    </Pressable>
   );
 }
