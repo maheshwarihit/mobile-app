@@ -6,7 +6,7 @@ import { PrimaryButton, OutlineButton, GradientButton, Card } from "@/components
 import { AuthModal } from "@/components/feature/AuthModal";
 import { LanguageToggle } from "@/components/feature/LanguageToggle";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
-import { ServiceDescription } from "@/components/feature/ServiceDescription";
+import { ServiceHoverCard } from "@/components/feature/ServiceHoverCard";
 import { iconForService } from "@/lib/serviceIcon";
 import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
@@ -59,24 +59,15 @@ export function HomeScreen() {
         </View>
 
         <View className="gap-3">
-          {SEED_SERVICES.map((s) => {
-            const Icon = iconForService(s.name);
-            return (
-              <Pressable key={s.name} onPress={() => open("register")} className="active:opacity-70">
-                <Card className="p-4">
-                  <View className="flex-row items-start gap-3">
-                    <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                      <Icon size={18} color={BRAND} />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-base font-semibold text-gray-900">{translateServiceName(t, s.name)}</Text>
-                      <ServiceDescription text={translateServiceDescription(t, s.description)} />
-                    </View>
-                  </View>
-                </Card>
-              </Pressable>
-            );
-          })}
+          {SEED_SERVICES.map((s) => (
+            <ServiceHoverCard
+              key={s.name}
+              name={translateServiceName(t, s.name)}
+              description={translateServiceDescription(t, s.description)}
+              icon={iconForService(s.name)}
+              onPress={() => open("register")}
+            />
+          ))}
         </View>
 
         <View className="mt-3 rounded-xl bg-accent p-4">
