@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { View, Text, FlatList, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stethoscope, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
@@ -17,7 +18,7 @@ import { BRAND } from "@/theme";
 import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE, NUTRITION_SERVICE } from "@vagewell/shared";
 import { iconForService } from "@/lib/serviceIcon";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
-import { ServiceDescription } from "@/components/feature/ServiceDescription";
+import { ServiceHoverCard, ServiceCellRenderer, HoveredServiceContext } from "@/components/feature/ServiceHoverCard";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: SERVICE_LIST
@@ -26,6 +27,8 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
   const { data: services, isLoading, error } = useServices();
   const { profile } = useAuth();
   const requestBooking = useCreateBookingRequest();
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const hoverCtx = useMemo(() => ({ hoveredKey, setHoveredKey }), [hoveredKey]);
 
   const profilePercent = profile ? profileCompletionPercent(profile) : 0;
 
@@ -55,8 +58,10 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
         {error ? <ErrorBanner message={t("services.loadError")} /> : null}
         {isLoading ? <LoadingState message={t("services.loading")} /> : null}
 
+        <HoveredServiceContext.Provider value={hoverCtx}>
         <FlatList
           data={services ?? []}
+          CellRendererComponent={ServiceCellRenderer}
           keyExtractor={(s) => s.id}
           contentContainerClassName="gap-3 pb-6"
           ListEmptyComponent={
@@ -91,30 +96,19 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
               </View>
             ) : null
           }
-          renderItem={({ item: s }) => {
-            const Icon = iconForService(s.name);
-            return (
-            <Pressable
+          renderItem={({ item: s }) => (
+            <ServiceHoverCard
+              hoverKey={s.id}
+              name={translateServiceName(t, s.name)}
+              description={s.description ? translateServiceDescription(t, s.description) : ""}
+              icon={iconForService(s.name)}
               onPress={() =>
                 s.name === NUTRITION_SERVICE ? navigation.navigate("Nutrition") : navigation.navigate("Appointment", { serviceId: s.id })
               }
-              className="active:opacity-70"
-            >
-              <Card className="p-4">
-                <View className="flex-row items-start gap-3">
-                  <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                    <Icon size={18} color={BRAND} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900">{translateServiceName(t, s.name)}</Text>
-                    {s.description ? <ServiceDescription text={translateServiceDescription(t, s.description)} /> : null}
-                  </View>
-                </View>
-              </Card>
-            </Pressable>
-            );
-          }}
+            />
+          )}
         />
+        </HoveredServiceContext.Provider>
       </View>
     </SafeAreaView>
   );

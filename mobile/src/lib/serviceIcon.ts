@@ -3,7 +3,7 @@ import { PhysioIcon } from "@/components/ui/PhysioIcon";
 
 /** Every call site only ever passes `size`/`color` — covers both real Lucide
  * icons and the hand-drawn `PhysioIcon`. */
-type ServiceIconComponent = (props: { size?: number; color?: string }) => React.ReactNode;
+export type ServiceIconComponent = (props: { size?: number; color?: string }) => React.ReactNode;
 
 // One distinct icon per service instead of the same stethoscope everywhere —
 // matched by name substring since services are seeded/DB-editable (no

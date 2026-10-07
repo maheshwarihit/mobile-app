@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { Plus, Minus } from "lucide-react-native";
+import { Plus, Minus, Pencil } from "lucide-react-native";
 import { GENDERS, formatLocalDateTime } from "@vagewell/shared";
-import { Card, FormInput, AgeField, ChoiceChips, SelectSheet, PrimaryButton, LoadingState } from "@/components/ui";
+import { Card, FormInput, AgeField, ChoiceChips, SelectSheet, PrimaryButton, OutlineButton, LoadingState } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { genderLabel } from "@/lib/enumI18n";
-import { loadBodyMetrics, saveBodyMetrics } from "@/lib/bodyMetricsStorage";
+import { loadBodyMetrics, saveBodyMetrics, type BodyMetrics } from "@/lib/bodyMetricsStorage";
 import { toast } from "@/lib/toast";
 import { BRAND } from "@/theme";
 
@@ -56,7 +56,10 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
   const [activityLevel, setActivityLevel] = useState("");
   const [conditions, setConditions] = useState<string[]>([""]);
   const [history, setHistory] = useState<string[]>([""]);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Last saved answers. Once there are some, the module opens as a read-only
+  // summary with an Edit button; editing works on a copy until Save.
+  const [saved, setSaved] = useState<BodyMetrics | null>(null);
+  const [editing, setEditing] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -65,14 +68,9 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
     void loadBodyMetrics(userId, personKey).then((saved) => {
       if (!active) return;
       if (saved) {
-        setAge(saved.age);
-        setGender(saved.gender);
-        setHeightCm(saved.heightCm);
-        setWeightKg(saved.weightKg);
-        setActivityLevel(saved.activityLevel);
-        setConditions(saved.medicalConditions.length ? saved.medicalConditions : [""]);
-        setHistory(saved.pastHistory.length ? saved.pastHistory : [""]);
-        setSavedAt(saved.savedAt);
+        fillFrom(saved);
+        setSaved(saved);
+        setEditing(false);
       }
       setLoaded(true);
     });
@@ -80,6 +78,22 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
       active = false;
     };
   }, [userId, personKey]);
+
+  function fillFrom(m: BodyMetrics) {
+    setAge(m.age);
+    setGender(m.gender);
+    setHeightCm(m.heightCm);
+    setWeightKg(m.weightKg);
+    setActivityLevel(m.activityLevel);
+    setConditions(m.medicalConditions.length ? m.medicalConditions : [""]);
+    setHistory(m.pastHistory.length ? m.pastHistory : [""]);
+  }
+
+  const cancelEdit = () => {
+    if (saved) fillFrom(saved);
+    setErrors({});
+    setEditing(false);
+  };
 
   const save = async () => {
     const errs: Record<string, string> = {};
@@ -94,8 +108,7 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
     if (Object.keys(errs).length) return;
 
     setSaving(true);
-    const now = new Date().toISOString();
-    const ok = await saveBodyMetrics(userId, personKey, {
+    const next: BodyMetrics = {
       age,
       gender,
       heightCm,
@@ -104,11 +117,13 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
       // Rows left on "Select…" are just unused slots, not answers.
       medicalConditions: conditions.filter(Boolean),
       pastHistory: history.filter(Boolean),
-      savedAt: now,
-    });
+      savedAt: new Date().toISOString(),
+    };
+    const ok = await saveBodyMetrics(userId, personKey, next);
     setSaving(false);
     if (ok) {
-      setSavedAt(now);
+      setSaved(next);
+      setEditing(false);
       toast.success(t("bodyMetrics.saved"));
     } else {
       toast.error(t("bodyMetrics.saveFailed"));
@@ -116,6 +131,31 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
   };
 
   if (!loaded) return <LoadingState message={t("common.loading")} />;
+
+  if (saved && !editing) {
+    const conditionLabels = saved.medicalConditions.map((c) => t(`bodyMetrics.condition.${c}` as TranslationKey));
+    const historyLabels = saved.pastHistory.map((h) => t(`bodyMetrics.history.${h}` as TranslationKey));
+    return (
+      <Card className="gap-3 p-5">
+        <SummaryRow label={t("bodyMetrics.age")} value={saved.age} />
+        <SummaryRow label={t("bodyMetrics.gender")} value={saved.gender ? genderLabel(t, saved.gender as (typeof GENDERS)[number]) : "—"} />
+        <SummaryRow label={t("bodyMetrics.height")} value={saved.heightCm} />
+        <SummaryRow label={t("bodyMetrics.weight")} value={saved.weightKg} />
+        <SummaryRow
+          label={t("bodyMetrics.activity")}
+          value={saved.activityLevel ? t(`bodyMetrics.activity.${saved.activityLevel}` as TranslationKey) : "—"}
+        />
+        <SummaryList label={t("bodyMetrics.conditions")} items={conditionLabels} />
+        <SummaryList label={t("bodyMetrics.history")} items={historyLabels} />
+        <View className="mt-2">
+          <PrimaryButton fullWidth icon={Pencil} onPress={() => setEditing(true)}>
+            {t("bodyMetrics.edit")}
+          </PrimaryButton>
+        </View>
+        <Text className="text-center text-xs text-gray-400">{t("bodyMetrics.lastSaved", { date: formatLocalDateTime(saved.savedAt) })}</Text>
+      </Card>
+    );
+  }
 
   return (
     <Card className="gap-4 p-5">
@@ -175,13 +215,47 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
         options={HISTORY.map((h) => ({ value: h, label: t(`bodyMetrics.history.${h}` as TranslationKey) }))}
       />
 
-      <PrimaryButton fullWidth loading={saving} onPress={save}>
-        {t("bodyMetrics.save")}
-      </PrimaryButton>
-      {savedAt ? (
-        <Text className="text-center text-xs text-gray-400">{t("bodyMetrics.lastSaved", { date: formatLocalDateTime(savedAt) })}</Text>
-      ) : null}
+      <View className="flex-row gap-3">
+        {saved ? (
+          <View className="flex-1">
+            <OutlineButton fullWidth onPress={cancelEdit}>
+              {t("common.cancel")}
+            </OutlineButton>
+          </View>
+        ) : null}
+        <View className="flex-1">
+          <PrimaryButton fullWidth loading={saving} onPress={save}>
+            {t("bodyMetrics.save")}
+          </PrimaryButton>
+        </View>
+      </View>
     </Card>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row items-start justify-between gap-4">
+      <Text className="text-sm text-gray-500">{label}</Text>
+      <Text className="flex-1 text-right text-sm font-medium text-gray-900">{value || "—"}</Text>
+    </View>
+  );
+}
+
+function SummaryList({ label, items }: { label: string; items: string[] }) {
+  return (
+    <View className="gap-1">
+      <Text className="text-sm text-gray-500">{label}</Text>
+      {items.length ? (
+        items.map((item) => (
+          <Text key={item} className="text-sm font-medium text-gray-900">
+            • {item}
+          </Text>
+        ))
+      ) : (
+        <Text className="text-sm font-medium text-gray-900">—</Text>
+      )}
+    </View>
   );
 }
 
