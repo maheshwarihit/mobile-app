@@ -25,6 +25,7 @@ import {
 import { useAuth } from "@/providers/AuthProvider";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { AddressFields } from "@/components/feature/AddressFields";
+import { withAgeFromDob } from "@/lib/ageFromDob";
 import { supabase } from "@/lib/supabase";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
 import { loadRescheduledIds } from "@/lib/rescheduledBookings";
@@ -96,20 +97,24 @@ export function ProfileScreen() {
   };
 
   const startEditBio = () => {
-    setBioForm({
-      full_name: profile?.full_name ?? "",
-      age: profile?.age?.toString() ?? "",
-      date_of_birth: profile?.date_of_birth ?? "",
-      gender: profile?.gender ?? "male",
-      address: profile?.address ?? "",
-    });
+    setBioForm(
+      withAgeFromDob({
+        full_name: profile?.full_name ?? "",
+        age: profile?.age?.toString() ?? "",
+        date_of_birth: profile?.date_of_birth ?? "",
+        gender: profile?.gender ?? "male",
+        address: profile?.address ?? "",
+      })
+    );
     setBioErrors({});
     setEditingBio(true);
   };
 
   const saveBio = async () => {
     setBioErrors({});
-    const parsed = profileSchema.safeParse(bioForm);
+    const form = withAgeFromDob(bioForm);
+    setBioForm(form);
+    const parsed = profileSchema.safeParse(form);
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       for (const issue of parsed.error.issues) errs[String(issue.path[0])] = issue.message;

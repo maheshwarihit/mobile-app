@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Calendar } from "lucide-react-native";
-import { formatDate } from "@vagewell/shared";
+import { formatDateDMY } from "@vagewell/shared";
 import { useLanguage } from "@/lib/i18n";
 import { Wheel, WheelModal } from "./WheelPicker";
 
@@ -24,7 +24,7 @@ export type DateFieldProps = {
   defaultDate?: Date;
   placeholder?: string;
   submitLabel?: string;
-  /** How the picked date reads in the field (default: "Feb 16, 2003"). */
+  /** How the picked date reads in the field (default: "16/02/2003"). */
   formatValue?: (iso: string) => string;
 };
 
@@ -47,7 +47,7 @@ export function DateField({
   defaultDate,
   placeholder = "Pick a date",
   submitLabel,
-  formatValue = formatDate,
+  formatValue = formatDateDMY,
 }: DateFieldProps) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
