@@ -169,9 +169,8 @@ function BmiForm({
   return (
     <AppModal visible onClose={onClose} title={t("bmi.modal.title")}>
       <View className="gap-4">
-        {locked ? (
-          <FormInput label={t("bmi.field.name")} value={initialName} onChangeText={() => {}} editable={false} />
-        ) : people.length ? (
+        {/* Locked: the person was already chosen with the Self / Dependents toggle. */}
+        {locked ? null : people.length ? (
           <SelectSheet label={t("bmi.field.name")} value={personId} onValueChange={setPickedId} options={people} required />
         ) : (
           <FormInput label={t("bmi.field.name")} value={typedName} onChangeText={setTypedName} autoCapitalize="words" required />

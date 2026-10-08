@@ -494,7 +494,7 @@ function BookingForm({
               />
             </View>
           </View>
-          <TimeField label={t("modal.newAppointment.preferredTime")} value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
+          <TimeField label={t("modal.newAppointment.preferredTime")} value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} required />
           <TextareaInput
             label={t("modal.newAppointment.note")}
             value={form.symptom_brief}

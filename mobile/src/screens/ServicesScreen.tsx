@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react";
 import { View, Text, FlatList, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stethoscope, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
@@ -18,7 +17,7 @@ import { BRAND } from "@/theme";
 import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE, NUTRITION_SERVICE } from "@vagewell/shared";
 import { iconForService } from "@/lib/serviceIcon";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
-import { ServiceHoverCard, ServiceCellRenderer, HoveredServiceContext } from "@/components/feature/ServiceHoverCard";
+import { ServiceCard } from "@/components/feature/ServiceCard";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: SERVICE_LIST
@@ -27,8 +26,6 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
   const { data: services, isLoading, error } = useServices();
   const { profile } = useAuth();
   const requestBooking = useCreateBookingRequest();
-  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-  const hoverCtx = useMemo(() => ({ hoveredKey, setHoveredKey }), [hoveredKey]);
 
   const profilePercent = profile ? profileCompletionPercent(profile) : 0;
 
@@ -58,10 +55,8 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
         {error ? <ErrorBanner message={t("services.loadError")} /> : null}
         {isLoading ? <LoadingState message={t("services.loading")} /> : null}
 
-        <HoveredServiceContext.Provider value={hoverCtx}>
         <FlatList
           data={services ?? []}
-          CellRendererComponent={ServiceCellRenderer}
           keyExtractor={(s) => s.id}
           contentContainerClassName="gap-3 pb-6"
           ListEmptyComponent={
@@ -97,8 +92,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
             ) : null
           }
           renderItem={({ item: s }) => (
-            <ServiceHoverCard
-              hoverKey={s.id}
+            <ServiceCard
               name={translateServiceName(t, s.name)}
               description={s.description ? translateServiceDescription(t, s.description) : ""}
               icon={iconForService(s.name)}
@@ -108,7 +102,6 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
             />
           )}
         />
-        </HoveredServiceContext.Provider>
       </View>
     </SafeAreaView>
   );

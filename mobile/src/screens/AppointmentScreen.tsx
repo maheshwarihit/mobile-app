@@ -252,7 +252,7 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
                 </View>
               </View>
               <View>
-                <TimeField label={t("appointment.preferredTime")} value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} />
+                <TimeField label={t("appointment.preferredTime")} value={form.time_slot} onChange={set("time_slot")} error={errors.time_slot} required />
                 {form.start_date === todayISODate() ? (
                   <Text className="mt-1.5 text-xs text-gray-400">
                     {t("appointment.leadTimeHint", { hours: MIN_BOOKING_LEAD_MINUTES / 60 })}
