@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useSyncExternalStore } from "react";
+import { createContext, useContext, useRef, useState } from "react";
 import { View, Text, Pressable, Platform, type ViewProps } from "react-native";
 import { useLanguage } from "@/lib/i18n";
 import type { ServiceIconComponent } from "@/lib/serviceIcon";
@@ -7,20 +7,12 @@ import { BRAND } from "@/theme";
 const shadow = { elevation: 1, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } };
 const popShadow = { elevation: 4, shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } };
 
-// A real mouse can hover; a phone (app or browser) can't. On hover devices the
-// features appear in a popover; elsewhere they're listed in the card.
-// Re-checked live, not once at load: switching a desktop browser into phone
-// emulation (or plugging in a mouse) changes the answer mid-session.
-const HOVER_QUERY = "(hover: hover) and (pointer: fine)";
-const hoverMedia =
-  Platform.OS === "web" && typeof window !== "undefined" && window.matchMedia ? window.matchMedia(HOVER_QUERY) : null;
-const subscribeHover = (onChange: () => void) => {
-  hoverMedia?.addEventListener?.("change", onChange);
-  return () => hoverMedia?.removeEventListener?.("change", onChange);
-};
-const getCanHover = () => !!hoverMedia?.matches;
+// The website always uses hover popovers; the installed app (no mouse) lists
+// the features in each card. Guessing from touch vs mouse on the web kept
+// flipping in a browser's phone view, where mouse clicks arrive as touches.
+const isWeb = Platform.OS === "web" && typeof window !== "undefined";
 function useCanHover() {
-  return useSyncExternalStore(subscribeHover, getCanHover, getCanHover);
+  return isWeb;
 }
 
 /**
@@ -51,15 +43,21 @@ type Props = {
 };
 
 /**
- * Service card: icon, name and summary. On a computer, hovering shows the
- * feature list in a popover below the card; on a phone the features are
- * listed in the card itself.
+ * Service card: icon, name and summary. On the website the feature list shows
+ * in a popover below the card while the mouse rests on it, or while the card
+ * is pressed and held (for touch, and for a browser's phone view where the
+ * mouse acts as a finger and never hovers); a quick tap books. In the
+ * installed app the features are listed in the card itself.
  */
 export function ServiceHoverCard({ name, description, icon: Icon, onPress, hoverKey }: Props) {
   const { t } = useLanguage();
   const { setHoveredKey } = useContext(HoveredServiceContext);
   const [hovered, setHovered] = useState(false);
+  const [held, setHeld] = useState(false);
+  // Read on release; a ref, since the release can arrive before a re-render.
+  const heldRef = useRef(false);
   const canHover = useCanHover();
+  const open = hovered || held;
 
   const [summary, ...lines] = description.split("\n").filter((l) => l.trim().length > 0);
   const features = lines.map((l) => l.replace(/^[•\s]+/, "").trim()).filter(Boolean);
@@ -68,9 +66,25 @@ export function ServiceHoverCard({ name, description, icon: Icon, onPress, hover
     setHovered(on);
     if (hoverKey) setHoveredKey(on ? hoverKey : null);
   };
+  const setHold = (on: boolean) => {
+    heldRef.current = on;
+    setHeld(on);
+    if (hoverKey) setHoveredKey(on ? hoverKey : null);
+  };
+  // Press-and-hold shows the popover; letting go hides it. A long press never
+  // also counts as a tap, so holding doesn't book.
+  const holdProps = canHover
+    ? {
+        delayLongPress: 350,
+        onLongPress: () => setHold(true),
+        onPressOut: () => {
+          if (heldRef.current) setHold(false);
+        },
+      }
+    : {};
   // Touch "hovers" (a finger landing) never open the popover, even on a
   // hover-capable device with a touchscreen.
-  const hoverProps = canHover
+  const hoverProps = isWeb
     ? {
         onPointerEnter: (e: { nativeEvent: { pointerType?: string } }) => {
           if (e.nativeEvent.pointerType !== "touch") setHover(true);
@@ -80,11 +94,12 @@ export function ServiceHoverCard({ name, description, icon: Icon, onPress, hover
     : {};
 
   return (
-    <View {...hoverProps} style={{ zIndex: hovered ? 10 : 0 }}>
+    <View {...hoverProps} style={{ zIndex: open ? 10 : 0 }}>
       <Pressable
         onPress={onPress}
+        {...holdProps}
         style={shadow}
-        className={`rounded-xl border bg-white p-4 active:opacity-80 ${hovered ? "border-purple-300" : "border-gray-100"}`}
+        className={`rounded-xl border bg-white p-4 active:opacity-80 ${open ? "border-purple-300" : "border-gray-100"}`}
       >
         <View className="flex-row items-start gap-3">
           <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
@@ -106,7 +121,7 @@ export function ServiceHoverCard({ name, description, icon: Icon, onPress, hover
         </View>
       </Pressable>
 
-      {canHover && hovered && features.length ? (
+      {canHover && open && features.length ? (
         <View
           pointerEvents="none"
           style={[popShadow, { position: "absolute", top: "100%", marginTop: -6, left: 12, right: 12 }]}

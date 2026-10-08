@@ -47,6 +47,7 @@ import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
 import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { AddressFields } from "@/components/feature/AddressFields";
+import { withAgeFromDob } from "@/lib/ageFromDob";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
 import { useAuth } from "@/providers/AuthProvider";
 import { translateServiceName } from "@/lib/serviceI18n";
@@ -396,19 +397,23 @@ function EditProfileModal({
   useEffect(() => {
     if (open) {
       setErrors({});
-      setForm({
-        full_name: profile.full_name ?? "",
-        age: profile.age?.toString() ?? "",
-        date_of_birth: profile.date_of_birth ?? "",
-        gender: profile.gender ?? "male",
-        address: profile.address ?? "",
-      });
+      setForm(
+        withAgeFromDob({
+          full_name: profile.full_name ?? "",
+          age: profile.age?.toString() ?? "",
+          date_of_birth: profile.date_of_birth ?? "",
+          gender: profile.gender ?? "male",
+          address: profile.address ?? "",
+        })
+      );
     }
   }, [open, profile]);
 
   const submit = async () => {
     setErrors({});
-    const parsed = profileSchema.safeParse(form);
+    const fixed = withAgeFromDob(form);
+    setForm(fixed);
+    const parsed = profileSchema.safeParse(fixed);
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       for (const issue of parsed.error.issues) errs[String(issue.path[0])] = issue.message;

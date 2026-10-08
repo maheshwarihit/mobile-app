@@ -5,6 +5,7 @@ import { FormInput, SelectSheet, PrimaryButton, OutlineButton, AgeField, BirthDa
 import { useLanguage } from "@/lib/i18n";
 import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
+import { withAgeFromDob } from "@/lib/ageFromDob";
 import {
   useSaveDependent,
   dependentSchema,
@@ -42,14 +43,14 @@ export function DependentModal({
       setErrors({});
       setForm(
         dependent
-          ? {
+          ? withAgeFromDob({
               full_name: dependent.full_name,
               age: dependent.age?.toString() ?? "",
               date_of_birth: dependent.date_of_birth ?? "",
               relationship: dependent.relationship,
               contact_phone: dependent.contact_phone ?? "",
               gender: dependent.gender ?? "",
-            }
+            })
           : EMPTY
       );
     }
@@ -66,7 +67,9 @@ export function DependentModal({
 
   const submit = async () => {
     setErrors({});
-    const parsed = dependentSchema.safeParse(form);
+    const fixed = withAgeFromDob(form);
+    setForm(fixed);
+    const parsed = dependentSchema.safeParse(fixed);
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       for (const i of parsed.error.issues) errs[String(i.path[0])] = i.message;
