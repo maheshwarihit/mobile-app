@@ -6,7 +6,7 @@ import { PrimaryButton, OutlineButton, GradientButton, Card } from "@/components
 import { AuthModal } from "@/components/feature/AuthModal";
 import { LanguageToggle } from "@/components/feature/LanguageToggle";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
-import { ServiceHoverCard } from "@/components/feature/ServiceHoverCard";
+import { ServiceCard } from "@/components/feature/ServiceCard";
 import { iconForService } from "@/lib/serviceIcon";
 import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
@@ -60,7 +60,7 @@ export function HomeScreen() {
 
         <View className="gap-3">
           {SEED_SERVICES.map((s) => (
-            <ServiceHoverCard
+            <ServiceCard
               key={s.name}
               name={translateServiceName(t, s.name)}
               description={translateServiceDescription(t, s.description)}
