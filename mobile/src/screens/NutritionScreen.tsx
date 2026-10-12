@@ -18,6 +18,7 @@ import { useFamilyMembers } from "@vagewell/shared";
 import { PageHeader, Card, LoadingState, OutlineButton } from "@/components/ui";
 import { BmiCard } from "@/components/feature/BmiCard";
 import { BodyMetricsForm } from "@/components/feature/BodyMetricsForm";
+import { FoodPlateMonitor } from "@/components/feature/FoodPlateMonitor";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { relationshipLabel } from "@/lib/enumI18n";
@@ -32,7 +33,7 @@ type Subject = "self" | "dependents";
 const MODULES: { id: ModuleId; icon: LucideIcon; labelKey: TranslationKey; ready: boolean }[] = [
   { id: "bodyMetrics", icon: Ruler, labelKey: "nutrition.module.bodyMetrics", ready: true },
   { id: "bmi", icon: Scale, labelKey: "nutrition.module.bmi", ready: true },
-  { id: "foodPlate", icon: Utensils, labelKey: "nutrition.module.foodPlate", ready: false },
+  { id: "foodPlate", icon: Utensils, labelKey: "nutrition.module.foodPlate", ready: true },
   { id: "bioMarkers", icon: FlaskConical, labelKey: "nutrition.module.bioMarkers", ready: false },
   { id: "foodSupplements", icon: PillIcon, labelKey: "nutrition.module.foodSupplements", ready: false },
   { id: "selfAssessment", icon: ClipboardCheck, labelKey: "nutrition.module.selfAssessment", ready: false },
@@ -86,6 +87,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               defaultAge={subject === "self" ? (profile?.age ?? null) : (dependent?.age ?? null)}
               defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
             />
+          ) : active.id === "foodPlate" ? (
+            <FoodPlateMonitor key={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
           ) : (
             <Card className="items-center gap-2 p-6">
               <Clock size={22} color="#9ca3af" />

@@ -19,9 +19,21 @@ export function bmiCategory(bmi: number): BmiCategory {
   return "obese";
 }
 
-/** Position of the BMI marker on the scale bar, 0–100%. */
+/**
+ * Position of the BMI marker on the scale bar, 0–100%. The bar is drawn as
+ * four equal parts (one per category), so the marker moves evenly within the
+ * part the BMI falls in: 0–18.5 fills the first quarter, 18.5–25 the second,
+ * 25–30 the third, 30–40 the last (anything above 40 sits at the end).
+ */
 export function bmiScalePercent(bmi: number): number {
-  const min = 15;
-  const max = 40;
-  return Math.max(0, Math.min(100, ((bmi - min) / (max - min)) * 100));
+  let from = 0;
+  for (let i = 0; i < BMI_SCALE.length; i++) {
+    const to = BMI_SCALE[i].max;
+    if (bmi < to || i === BMI_SCALE.length - 1) {
+      const within = Math.max(0, Math.min(1, (bmi - from) / (to - from)));
+      return ((i + within) / BMI_SCALE.length) * 100;
+    }
+    from = to;
+  }
+  return 100;
 }
