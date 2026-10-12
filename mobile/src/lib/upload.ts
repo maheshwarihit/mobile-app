@@ -35,6 +35,28 @@ export async function pickImageAsset(): Promise<PickedImage | null> {
   return { uri: a.uri, mimeType, fileSize };
 }
 
+/**
+ * Open the camera and take one photo. Returns null if cancelled; throws if
+ * camera permission is denied. On a desktop browser, which has no camera
+ * capture, this falls back to the browser's file chooser.
+ */
+export async function takePhotoAsset(): Promise<PickedImage | null> {
+  const perm = await ImagePicker.requestCameraPermissionsAsync();
+  if (!perm.granted) {
+    throw new Error("Camera access is needed to take a picture. Enable it in Settings.");
+  }
+  const res = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.8 });
+  if (res.canceled || !res.assets[0]) return null;
+  const a = res.assets[0];
+  const mimeType = a.mimeType ?? guessMime(a.fileName ?? a.uri);
+  let fileSize = a.fileSize ?? 0;
+  if (!fileSize && Platform.OS !== "web") {
+    const info = await FileSystem.getInfoAsync(a.uri);
+    fileSize = info.exists && !info.isDirectory ? info.size : 0;
+  }
+  return { uri: a.uri, mimeType, fileSize };
+}
+
 /** Wrap a picked image as the platform-neutral ProofSource the shared upload mutation expects. */
 export function assetToProofSource(img: PickedImage): ProofSource {
   return {
