@@ -38,7 +38,7 @@ type Props = {
 /**
  * Service card with two sides you swipe between. Side 1: icon, name, summary.
  * Side 2: the "<service> includes" feature list. Tapping anywhere on either
- * side books. Swipe the card sideways, or use "View more" / "Back" (for a
+ * side books. Swipe the card sideways, or use "Know more" / "Back" (for a
  * mouse, which can't swipe), to move between sides. All cards share one height.
  */
 export function ServiceCard({ name, description, icon: Icon, onPress }: Props) {
