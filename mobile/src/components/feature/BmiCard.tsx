@@ -1,28 +1,28 @@
 import { useEffect, useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { Scale } from "lucide-react-native";
 import { AppModal, Card, FormInput, PrimaryButton, OutlineButton, ErrorBanner, SelectSheet } from "@/components/ui";
 import { useFamilyMembersByAccount } from "@vagewell/shared";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 import { computeBmi, bmiCategory, bmiScalePercent, type BmiCategory } from "@/lib/bmi";
 import { loadBmiResults, saveBmiResults } from "@/lib/bmiStorage";
-import { BRAND, ACCENT_GREEN, WARN, DANGER } from "@/theme";
+import { ACCENT_GREEN, WARN, DANGER } from "@/theme";
 
 type Result = { name: string; bmi: number };
 
-const SCALE_BOUNDS = [15, 18.5, 25, 30, 40];
 const ADVICE_KEYS = {
   underweight: "bmi.advice.underweight",
   normal: "bmi.advice.normal",
   overweight: "bmi.advice.overweight",
   obese: "bmi.advice.obese",
 } as const;
-const SEGMENTS: { category: BmiCategory; color: string; labelKey: "bmi.scale.underweight" | "bmi.scale.normal" | "bmi.scale.overweight" | "bmi.scale.obese" }[] = [
-  { category: "underweight", color: "#60a5fa", labelKey: "bmi.scale.underweight" },
-  { category: "normal", color: ACCENT_GREEN, labelKey: "bmi.scale.normal" },
-  { category: "overweight", color: WARN, labelKey: "bmi.scale.overweight" },
-  { category: "obese", color: DANGER, labelKey: "bmi.scale.obese" },
+// `upTo` is the value written under the divider at the end of each part
+// (same cut-offs as bmiCategory()): 0 │ 18.4 │ 24.9 │ 29.9 │ 30+.
+const SEGMENTS: { category: BmiCategory; color: string; upTo: string; labelKey: "bmi.scale.underweight" | "bmi.scale.normal" | "bmi.scale.overweight" | "bmi.scale.obese" }[] = [
+  { category: "underweight", color: "#60a5fa", upTo: "18.4", labelKey: "bmi.scale.underweight" },
+  { category: "normal", color: ACCENT_GREEN, upTo: "24.9", labelKey: "bmi.scale.normal" },
+  { category: "overweight", color: WARN, upTo: "29.9", labelKey: "bmi.scale.overweight" },
+  { category: "obese", color: DANGER, upTo: "30+", labelKey: "bmi.scale.obese" },
 ];
 
 /**
@@ -64,12 +64,6 @@ export function BmiCard({ personName }: { personName?: string } = {}) {
   return (
     <>
       <Card className="mb-6 p-5">
-        <View className="mb-3 flex-row items-center gap-3">
-          <View className="h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-            <Scale size={18} color={BRAND} />
-          </View>
-          <Text className="flex-1 text-lg font-bold text-gray-900">{t("bmi.title")}</Text>
-        </View>
 
         {result ? (
           <View className="gap-4">
@@ -208,11 +202,10 @@ function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck: (
   const category = bmiCategory(result.bmi);
   const meta = SEGMENTS.find((s) => s.category === category)!;
   const markerLeft = bmiScalePercent(result.bmi);
-  const flexFor = (i: number) => SCALE_BOUNDS[i + 1] - SCALE_BOUNDS[i];
 
   return (
     <View className="gap-4">
-      <Text className="text-sm font-semibold text-gray-700">{t("bmi.result.score", { name: result.name })}</Text>
+      <Text className="text-base font-bold text-gray-900">{t("bmi.result.score", { name: result.name })}</Text>
 
       <View className="flex-row items-end justify-between">
         <Text className="text-4xl font-extrabold text-gray-900">{result.bmi.toFixed(1)}</Text>
@@ -221,21 +214,45 @@ function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck: (
         </View>
       </View>
 
-      <View className="gap-1.5">
-        <View className="relative h-3">
-          <View className="h-3 w-full flex-row overflow-hidden rounded-full">
+      <View className="gap-1">
+        {/* The bar: four equal parts with a white divider between each. */}
+        <View className="relative h-4">
+          <View className="h-4 w-full flex-row overflow-hidden rounded-md">
             {SEGMENTS.map((s, i) => (
-              <View key={s.category} style={{ flex: flexFor(i), backgroundColor: s.color }} />
+              <View
+                key={s.category}
+                style={{ flex: 1, backgroundColor: s.color, borderLeftWidth: i === 0 ? 0 : 2, borderLeftColor: "#fff" }}
+              />
             ))}
           </View>
           <View
             style={{ left: `${markerLeft}%`, marginLeft: -6 }}
-            className="absolute -top-1 h-5 w-3 rounded-full border-2 border-white bg-gray-900"
+            className="absolute -top-1 h-6 w-3 rounded-full border-2 border-white bg-gray-900"
           />
         </View>
-        <View className="flex-row justify-between">
+        {/* Values under the dividers: 0 at the start, each part's end value under
+            its right edge. Each cell is one part wide; its value is right-aligned
+            and nudged so it sits under the divider (the last stays inside). */}
+        <View className="flex-row">
+          {SEGMENTS.map((s, i) => (
+            <View key={s.category} className="flex-1 flex-row justify-between">
+              <Text className="text-[11px] font-semibold text-gray-700">{i === 0 ? "0" : ""}</Text>
+              <Text
+                style={{ marginRight: i === SEGMENTS.length - 1 ? 0 : -12 }}
+                className="text-[11px] font-semibold text-gray-700"
+              >
+                {s.upTo}
+              </Text>
+            </View>
+          ))}
+        </View>
+        {/* Category name under each part; the person's own category in bold. */}
+        <View className="flex-row">
           {SEGMENTS.map((s) => (
-            <Text key={s.category} className="text-[10px] text-gray-500">
+            <Text
+              key={s.category}
+              className={`flex-1 text-center text-[11px] ${s.category === category ? "font-bold text-gray-900" : "text-gray-500"}`}
+            >
               {t(s.labelKey)}
             </Text>
           ))}
