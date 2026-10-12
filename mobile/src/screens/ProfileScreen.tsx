@@ -204,6 +204,13 @@ export function ProfileScreen() {
       void refetchBookings();
       void refetchVitals();
       loadRescheduledIds().then(setRescheduledIds);
+      // Leaving the tab closes an open "Edit details" form (unsaved changes are
+      // dropped, same as Cancel), so coming back shows the saved details rather
+      // than a half-edited form.
+      return () => {
+        setEditingBio(false);
+        setBioErrors({});
+      };
     }, [refetchReports, refetchBookings, refetchVitals])
   );
   const bookingsForSubject = useMemo(
