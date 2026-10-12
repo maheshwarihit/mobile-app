@@ -56,10 +56,23 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
   const [activityLevel, setActivityLevel] = useState("");
   const [conditions, setConditions] = useState<string[]>([""]);
   const [history, setHistory] = useState<string[]>([""]);
-  // Last saved answers. Once there are some, the module opens as a read-only
-  // summary with an Edit button; editing works on a copy until Save.
+  // Last saved answers. The module always opens as a read-only summary with
+  // an Edit button — for someone with nothing saved yet the summary shows
+  // what is known from their profile (age, gender) and a dash for the rest.
+  // Editing works on a copy until Save.
   const [saved, setSaved] = useState<BodyMetrics | null>(null);
-  const [editing, setEditing] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const blank: BodyMetrics = {
+    age: defaultAge != null ? String(defaultAge) : "",
+    gender: defaultGender ?? "",
+    heightCm: "",
+    weightKg: "",
+    activityLevel: "",
+    medicalConditions: [],
+    pastHistory: [],
+    savedAt: "",
+  };
+  const shown = saved ?? blank;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -70,7 +83,6 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
       if (saved) {
         fillFrom(saved);
         setSaved(saved);
-        setEditing(false);
       }
       setLoaded(true);
     });
@@ -90,7 +102,7 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
   }
 
   const cancelEdit = () => {
-    if (saved) fillFrom(saved);
+    fillFrom(saved ?? blank);
     setErrors({});
     setEditing(false);
   };
@@ -132,18 +144,18 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
 
   if (!loaded) return <LoadingState message={t("common.loading")} />;
 
-  if (saved && !editing) {
-    const conditionLabels = saved.medicalConditions.map((c) => t(`bodyMetrics.condition.${c}` as TranslationKey));
-    const historyLabels = saved.pastHistory.map((h) => t(`bodyMetrics.history.${h}` as TranslationKey));
+  if (!editing) {
+    const conditionLabels = shown.medicalConditions.map((c) => t(`bodyMetrics.condition.${c}` as TranslationKey));
+    const historyLabels = shown.pastHistory.map((h) => t(`bodyMetrics.history.${h}` as TranslationKey));
     return (
       <Card className="gap-3 p-5">
-        <SummaryRow label={t("bodyMetrics.age")} value={saved.age} />
-        <SummaryRow label={t("bodyMetrics.gender")} value={saved.gender ? genderLabel(t, saved.gender as (typeof GENDERS)[number]) : "—"} />
-        <SummaryRow label={t("bodyMetrics.height")} value={saved.heightCm} />
-        <SummaryRow label={t("bodyMetrics.weight")} value={saved.weightKg} />
+        <SummaryRow label={t("bodyMetrics.age")} value={shown.age} />
+        <SummaryRow label={t("bodyMetrics.gender")} value={shown.gender ? genderLabel(t, shown.gender as (typeof GENDERS)[number]) : "—"} />
+        <SummaryRow label={t("bodyMetrics.height")} value={shown.heightCm} />
+        <SummaryRow label={t("bodyMetrics.weight")} value={shown.weightKg} />
         <SummaryRow
           label={t("bodyMetrics.activity")}
-          value={saved.activityLevel ? t(`bodyMetrics.activity.${saved.activityLevel}` as TranslationKey) : "—"}
+          value={shown.activityLevel ? t(`bodyMetrics.activity.${shown.activityLevel}` as TranslationKey) : "—"}
         />
         <SummaryList label={t("bodyMetrics.conditions")} items={conditionLabels} />
         <SummaryList label={t("bodyMetrics.history")} items={historyLabels} />
@@ -152,7 +164,9 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
             {t("bodyMetrics.edit")}
           </PrimaryButton>
         </View>
-        <Text className="text-center text-xs text-gray-400">{t("bodyMetrics.lastSaved", { date: formatLocalDateTime(saved.savedAt) })}</Text>
+        <Text className="text-center text-xs text-gray-400">
+          {saved ? t("bodyMetrics.lastSaved", { date: formatLocalDateTime(saved.savedAt) }) : t("bodyMetrics.notSaved")}
+        </Text>
       </Card>
     );
   }
@@ -216,13 +230,11 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
       />
 
       <View className="flex-row gap-3">
-        {saved ? (
-          <View className="flex-1">
-            <OutlineButton fullWidth onPress={cancelEdit}>
-              {t("common.cancel")}
-            </OutlineButton>
-          </View>
-        ) : null}
+        <View className="flex-1">
+          <OutlineButton fullWidth onPress={cancelEdit}>
+            {t("common.cancel")}
+          </OutlineButton>
+        </View>
         <View className="flex-1">
           <PrimaryButton fullWidth loading={saving} onPress={save}>
             {t("bodyMetrics.save")}
