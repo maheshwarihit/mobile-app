@@ -19,6 +19,7 @@ import { PageHeader, Card, LoadingState, OutlineButton } from "@/components/ui";
 import { BmiCard } from "@/components/feature/BmiCard";
 import { BodyMetricsForm } from "@/components/feature/BodyMetricsForm";
 import { FoodPlateMonitor } from "@/components/feature/FoodPlateMonitor";
+import { BioMarkers } from "@/components/feature/BioMarkers";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { relationshipLabel } from "@/lib/enumI18n";
@@ -34,7 +35,7 @@ const MODULES: { id: ModuleId; icon: LucideIcon; labelKey: TranslationKey; ready
   { id: "bodyMetrics", icon: Ruler, labelKey: "nutrition.module.bodyMetrics", ready: true },
   { id: "bmi", icon: Scale, labelKey: "nutrition.module.bmi", ready: true },
   { id: "foodPlate", icon: Utensils, labelKey: "nutrition.module.foodPlate", ready: true },
-  { id: "bioMarkers", icon: FlaskConical, labelKey: "nutrition.module.bioMarkers", ready: false },
+  { id: "bioMarkers", icon: FlaskConical, labelKey: "nutrition.module.bioMarkers", ready: true },
   { id: "foodSupplements", icon: PillIcon, labelKey: "nutrition.module.foodSupplements", ready: false },
   { id: "selfAssessment", icon: ClipboardCheck, labelKey: "nutrition.module.selfAssessment", ready: false },
 ];
@@ -89,6 +90,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
             />
           ) : active.id === "foodPlate" ? (
             <FoodPlateMonitor key={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
+          ) : active.id === "bioMarkers" ? (
+            <BioMarkers key={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
           ) : (
             <Card className="items-center gap-2 p-6">
               <Clock size={22} color="#9ca3af" />
