@@ -40,10 +40,14 @@ type Props = {
   personKey: string;
   defaultAge: number | null;
   defaultGender: string | null;
+  /** Open straight on the form instead of the summary (e.g. sent here from another module to fill it in). */
+  startEditing?: boolean;
+  /** Called after a successful Save. */
+  onSaved?: () => void;
 };
 
 /** Nutrition → Body Metrics: one person's measurements, activity level and medical background. */
-export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props) {
+export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEditing = false, onSaved }: Props) {
   const { t } = useLanguage();
   const { profile } = useAuth();
   const userId = profile?.id ?? null;
@@ -61,7 +65,7 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
   // what is known from their profile (age, gender) and a dash for the rest.
   // Editing works on a copy until Save.
   const [saved, setSaved] = useState<BodyMetrics | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const blank: BodyMetrics = {
     age: defaultAge != null ? String(defaultAge) : "",
     gender: defaultGender ?? "",
@@ -137,6 +141,7 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender }: Props)
       setSaved(next);
       setEditing(false);
       toast.success(t("bodyMetrics.saved"));
+      onSaved?.();
     } else {
       toast.error(t("bodyMetrics.saveFailed"));
     }

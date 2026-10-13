@@ -55,6 +55,9 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
   // null = the module list; otherwise that module is open on its own.
   const [activeId, setActiveId] = useState<ModuleId | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  // Set when Body Metrics was opened from another module (Food Plate
+  // Monitor) to fill in height/weight: Save or Back returns to that module.
+  const [returnTo, setReturnTo] = useState<ModuleId | null>(null);
 
   const dependent = dependents?.find((d) => d.id === dependentId) ?? null;
   const personName = subject === "self" ? (profile?.full_name ?? "") : (dependent?.full_name ?? "");
@@ -64,11 +67,15 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
     setSubject(next);
     setDependentId(null);
     setActiveId(null);
+    setReturnTo(null);
   };
 
   // Back steps out one level: open module → module list → family list → Services.
   const back = () => {
-    if (active) setActiveId(null);
+    if (active && returnTo) {
+      setActiveId(returnTo);
+      setReturnTo(null);
+    } else if (active) setActiveId(null);
     else if (subject === "dependents" && dependent) setDependentId(null);
     else navigation.goBack();
   };
@@ -90,6 +97,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               personKey={dependent?.id ?? "self"}
               defaultAge={subject === "self" ? (profile?.age ?? null) : (dependent?.age ?? null)}
               defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
+              startEditing={returnTo !== null}
+              onSaved={returnTo ? back : undefined}
             />
           ) : active.id === "foodPlate" ? (
             <FoodPlateMonitor
@@ -98,7 +107,10 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               defaultAge={subject === "self" ? (profile?.age ?? null) : (dependent?.age ?? null)}
               defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
               onExit={() => setActiveId(null)}
-              onOpenBodyMetrics={() => setActiveId("bodyMetrics")}
+              onOpenBodyMetrics={() => {
+                setReturnTo("foodPlate");
+                setActiveId("bodyMetrics");
+              }}
             />
           ) : active.id === "bioMarkers" ? (
             <BioMarkers key={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
