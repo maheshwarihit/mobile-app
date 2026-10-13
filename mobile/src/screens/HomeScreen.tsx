@@ -8,6 +8,7 @@ import { LanguageToggle } from "@/components/feature/LanguageToggle";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceCard } from "@/components/feature/ServiceCard";
 import { iconForService } from "@/lib/serviceIcon";
+import { imageForService } from "@/lib/serviceImage";
 import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import { SEED_SERVICES, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
@@ -65,6 +66,7 @@ export function HomeScreen() {
               name={translateServiceName(t, s.name)}
               description={translateServiceDescription(t, s.description)}
               icon={iconForService(s.name)}
+              image={imageForService(s.name)}
               onPress={() => open("register")}
             />
           ))}

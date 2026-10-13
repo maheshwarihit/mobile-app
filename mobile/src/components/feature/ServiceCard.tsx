@@ -1,5 +1,6 @@
 import { useRef, useState, useSyncExternalStore } from "react";
-import { View, Text, Pressable, ScrollView, type LayoutChangeEvent } from "react-native";
+import { View, Text, Pressable, ScrollView, Image, StyleSheet, type LayoutChangeEvent, type ImageSourcePropType } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useLanguage } from "@/lib/i18n";
 import type { ServiceIconComponent } from "@/lib/serviceIcon";
@@ -32,8 +33,13 @@ type Props = {
   /** "summary\n• feature\n• feature…" (translated). */
   description: string;
   icon: ServiceIconComponent;
+  /** Background photo for the whole card; text turns white over it. */
+  image?: ImageSourcePropType;
   onPress: () => void;
 };
+
+// With a photo the card needs some height of its own to show it.
+const PHOTO_MIN_HEIGHT = 168;
 
 /**
  * Service card with two sides you swipe between. Side 1: icon, name, summary.
@@ -41,11 +47,15 @@ type Props = {
  * side books. Swipe the card sideways, or use "Know more" / "Back" (for a
  * mouse, which can't swipe), to move between sides. All cards share one height.
  */
-export function ServiceCard({ name, description, icon: Icon, onPress }: Props) {
+export function ServiceCard({ name, description, icon: Icon, image, onPress }: Props) {
   const { t } = useLanguage();
   const scroller = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
-  const minHeight = useSyncExternalStore(subscribe, getTallest, getTallest);
+  const tallestContent = useSyncExternalStore(subscribe, getTallest, getTallest);
+  const minHeight = image ? Math.max(tallestContent, PHOTO_MIN_HEIGHT) : tallestContent;
+  const onPhoto = !!image;
+  const linkColor = onPhoto ? "#ffffff" : BRAND;
+  const linkText = onPhoto ? "text-white" : "text-purple-700";
   // Natural heights of each side's two blocks (body + link).
   const parts = useRef({ body1: 0, link1: 0, body2: 0, link2: 0 });
 
@@ -66,6 +76,19 @@ export function ServiceCard({ name, description, icon: Icon, onPress }: Props) {
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
       className="overflow-hidden rounded-xl border border-gray-100 bg-white"
     >
+      {/* The photo sits still behind both sides; a dark wash (heavier on the
+          left, where the text starts) keeps the white text readable. */}
+      {image ? (
+        <>
+          <Image source={image} resizeMode="cover" style={[StyleSheet.absoluteFill, { width: "100%", height: "100%" }]} />
+          <LinearGradient
+            colors={["rgba(15,23,42,0.82)", "rgba(15,23,42,0.45)"]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </>
+      ) : null}
       <ScrollView
         ref={scroller}
         horizontal
@@ -83,12 +106,12 @@ export function ServiceCard({ name, description, icon: Icon, onPress }: Props) {
         {width > 0 ? (
             <Pressable onPress={onPress} style={{ width, minHeight }} className="justify-between active:opacity-80">
               <View onLayout={measure("body1")} className="flex-row items-start gap-3 p-4">
-                <View className="mt-0.5 h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-                  <Icon size={18} color={BRAND} />
+                <View className={`mt-0.5 h-9 w-9 items-center justify-center rounded-lg ${onPhoto ? "bg-white/20" : "bg-purple-50"}`}>
+                  <Icon size={18} color={linkColor} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-base font-semibold text-gray-900">{name}</Text>
-                  {summary ? <Text className="mt-0.5 text-sm text-gray-500">{summary}</Text> : null}
+                  <Text className={`text-base font-semibold ${onPhoto ? "text-white" : "text-gray-900"}`}>{name}</Text>
+                  {summary ? <Text className={`mt-0.5 text-sm ${onPhoto ? "text-white" : "text-gray-500"}`}>{summary}</Text> : null}
                 </View>
               </View>
               {hasFeatures ? (
@@ -99,8 +122,8 @@ export function ServiceCard({ name, description, icon: Icon, onPress }: Props) {
                     accessibilityRole="button"
                     className="flex-row items-center gap-0.5 self-start active:opacity-70"
                   >
-                    <Text className="text-sm font-semibold text-purple-700">{t("services.card.viewMore")}</Text>
-                    <ChevronRight size={14} color={BRAND} />
+                    <Text className={`text-sm font-semibold ${linkText}`}>{t("services.card.viewMore")}</Text>
+                    <ChevronRight size={14} color={linkColor} />
                   </Pressable>
                 </View>
               ) : null}
@@ -112,14 +135,14 @@ export function ServiceCard({ name, description, icon: Icon, onPress }: Props) {
               <Pressable
                 onPress={onPress}
                 style={{ width, minHeight }}
-                className="justify-between bg-purple-50 active:opacity-80"
+                className={`justify-between active:opacity-80 ${onPhoto ? "" : "bg-purple-50"}`}
               >
                 <View onLayout={measure("body2")} className="gap-1 p-4 pb-2">
-                  <Text className="text-xs font-bold uppercase tracking-wide" style={{ color: BRAND }}>
+                  <Text className="text-xs font-bold uppercase tracking-wide" style={{ color: linkColor }}>
                     {t("services.card.includes", { name })}
                   </Text>
                   {features.map((f) => (
-                    <Text key={f} className="text-sm text-gray-700">
+                    <Text key={f} className={`text-sm ${onPhoto ? "text-white" : "text-gray-700"}`}>
                       • {f}
                     </Text>
                   ))}
@@ -131,8 +154,8 @@ export function ServiceCard({ name, description, icon: Icon, onPress }: Props) {
                     accessibilityRole="button"
                     className="flex-row items-center gap-0.5 self-start active:opacity-70"
                   >
-                    <ChevronLeft size={14} color={BRAND} />
-                    <Text className="text-sm font-semibold text-purple-700">{t("common.back")}</Text>
+                    <ChevronLeft size={14} color={linkColor} />
+                    <Text className={`text-sm font-semibold ${linkText}`}>{t("common.back")}</Text>
                   </Pressable>
                 </View>
               </Pressable>
