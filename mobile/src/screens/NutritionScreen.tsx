@@ -21,6 +21,7 @@ import { BmiCard } from "@/components/feature/BmiCard";
 import { BodyMetricsForm } from "@/components/feature/BodyMetricsForm";
 import { FoodPlateMonitor } from "@/components/feature/FoodPlateMonitor";
 import { BioMarkers } from "@/components/feature/BioMarkers";
+import { SelfAssessment } from "@/components/feature/SelfAssessment";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
@@ -39,7 +40,7 @@ const MODULES: { id: ModuleId; icon: LucideIcon; labelKey: TranslationKey; ready
   { id: "foodPlate", icon: Utensils, labelKey: "nutrition.module.foodPlate", ready: true },
   { id: "bioMarkers", icon: FlaskConical, labelKey: "nutrition.module.bioMarkers", ready: true },
   { id: "foodSupplements", icon: PillIcon, labelKey: "nutrition.module.foodSupplements", ready: false },
-  { id: "selfAssessment", icon: ClipboardCheck, labelKey: "nutrition.module.selfAssessment", ready: false },
+  { id: "selfAssessment", icon: ClipboardCheck, labelKey: "nutrition.module.selfAssessment", ready: true },
 ];
 
 // SCREEN_ID: NUTRITION_MODULES — what the Nutrition service card opens instead
@@ -114,6 +115,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
             />
           ) : active.id === "bioMarkers" ? (
             <BioMarkers key={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
+          ) : active.id === "selfAssessment" ? (
+            <SelfAssessment key={dependent?.id ?? "self"} personKey={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
           ) : (
             <Card className="items-center gap-2 p-6">
               <Clock size={22} color="#9ca3af" />
