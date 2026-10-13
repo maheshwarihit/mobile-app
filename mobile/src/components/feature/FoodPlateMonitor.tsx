@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, Sparkles, ArrowLeft, RotateCcw, BookOpen, Trash2, ChevronRight, LogOut } from "lucide-react-native";
+import { Camera, ImageUp, ArrowLeft, RotateCcw, BookOpen, Trash2, ChevronRight, LogOut } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, WarningBanner, Spinner, ConfirmModal, LoadingState } from "@/components/ui";
 import { PlateCropModal } from "@/components/feature/PlateCropModal";
@@ -135,15 +135,6 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
     <View className="gap-4">
       {stage.name === "start" ? (
         <Card className="gap-3 p-5">
-          <View className="flex-row items-center gap-3">
-            <View className="h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
-              <Sparkles size={18} color={BRAND} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-base font-bold text-gray-900">{t("foodPlate.addTitle")}</Text>
-              <Text className="text-sm text-gray-500">{t("foodPlate.addHint")}</Text>
-            </View>
-          </View>
           {missingBodyDetails ? (
             <View className="gap-2">
               <WarningBanner message={t("foodPlate.needBodyMetrics")} />
