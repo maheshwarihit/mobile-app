@@ -19,3 +19,14 @@
 *::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Chromium-based Edge */
 }
+
+/*
+  Text fields draw their own rounded border, which turns the brand colour
+  while focused. The browser's default focus outline is a square black box
+  drawn on top of that (inside the rounded corners), so turn it off for text
+  inputs only; buttons and links keep their keyboard focus ring.
+*/
+input,
+textarea {
+  outline: none !important;
+}
