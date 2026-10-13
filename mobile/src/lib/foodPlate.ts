@@ -7,14 +7,24 @@ export type PlateAnalysis = {
   is_food: boolean;
   dish_summary: string;
   items: string[];
+  /** Meal score out of 100, from the Food Compass Score approach. */
   score: number;
   calories_kcal: number;
-  carbs_g: number;
   protein_g: number;
+  carbs_g: number;
   fat_g: number;
-  fibre_g: number;
-  micronutrients: { name: string; amount: string; level: "low" | "moderate" | "high" }[];
-  suggestions: string[];
+  micronutrients: { name: string; amount: string; daily_need: string; percent_of_daily_need: number }[];
+  missing: string[];
+  recommendations: string[];
+};
+
+/** The person the plate is for; sent so the AI can work out their daily needs. Any field may be unknown. */
+export type PlatePerson = {
+  age?: number;
+  gender?: string;
+  height_cm?: number;
+  weight_kg?: number;
+  activity_level?: string;
 };
 
 export type PlateSource = "camera" | "gallery";
@@ -42,14 +52,18 @@ function mediaTypeOf(mime: string | undefined): PickedPlate["mediaType"] {
   return "image/jpeg";
 }
 
-/** Open the camera or the gallery for a plate photo. Null if cancelled; throws if permission is denied. */
+/**
+ * Open the camera or the gallery for a plate photo, asking for that permission
+ * first (the system prompt appears the first time only). Null if cancelled;
+ * throws with a readable message if the permission is refused.
+ */
 export async function pickPlate(source: PlateSource): Promise<PickedPlate | null> {
   if (source === "camera") {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) throw new Error("Camera access is needed to take a picture. Enable it in Settings.");
+    if (!perm.granted) throw new Error("Camera access is needed to take a picture. Allow it in your phone's Settings for VAgeWell Care.");
   } else {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) throw new Error("Photo access is needed to choose a picture. Enable it in Settings.");
+    if (!perm.granted) throw new Error("Photo access is needed to choose a picture. Allow it in your phone's Settings for VAgeWell Care.");
   }
   const res =
     source === "camera"
@@ -64,9 +78,14 @@ export async function pickPlate(source: PlateSource): Promise<PickedPlate | null
 }
 
 /** Send a cropped plate photo for AI analysis. Throws an Error with a user-readable message on failure. */
-export async function analyzePlate(base64: string, mediaType: PickedPlate["mediaType"], language: string): Promise<PlateAnalysis> {
+export async function analyzePlate(
+  base64: string,
+  mediaType: PickedPlate["mediaType"],
+  language: string,
+  person: PlatePerson,
+): Promise<PlateAnalysis> {
   const { data, error } = await supabase.functions.invoke("analyze-food-plate", {
-    body: { image_base64: base64, media_type: mediaType, language },
+    body: { image_base64: base64, media_type: mediaType, language, person },
   });
   if (error) {
     // The function's own { error } message, when it sent one.

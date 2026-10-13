@@ -1,9 +1,11 @@
 // Supabase Edge Function: analyze-food-plate
 //
-// Takes one cropped photo of a meal and returns an AI estimate of its
-// nutrition: a healthiness score, calories, carbs, protein, fat, fibre,
-// notable micronutrients and suggestions. Called by the app's Food Plate
-// Monitor (Nutrition → Food Plate Monitor).
+// Takes one cropped photo of a meal plus the person's age, gender, height and
+// weight, and returns an AI estimate of the plate: a meal score out of 100
+// based on the Food Compass Score approach, calories, protein, carbs, fats,
+// the micronutrients it provides against that person's daily needs, and
+// recommendations on what is missing. Called by the app's Food Plate Monitor
+// (Nutrition → Food Plate Monitor).
 //
 // Why this is a server function and not a direct call from the app: the
 // Claude API key is a secret and must never ship inside the app bundle. It
@@ -14,7 +16,10 @@
 //   supabase functions deploy analyze-food-plate
 //
 // Request  (POST, JSON, signed-in user's JWT in Authorization):
-//   { image_base64: string, media_type: "image/jpeg"|"image/png"|"image/webp", language?: "en"|"ta" }
+//   { image_base64: string,
+//     media_type: "image/jpeg"|"image/png"|"image/webp",
+//     language?: "en"|"ta",
+//     person?: { age?: number, gender?: string, height_cm?: number, weight_kg?: number, activity_level?: string } }
 // Response 200: PlateAnalysis (see schema below)
 // Response 4xx/5xx: { error: string }
 
@@ -40,36 +45,70 @@ const PlateAnalysis = z.object({
   is_food: z.boolean().describe("false when the photo does not show food or a meal"),
   dish_summary: z.string().describe("One short sentence naming what is on the plate"),
   items: z.array(z.string()).describe("Each distinct food or drink visible"),
-  score: z.number().describe("Overall healthiness of this plate, 0 (poor) to 100 (excellent)"),
+  score: z.number().describe("Meal score for this plate, 0 (poor) to 100 (excellent), from the Food Compass Score approach"),
   calories_kcal: z.number().describe("Estimated total energy of the whole plate, kcal"),
-  carbs_g: z.number().describe("Estimated total carbohydrate, grams"),
   protein_g: z.number().describe("Estimated total protein, grams"),
+  carbs_g: z.number().describe("Estimated total carbohydrate, grams"),
   fat_g: z.number().describe("Estimated total fat, grams"),
-  fibre_g: z.number().describe("Estimated total dietary fibre, grams"),
   micronutrients: z
     .array(
       z.object({
         name: z.string().describe("e.g. Iron, Calcium, Vitamin C"),
-        amount: z.string().describe('Estimated amount with unit, e.g. "4 mg"'),
-        level: z.enum(["low", "moderate", "high"]).describe("How much this plate provides relative to a meal's share of daily needs"),
+        amount: z.string().describe('Estimated amount in this plate with unit, e.g. "4 mg"'),
+        daily_need: z.string().describe('This person\'s recommended daily amount with unit, e.g. "18 mg"'),
+        percent_of_daily_need: z.number().describe("amount as a percentage of daily_need, 0 or more"),
       }),
     )
-    .describe("The 4 to 8 most relevant vitamins and minerals for this plate"),
-  suggestions: z.array(z.string()).describe("3 to 5 short, practical suggestions to improve this meal"),
+    .describe("The 6 to 10 micronutrients that matter most for this person's daily needs, including ones this plate is low in"),
+  missing: z.array(z.string()).describe("What this plate lacks: 2 to 5 short items, each a food group or nutrient"),
+  recommendations: z.array(z.string()).describe("3 to 5 short, practical recommendations that supply what is missing"),
 });
 
 const SYSTEM = `You are the nutrition estimator inside VAgeWell Care, a home-care app used mostly by families in India, often for older adults.
 
-You are shown one photo of a plate or meal. Estimate the nutrition of everything visible on it, as served.
+You are shown one photo of a plate or meal, and you may be told the age, gender, height, weight and activity level of the person who will eat it.
+
+Use the Food Compass Score as the main scoring method. Food Compass is the nutrient profiling system from Tufts University that rates foods and mixed meals from 1 (least healthful) to 100 (most healthful) across nine domains: nutrient ratios (unsaturated to saturated fat, fibre to carbohydrate, potassium to sodium), vitamins, minerals, food-based ingredients (fruits, vegetables, legumes, whole grains, nuts and seeds, seafood, yoghurt, plant oils, against refined grains and red or processed meat), additives (added sugar, nitrites, artificial sweeteners, flavours and colours), processing (degree of processing, fermentation, frying), specific lipids (omega-3 fats, medium-chain fats, dietary cholesterol), fibre and protein, and phytochemicals (flavonoids, carotenoids). Judge the plate on each domain from what you can see, then combine them into one meal score. You are estimating from a photo, so apply the method's reasoning rather than claiming an exact laboratory calculation.
 
 How to estimate:
 - Identify each food and judge its portion from the plate, bowl and utensil sizes in the photo. Indian home meals (rice, roti, dal, sambar, curries, idli, dosa, curd and so on) are common; recognise them by name.
-- Give totals for the whole plate, not per 100 g. Use realistic home-cooking values, including the oil or ghee a dish is normally cooked with.
-- These are estimates from a photo. Give your single best figure for each value rather than a range.
-- Score the plate from 0 to 100 for overall healthiness: balance of vegetables, protein, whole grains and healthy fats, portion size, and how much is fried, sugary or highly refined.
-- Suggestions should be specific to this plate and easy to act on at the next meal (what to add, reduce or swap). Do not give medical advice or mention diseases unless the food itself makes it relevant in a general way.
+- Give calories, protein, carbohydrate and fat as totals for the whole plate as served, using realistic home-cooking values that include the oil or ghee a dish is normally cooked with. Give your single best figure for each rather than a range.
+- Use the person's age, gender, height, weight and activity level to work out their daily needs: their energy requirement, and the recommended daily amount of each micronutrient for someone of that age and gender. Where a detail is not given, assume a typical healthy adult and do not mention the assumption.
+- For micronutrients, list the ones that matter most for this person, state how much this plate provides, their daily need, and the percentage of the daily need this plate covers. Include important ones the plate is low in, not only the ones it is rich in.
+- Let the person's details shape the meal score only where they change what is healthful for them (for example portion size against their energy needs); the Food Compass domains remain the basis.
+- "missing" names what the plate lacks. "recommendations" says how to supply it at this or the next meal: what to add, reduce or swap, specific to this plate and easy to act on. Do not give medical advice or mention diseases.
 
 If the photo does not show food, set is_food to false, explain briefly in dish_summary, and use 0 and empty lists for everything else.`;
+
+type Person = { age?: number; gender?: string; height_cm?: number; weight_kg?: number; activity_level?: string };
+
+// Only plain, bounded values reach the prompt.
+function describePerson(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "No details about the person were provided.";
+  const p = raw as Person;
+  const num = (v: unknown, min: number, max: number) => (typeof v === "number" && v >= min && v <= max ? v : null);
+  const word = (v: unknown, allowed: string[]) => (typeof v === "string" && allowed.includes(v) ? v.replace(/_/g, " ") : null);
+  const age = num(p.age, 0, 130);
+  const height = num(p.height_cm, 50, 250);
+  const weight = num(p.weight_kg, 2, 400);
+  const gender = word(p.gender, ["male", "female", "other", "prefer_not_to_say"]);
+  const activity = word(p.activity_level, ["sedentary", "light", "moderate", "very", "extra"]);
+  const activityWords: Record<string, string> = {
+    sedentary: "inactive",
+    light: "lightly active",
+    moderate: "moderately active",
+    very: "highly active",
+    extra: "extremely active",
+  };
+  const parts = [
+    age !== null ? `Age: ${age} years` : null,
+    gender && gender !== "prefer not to say" ? `Gender: ${gender}` : null,
+    height !== null ? `Height: ${height} cm` : null,
+    weight !== null ? `Weight: ${weight} kg` : null,
+    activity ? `Physical activity: ${activityWords[activity]}` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join("\n") : "No details about the person were provided.";
+}
 
 const anthropic = new Anthropic();
 
@@ -87,7 +126,7 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json({ error: "Please sign in to analyse a plate." }, 401);
 
-  let body: { image_base64?: unknown; media_type?: unknown; language?: unknown };
+  let body: { image_base64?: unknown; media_type?: unknown; language?: unknown; person?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -117,7 +156,12 @@ Deno.serve(async (req) => {
             { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
             {
               type: "text",
-              text: `Analyse this plate. Write dish_summary, items, micronutrient names and suggestions in ${language}.`,
+              text: `For the uploaded image, use the Food Compass Score algorithm as the main calculation algorithm and, based on the age, height, weight and gender below, calculate the meal quality of the food plate in the image. Return: the calorie count of the plate, protein, carbs, fats, the daily needed micronutrients, a meal score out of 100, and recommendations on what is missing.
+
+The person:
+${describePerson(body.person)}
+
+Write dish_summary, items, micronutrient names, missing and recommendations in ${language}.`,
             },
           ],
         },
