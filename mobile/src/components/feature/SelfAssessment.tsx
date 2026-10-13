@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { PersonStanding, Heart, Moon, Apple, Users, Lightbulb, Check, LogOut, RotateCcw, ArrowLeft, type LucideIcon } from "lucide-react-native";
+import { PersonStanding, Heart, Moon, Apple, Users, Lightbulb, Check, LogOut, RotateCcw, ArrowLeft, ArrowRight, type LucideIcon } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ConfirmModal, LoadingState } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
@@ -84,21 +84,32 @@ export function SelfAssessment({ personKey, onExit }: Props) {
     setOpenId(id);
   };
 
-  const saveSection = async () => {
-    if (!openId || !isComplete(draft)) return;
-    setSaving(true);
-    const answers = { ...saved, [openId]: draft };
-    const at = new Date().toISOString();
-    const ok = await saveSelfAssessment(userId, personKey, { answers, savedAt: at });
-    setSaving(false);
-    if (!ok) {
-      toast.error(t("selfAssessment.saveFailed"));
-      return;
+  // Back / Next step through the sections in order; both keep what has been
+  // answered so far (a half-answered section is kept too — it just has no
+  // score yet). Next needs all five answers. Back from the first section and
+  // Next from the last one return to the section list.
+  const step = async (direction: -1 | 1) => {
+    if (!openId) return;
+    if (direction === 1 && !isComplete(draft)) return;
+    const index = SECTIONS.findIndex((s) => s.id === openId);
+    const target = SECTIONS[index + direction]?.id ?? null;
+    let answers = saved;
+    if (draft.some((a) => a !== null)) {
+      setSaving(true);
+      answers = { ...saved, [openId]: draft };
+      const at = new Date().toISOString();
+      const ok = await saveSelfAssessment(userId, personKey, { answers, savedAt: at });
+      setSaving(false);
+      if (!ok) {
+        toast.error(t("selfAssessment.saveFailed"));
+        return;
+      }
+      setSaved(answers);
+      setSavedAt(at);
     }
-    setSaved(answers);
-    setSavedAt(at);
     // No "saved" popup: the section's tile turning into its coloured score is the confirmation.
-    setOpenId(null);
+    if (target) setDraft(answers[target] ? [...answers[target]!] : blankSection());
+    setOpenId(target);
   };
 
   const reset = async () => {
@@ -112,12 +123,16 @@ export function SelfAssessment({ personKey, onExit }: Props) {
 
   if (openId) {
     const ready = isComplete(draft);
+    const index = SECTIONS.findIndex((s) => s.id === openId);
+    const isLast = index === SECTIONS.length - 1;
     return (
       <View className="gap-4">
         <Card className="gap-3 p-5">
           <View>
             <Text className="text-lg font-bold text-gray-900">{t(key(`selfAssessment.${openId}.title`))}</Text>
-            <Text className="mt-0.5 text-sm text-gray-500">{t("selfAssessment.period")}</Text>
+            <Text className="mt-0.5 text-sm text-gray-500">
+              {t("selfAssessment.sectionOf", { current: index + 1, total: SECTIONS.length })} · {t("selfAssessment.period")}
+            </Text>
           </View>
           <View className="flex-row justify-between">
             <Text className="text-xs text-gray-500">{t("selfAssessment.scaleLow")}</Text>
@@ -157,13 +172,19 @@ export function SelfAssessment({ personKey, onExit }: Props) {
               {t("selfAssessment.answerAll", { count: QUESTIONS_PER_SECTION })}
             </Text>
           )}
-          <PrimaryButton fullWidth loading={saving} disabled={!ready} onPress={saveSection}>
-            {t("selfAssessment.saveSection")}
-          </PrimaryButton>
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <OutlineButton fullWidth icon={ArrowLeft} disabled={saving} onPress={() => void step(-1)}>
+                {t("common.back")}
+              </OutlineButton>
+            </View>
+            <View className="flex-1">
+              <PrimaryButton fullWidth icon={isLast ? Check : ArrowRight} loading={saving} disabled={!ready} onPress={() => void step(1)}>
+                {isLast ? t("common.save") : t("common.next")}
+              </PrimaryButton>
+            </View>
+          </View>
         </Card>
-        <OutlineButton fullWidth icon={ArrowLeft} onPress={() => setOpenId(null)}>
-          {t("common.back")}
-        </OutlineButton>
       </View>
     );
   }
