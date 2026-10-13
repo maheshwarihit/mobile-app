@@ -245,7 +245,6 @@ export function SelfAssessment({ personKey, onExit }: Props) {
         {savedAt ? (
           <Text className="text-xs text-gray-400">{t("selfAssessment.lastSaved", { date: formatLocalDateTime(savedAt) })}</Text>
         ) : null}
-        <Text className="text-xs text-gray-400">{t("selfAssessment.disclaimer")}</Text>
       </Card>
 
       {done > 0 ? (
