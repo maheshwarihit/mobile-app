@@ -38,5 +38,3 @@ Thumbs.db
 .vercel
 .env*
 
-# Full-size originals of the service photos; the app uses the small .jpg copies
-mobile/assets/services/*.png

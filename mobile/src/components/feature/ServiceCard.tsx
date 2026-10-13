@@ -1,9 +1,10 @@
 import { useRef, useState, useSyncExternalStore } from "react";
-import { View, Text, Pressable, ScrollView, Image, StyleSheet, type LayoutChangeEvent, type ImageSourcePropType } from "react-native";
+import { View, Text, Pressable, ScrollView, Image, StyleSheet, type LayoutChangeEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useLanguage } from "@/lib/i18n";
 import type { ServiceIconComponent } from "@/lib/serviceIcon";
+import type { ServicePhoto } from "@/lib/serviceImage";
 import { BRAND } from "@/theme";
 
 const shadow = { elevation: 1, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } };
@@ -34,12 +35,28 @@ type Props = {
   description: string;
   icon: ServiceIconComponent;
   /** Background photo for the whole card; text turns white over it. */
-  image?: ImageSourcePropType;
+  image?: ServicePhoto;
   onPress: () => void;
 };
 
-// With a photo the card needs some height of its own to show it.
-const PHOTO_MIN_HEIGHT = 168;
+// With a photo the card needs some height of its own to show it — more on a
+// wide screen, where a short card would show only a thin strip of the picture.
+const photoMinHeight = (cardWidth: number) => Math.min(300, Math.max(168, Math.round(cardWidth / 3.6)));
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+/** Size and offset that fill a w×h card with the photo (like "cover"), but
+ *  cropped around the photo's focus point instead of its centre. */
+function coverAround(photo: ServicePhoto, w: number, h: number) {
+  const height = Math.max(h, w / photo.aspect);
+  const width = height * photo.aspect;
+  return {
+    position: "absolute" as const,
+    width,
+    height,
+    left: clamp(w / 2 - photo.focus.x * width, w - width, 0),
+    top: clamp(h / 2 - photo.focus.y * height, h - height, 0),
+  };
+}
 
 /**
  * Service card with two sides you swipe between. Side 1: icon, name, summary.
@@ -51,8 +68,9 @@ export function ServiceCard({ name, description, icon: Icon, image, onPress }: P
   const { t } = useLanguage();
   const scroller = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(0);
   const tallestContent = useSyncExternalStore(subscribe, getTallest, getTallest);
-  const minHeight = image ? Math.max(tallestContent, PHOTO_MIN_HEIGHT) : tallestContent;
+  const minHeight = image ? Math.max(tallestContent, photoMinHeight(width)) : tallestContent;
   const onPhoto = !!image;
   const linkColor = onPhoto ? "#ffffff" : BRAND;
   const linkText = onPhoto ? "text-white" : "text-purple-700";
@@ -73,14 +91,17 @@ export function ServiceCard({ name, description, icon: Icon, image, onPress }: P
   return (
     <View
       style={shadow}
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      onLayout={(e) => {
+        setWidth(e.nativeEvent.layout.width);
+        setHeight(e.nativeEvent.layout.height);
+      }}
       className="overflow-hidden rounded-xl border border-gray-100 bg-white"
     >
       {/* The photo sits still behind both sides; a dark wash (heavier on the
           left, where the text starts) keeps the white text readable. */}
-      {image ? (
+      {image && width > 0 && height > 0 ? (
         <>
-          <Image source={image} resizeMode="cover" style={[StyleSheet.absoluteFill, { width: "100%", height: "100%" }]} />
+          <Image source={image.source} resizeMode="cover" style={coverAround(image, width, height)} />
           <LinearGradient
             colors={["rgba(15,23,42,0.82)", "rgba(15,23,42,0.45)"]}
             start={{ x: 0, y: 0.5 }}
