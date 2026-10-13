@@ -12,6 +12,7 @@ import {
   ChevronRight,
   UserCircle,
   Users,
+  Plus,
   type LucideIcon,
 } from "lucide-react-native";
 import { useFamilyMembers } from "@vagewell/shared";
@@ -20,6 +21,7 @@ import { BmiCard } from "@/components/feature/BmiCard";
 import { BodyMetricsForm } from "@/components/feature/BodyMetricsForm";
 import { FoodPlateMonitor } from "@/components/feature/FoodPlateMonitor";
 import { BioMarkers } from "@/components/feature/BioMarkers";
+import { DependentModal } from "@/components/feature/DependentModal";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { relationshipLabel } from "@/lib/enumI18n";
@@ -45,13 +47,14 @@ const MODULES: { id: ModuleId; icon: LucideIcon; labelKey: TranslationKey; ready
 // these are; Dependents first lists the family members to choose from.
 export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrition">) {
   const { t } = useLanguage();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { data: dependents, isLoading: depsLoading } = useFamilyMembers();
 
   const [subject, setSubject] = useState<Subject>("self");
   const [dependentId, setDependentId] = useState<string | null>(null);
   // null = the module list; otherwise that module is open on its own.
   const [activeId, setActiveId] = useState<ModuleId | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   const dependent = dependents?.find((d) => d.id === dependentId) ?? null;
   const personName = subject === "self" ? (profile?.full_name ?? "") : (dependent?.full_name ?? "");
@@ -134,7 +137,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
             <Card className="items-center gap-3 p-6">
               <Users size={22} color="#9ca3af" />
               <Text className="text-center text-sm text-gray-500">{t("nutrition.noDependents")}</Text>
-              <OutlineButton onPress={() => navigation.navigate("ProfileTab")}>{t("nutrition.addDependent")}</OutlineButton>
+              <OutlineButton icon={Plus} onPress={() => setAddOpen(true)}>{t("nutrition.addDependent")}</OutlineButton>
             </Card>
           ) : (
             <View className="gap-3">
@@ -155,6 +158,16 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                   <ChevronRight size={18} color="#9ca3af" />
                 </Pressable>
               ))}
+              <Pressable
+                onPress={() => setAddOpen(true)}
+                accessibilityRole="button"
+                className="flex-row items-center gap-3 rounded-xl border border-dashed border-purple-300 bg-white p-4 active:opacity-70"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-purple-50">
+                  <Plus size={22} color={BRAND} />
+                </View>
+                <Text className="flex-1 text-base font-semibold text-purple-700">{t("nutrition.addDependent")}</Text>
+              </Pressable>
             </View>
           )
         ) : (
@@ -188,6 +201,10 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
           </>
         )}
       </ScrollView>
+
+      {/* Same form as Profile → Dependents, so a family member can be added
+          without leaving this screen; the list refreshes when it is saved. */}
+      <DependentModal open={addOpen} dependent={null} accountId={user?.id ?? ""} onClose={() => setAddOpen(false)} />
     </SafeAreaView>
   );
 }
