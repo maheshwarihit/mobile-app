@@ -34,8 +34,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "VAgeWell needs access to your photos so you can upload a payment screenshot.",
-          "cameraPermission": "VAgeWell needs camera access so Care Givers can take a visit photo with the patient."
+          "photosPermission": "VAgeWell needs access to your photos so you can upload a meal photo, a lab report or a payment screenshot.",
+          "cameraPermission": "VAgeWell needs camera access so you can take a photo of your meal or a lab report, and so Care Givers can take a visit photo."
         }
       ],
       [

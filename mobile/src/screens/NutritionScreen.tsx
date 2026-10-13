@@ -89,7 +89,14 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
             />
           ) : active.id === "foodPlate" ? (
-            <FoodPlateMonitor key={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
+            <FoodPlateMonitor
+              key={dependent?.id ?? "self"}
+              personKey={dependent?.id ?? "self"}
+              defaultAge={subject === "self" ? (profile?.age ?? null) : (dependent?.age ?? null)}
+              defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
+              onExit={() => setActiveId(null)}
+              onOpenBodyMetrics={() => setActiveId("bodyMetrics")}
+            />
           ) : active.id === "bioMarkers" ? (
             <BioMarkers key={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
           ) : (
