@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, Sparkles, ArrowLeft, RotateCcw, BookOpen, Trash2, ChevronRight } from "lucide-react-native";
+import { Camera, ImageUp, Sparkles, ArrowLeft, RotateCcw, BookOpen, Trash2, ChevronRight, LogOut } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, WarningBanner, Spinner, ConfirmModal, LoadingState } from "@/components/ui";
 import { PlateCropModal } from "@/components/feature/PlateCropModal";
@@ -160,18 +160,26 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
             <OutlineButton fullWidth icon={ImageUp} disabled={busy !== null} onPress={() => start("gallery")}>
               {t("foodPlate.uploadImage")}
             </OutlineButton>
-            {/* Shown only once this person has an analysed plate stored. */}
-            {meals.length > 0 ? (
-              <OutlineButton fullWidth icon={BookOpen} disabled={busy !== null} onPress={() => setStage({ name: "library" })}>
-                {t("foodPlate.mealLibraryCount", { count: meals.length })}
-              </OutlineButton>
-            ) : null}
-            <OutlineButton fullWidth icon={ArrowLeft} disabled={busy !== null} onPress={onExit}>
-              {t("common.back")}
-            </OutlineButton>
           </View>
           {error ? <ErrorBanner message={error} /> : null}
         </Card>
+      ) : null}
+
+      {/* Same layout as Bio Markers: the Meal library (only once this person
+          has an analysed plate stored) or an empty note, then Exit. */}
+      {stage.name === "start" ? (
+        <>
+          {meals.length > 0 ? (
+            <OutlineButton fullWidth icon={BookOpen} disabled={busy !== null} onPress={() => setStage({ name: "library" })}>
+              {t("foodPlate.mealLibraryCount", { count: meals.length })}
+            </OutlineButton>
+          ) : (
+            <Text className="text-center text-sm text-gray-400">{t("foodPlate.empty")}</Text>
+          )}
+          <OutlineButton fullWidth icon={LogOut} disabled={busy !== null} onPress={onExit}>
+            {t("foodPlate.exit")}
+          </OutlineButton>
+        </>
       ) : null}
 
       {stage.name === "analyzing" ? (
