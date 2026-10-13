@@ -134,14 +134,10 @@ export function SelfAssessment({ personKey, onExit }: Props) {
               {t("selfAssessment.sectionOf", { current: index + 1, total: SECTIONS.length })} · {t("selfAssessment.period")}
             </Text>
           </View>
-          <View className="flex-row justify-between">
-            <Text className="text-xs text-gray-500">{t("selfAssessment.scaleLow")}</Text>
-            <Text className="text-xs text-gray-500">{t("selfAssessment.scaleHigh")}</Text>
-          </View>
           {draft.map((answer, i) => (
             <View key={i} className="gap-3 rounded-xl bg-gray-50 p-3">
               <Text className="text-sm font-semibold text-gray-900">{t(key(`selfAssessment.${openId}.q${i + 1}`))}</Text>
-              <View className="flex-row justify-between">
+              <View className="flex-row flex-wrap gap-2">
                 {ANSWERS.map((value) => {
                   const selected = answer === value;
                   return (
@@ -151,20 +147,18 @@ export function SelfAssessment({ personKey, onExit }: Props) {
                       hitSlop={4}
                       accessibilityRole="radio"
                       accessibilityState={{ selected }}
-                      accessibilityLabel={t(key(`selfAssessment.scale.${value}`))}
-                      className={`h-10 w-10 items-center justify-center rounded-full border active:opacity-70 ${
+                      className={`items-center justify-center rounded-full border px-3 py-2 active:opacity-70 ${
                         selected ? "border-purple-600 bg-purple-600" : "border-gray-300 bg-white"
                       }`}
                     >
-                      {/* Shown 1–5; stored 0–4 (Never = 0 … Always = 4). */}
-                      <Text className={`text-sm font-semibold ${selected ? "text-white" : "text-gray-700"}`}>{value + 1}</Text>
+                      {/* Shown as words; stored 0–4 (Never = 0 … Always = 4). */}
+                      <Text className={`text-sm font-semibold ${selected ? "text-white" : "text-gray-700"}`}>
+                        {t(key(`selfAssessment.scale.${value}`))}
+                      </Text>
                     </Pressable>
                   );
                 })}
               </View>
-              {answer !== null ? (
-                <Text className="text-xs text-gray-500">{t(key(`selfAssessment.scale.${answer}`))}</Text>
-              ) : null}
             </View>
           ))}
           {ready ? null : (
