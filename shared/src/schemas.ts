@@ -12,7 +12,7 @@ import { ageFromDob } from "./dates";
 
 const asTuple = <T extends readonly string[]>(a: T) => a as unknown as [string, ...string[]];
 
-const phone = z.string().refine((v) => normalizePhone(v) !== null, "Enter a valid 10-digit mobile number");
+const phone = z.string().refine((v) => normalizePhone(v) !== null, "Enter a valid mobile number");
 const optionalAge = z
   .union([z.literal(""), z.coerce.number().int().min(0, "Invalid age").max(150, "Invalid age")])
   .transform((v) => (v === "" ? null : v));

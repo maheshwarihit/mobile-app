@@ -15,3 +15,4 @@ export * from "./ChoiceChips";
 export * from "./TimeField";
 export * from "./ProfileCompletionRing";
 export * from "./SocialIcons";
+export * from "./PhoneField";

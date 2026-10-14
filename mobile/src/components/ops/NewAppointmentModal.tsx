@@ -29,6 +29,7 @@ import {
   PrimaryButton,
   TextButton,
   ErrorBanner,
+  PhoneField,
 } from "@/components/ui";
 import { supabase, createEphemeralClient } from "@/lib/supabase";
 import { useResendTimer } from "@/hooks/useResendTimer";
@@ -311,14 +312,7 @@ function NewCallerLiveVerify({ onVerified }: { onVerified: (p: Profile) => void 
       <Text className="text-xs text-gray-500">{t("modal.newAppointment.liveVerifyIntro")}</Text>
       {err ? <ErrorBanner message={err} /> : null}
       <FormInput label={t("modal.newAppointment.fullName")} value={fullName} onChangeText={setFullName} placeholder={t("auth.namePlaceholder")} autoCapitalize="words" required />
-      <FormInput
-        label={t("modal.newAppointment.mobileNumber")}
-        value={phoneRaw}
-        onChangeText={setPhoneRaw}
-        placeholder={t("modal.newAppointment.mobilePlaceholder")}
-        keyboardType="phone-pad"
-        required
-      />
+      <PhoneField label={t("modal.newAppointment.mobileNumber")} value={phoneRaw} onChangeText={setPhoneRaw} required />
       <PrimaryButton fullWidth loading={busy} onPress={sendCode}>
         {t("modal.newAppointment.sendCode")}
       </PrimaryButton>
