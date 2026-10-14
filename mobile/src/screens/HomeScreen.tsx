@@ -7,7 +7,6 @@ import { AuthModal } from "@/components/feature/AuthModal";
 import { LanguageToggle } from "@/components/feature/LanguageToggle";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceCard } from "@/components/feature/ServiceCard";
-import { iconForService } from "@/lib/serviceIcon";
 import { imageForService } from "@/lib/serviceImage";
 import { useLanguage } from "@/lib/i18n";
 import { takeOAuthRedirectError } from "@/lib/oauth";
@@ -73,7 +72,6 @@ export function HomeScreen() {
               key={s.name}
               name={translateServiceName(t, s.name)}
               description={translateServiceDescription(t, s.description)}
-              icon={iconForService(s.name)}
               image={imageForService(s.name)}
               onPress={() => open("register")}
             />

@@ -15,7 +15,6 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import { useServices, useCreateBookingRequest, money, profileCompletionPercent, HOSPITAL_CONTACT_PHONE, NUTRITION_SERVICE } from "@vagewell/shared";
-import { iconForService } from "@/lib/serviceIcon";
 import { imageForService } from "@/lib/serviceImage";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceCard } from "@/components/feature/ServiceCard";
@@ -96,7 +95,6 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
             <ServiceCard
               name={translateServiceName(t, s.name)}
               description={s.description ? translateServiceDescription(t, s.description) : ""}
-              icon={iconForService(s.name)}
               image={imageForService(s.name)}
               onPress={() =>
                 s.name === NUTRITION_SERVICE ? navigation.navigate("Nutrition") : navigation.navigate("Appointment", { serviceId: s.id })
