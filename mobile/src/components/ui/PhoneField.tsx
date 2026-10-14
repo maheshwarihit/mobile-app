@@ -79,11 +79,7 @@ export function PhoneField({ label, value, onChangeText, error, required }: Prop
           <TextInput
             value={national}
             onChangeText={onNumber}
-            placeholder={
-              country.min === country.max
-                ? t("phone.placeholder", { digits: country.min })
-                : t("phone.placeholderRange", { min: country.min, max: country.max })
-            }
+            placeholder={t("phone.placeholder")}
             placeholderTextColor="#9ca3af"
             keyboardType="phone-pad"
             onFocus={() => setFocused(true)}
