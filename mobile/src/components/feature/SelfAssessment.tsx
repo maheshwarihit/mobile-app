@@ -31,20 +31,21 @@ const ICONS: Record<SectionId, LucideIcon> = {
 };
 
 // Tile colours per score band: background / text.
-const BAND_COLORS: Record<Band, { bg: string; fg: string }> = {
-  thriving: { bg: "#B7E0B0", fg: "#14532D" },
-  good: { bg: "#D3ECCD", fg: "#1B5E20" },
-  fair: { bg: "#F8DCA6", fg: "#7A4A06" },
-  attention: { bg: "#F6C4C0", fg: "#8A1F1F" },
+const BAND_COLORS: Record<Band, { bg: string; fg: string; bar: string }> = {
+  thriving: { bg: "#B7E0B0", fg: "#14532D", bar: "#2E9E4F" },
+  good: { bg: "#D3ECCD", fg: "#1B5E20", bar: "#8BC34A" },
+  fair: { bg: "#F8DCA6", fg: "#7A4A06", bar: "#F0A93B" },
+  attention: { bg: "#F6C4C0", fg: "#8A1F1F", bar: "#D9534F" },
 };
 
 // Offered from the top of the scale down: Always, Often, Sometimes, Rarely, Never.
 const ANSWERS = Array.from({ length: MAX_ANSWER + 1 }, (_, i) => MAX_ANSWER - i);
-const BANDS: { band: Band; range: string }[] = [
-  { band: "thriving", range: "80–100" },
-  { band: "good", range: "60–79" },
-  { band: "fair", range: "40–59" },
-  { band: "attention", range: "0–39" },
+// The score scale, low to high, each part as wide as its share of 0–100.
+const SCALE: { band: Band; from: number; to: number }[] = [
+  { band: "attention", from: 0, to: 40 },
+  { band: "fair", from: 40, to: 60 },
+  { band: "good", from: 60, to: 80 },
+  { band: "thriving", from: 80, to: 100 },
 ];
 const blankSection = (): SectionAnswers => Array.from({ length: QUESTIONS_PER_SECTION }, () => null);
 const key = (k: string) => k as TranslationKey;
@@ -199,7 +200,9 @@ export function SelfAssessment({ personKey, onExit }: Props) {
       <Card className="gap-3 p-5">
         {overall === null ? (
           <Text className="text-sm text-gray-500">{t("selfAssessment.intro", { done, total: SECTIONS.length })}</Text>
-        ) : null}
+        ) : (
+          <OverallScore overall={overall} />
+        )}
 
         <View className="flex-row flex-wrap justify-between gap-y-3">
           {scores.map(({ id, score }) => {
@@ -276,57 +279,94 @@ export function SelfAssessment({ personKey, onExit }: Props) {
   );
 }
 
-/** Below the six tiles once every section is done: the score scale, the overall score and suggestions. */
+/** Top of the results: the overall wellbeing score as a big number with its band. */
+function OverallScore({ overall }: { overall: number }) {
+  const { t } = useLanguage();
+  const band = bandFor(overall);
+  return (
+    <View className="items-center gap-1 rounded-xl py-4" style={{ backgroundColor: BAND_COLORS[band].bg }}>
+      <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: BAND_COLORS[band].fg }}>
+        {t("selfAssessment.overallTitle")}
+      </Text>
+      <Text className="text-5xl font-bold" style={{ color: BAND_COLORS[band].fg }}>
+        {overall}
+        <Text className="text-lg font-semibold">/100</Text>
+      </Text>
+      <Text className="text-sm font-bold" style={{ color: BAND_COLORS[band].fg }}>
+        {t(key(`selfAssessment.band.${band}`))}
+      </Text>
+    </View>
+  );
+}
+
+/** Below the six tiles once every section is done: the linear score scale, then suggestion points. */
 function Results({ overall, scores }: { overall: number; scores: { id: SectionId; score: number | null }[] }) {
   const { t } = useLanguage();
   const overallBand = bandFor(overall);
-  // Up to three weakest sections still below "Thriving", lowest first.
-  const toImprove = scores
+  // Tips for up to three weakest sections still below "Thriving", lowest first.
+  const tips = scores
     .filter((s): s is { id: SectionId; score: number } => s.score !== null && s.score < 80)
     .sort((a, b) => a.score - b.score)
-    .slice(0, 3);
+    .slice(0, 3)
+    .map(({ id }) => t(key(`selfAssessment.tip.${id}`)));
 
   return (
     <View className="gap-4">
-      <View className="gap-2">
-        <Text className="text-sm font-bold text-gray-900">{t("selfAssessment.scaleTitle")}</Text>
-        {BANDS.map(({ band, range }) => {
-          const current = band === overallBand;
-          return (
-            <View key={band} className="flex-row items-center gap-3">
-              <View className="h-4 w-4 rounded" style={{ backgroundColor: BAND_COLORS[band].bg }} />
-              <Text className={`w-16 text-sm ${current ? "font-bold text-gray-900" : "text-gray-600"}`}>{range}</Text>
-              <Text className={`flex-1 text-sm ${current ? "font-bold text-gray-900" : "text-gray-600"}`}>
-                {t(key(`selfAssessment.band.${band}`))}
+      <View className="gap-1">
+        <Text className="mb-1 text-sm font-bold text-gray-900">{t("selfAssessment.scaleTitle")}</Text>
+        {/* The bar, with a marker at the overall score. */}
+        <View className="relative h-4">
+          <View className="h-4 w-full flex-row overflow-hidden rounded-md">
+            {SCALE.map((s, i) => (
+              <View
+                key={s.band}
+                style={{
+                  flex: s.to - s.from,
+                  backgroundColor: BAND_COLORS[s.band].bar,
+                  borderLeftWidth: i === 0 ? 0 : 2,
+                  borderLeftColor: "#fff",
+                }}
+              />
+            ))}
+          </View>
+          <View
+            style={{ left: `${Math.min(100, Math.max(0, overall))}%`, marginLeft: -6 }}
+            className="absolute -top-1 h-6 w-3 rounded-full border-2 border-white bg-gray-900"
+          />
+        </View>
+        {/* Range values under the dividers: 0, 40, 60, 80, 100. */}
+        <View className="flex-row">
+          {SCALE.map((s, i) => (
+            <View key={s.band} style={{ flex: s.to - s.from }} className="flex-row justify-between">
+              <Text className="text-[11px] font-semibold text-gray-700">{i === 0 ? "0" : ""}</Text>
+              <Text style={{ marginRight: i === SCALE.length - 1 ? 0 : -8 }} className="text-[11px] font-semibold text-gray-700">
+                {s.to}
               </Text>
             </View>
-          );
-        })}
-      </View>
-
-      <View className="gap-1 rounded-xl p-4" style={{ backgroundColor: BAND_COLORS[overallBand].bg }}>
-        <Text className="text-lg font-bold" style={{ color: BAND_COLORS[overallBand].fg }}>
-          {t("selfAssessment.overall", { score: overall, band: t(key(`selfAssessment.band.${overallBand}`)) })}
-        </Text>
-        <Text className="text-sm" style={{ color: BAND_COLORS[overallBand].fg }}>
-          {t(key(`selfAssessment.comment.${overallBand}`))}
-        </Text>
+          ))}
+        </View>
+        {/* Band names under each part; the person's own band in bold. */}
+        <View className="flex-row">
+          {SCALE.map((s) => (
+            <Text
+              key={s.band}
+              style={{ flex: s.to - s.from }}
+              className={`text-center text-[11px] ${s.band === overallBand ? "font-bold text-gray-900" : "text-gray-500"}`}
+            >
+              {t(key(`selfAssessment.bandShort.${s.band}`))}
+            </Text>
+          ))}
+        </View>
       </View>
 
       <View className="gap-2">
         <Text className="text-sm font-bold text-gray-900">{t("selfAssessment.suggestionsTitle")}</Text>
-        {toImprove.length === 0 ? (
-          <Text className="text-sm text-gray-600">{t("selfAssessment.tip.allGood")}</Text>
-        ) : (
-          toImprove.map(({ id, score }) => (
-            <View key={id} className="gap-0.5 rounded-xl bg-gray-50 p-3">
-              <Text className="text-sm font-semibold text-gray-900">
-                {t(key(`selfAssessment.${id}.title`))} · {score}
-              </Text>
-              <Text className="text-sm text-gray-600">{t(key(`selfAssessment.tip.${id}`))}</Text>
-            </View>
-          ))
-        )}
+        {(tips.length ? tips : [t("selfAssessment.tip.allGood")]).map((tip) => (
+          <View key={tip} className="flex-row gap-2">
+            <Text className="text-sm text-gray-700">•</Text>
+            <Text className="flex-1 text-sm text-gray-700">{tip}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
