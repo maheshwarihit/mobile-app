@@ -39,6 +39,49 @@ export type OAuthProvider = "google";
  * account" convenience this app wants; every account, however it started,
  * still ends up phone-verified — see VerifyPhoneScreen.tsx.)
  */
+/**
+ * Web only: is this page open inside another app's built-in browser
+ * (WhatsApp, Instagram, Facebook, Gmail…) rather than Chrome/Safari? Google
+ * refuses to sign anyone in there ("Error 403: disallowed_useragent"), which
+ * is what happens when the app link is tapped inside a chat.
+ */
+export function isInAppBrowser(): boolean {
+  if (Platform.OS !== "web" || typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|Snapchat|LinkedInApp|Twitter|GSA\/|MicroMessenger/i.test(ua)) return true;
+  if (/Android/i.test(ua) && /; wv\)/.test(ua)) return true; // Android WebView
+  // iPhone/iPad: in-app browsers are WebKit without the "Safari/" token.
+  if (/iPhone|iPad|iPod/i.test(ua) && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua)) return true;
+  return false;
+}
+
+/** Web, Android only: reopen this page in Chrome. Returns false where that isn't possible (iPhone). */
+export function openInSystemBrowser(): boolean {
+  if (Platform.OS !== "web" || !/Android/i.test(navigator.userAgent || "")) return false;
+  const { host, pathname, search } = window.location;
+  window.location.href =
+    `intent://${host}${pathname}${search}#Intent;scheme=https;package=com.android.chrome;` +
+    `S.browser_fallback_url=${encodeURIComponent(window.location.href)};end`;
+  return true;
+}
+
+/**
+ * Web only: when Google sign-in fails after the Google page, Supabase sends
+ * the browser back here with `error_description` in the address (query or
+ * #fragment) and nothing else — without this the user just lands on the home
+ * page with no idea what happened. Returns that reason once and tidies the
+ * address bar.
+ */
+export function takeOAuthRedirectError(): string | null {
+  if (Platform.OS !== "web" || typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const reason = params.get("error_description") ?? hash.get("error_description") ?? params.get("error") ?? hash.get("error");
+  if (!reason) return null;
+  window.history.replaceState(null, "", window.location.pathname);
+  return reason; // URLSearchParams has already decoded "+" and %-escapes
+}
+
 export async function signInWithProvider(provider: OAuthProvider): Promise<{ error: string | null }> {
   if (Platform.OS === "web") {
     const { error } = await supabase.auth.signInWithOAuth({
