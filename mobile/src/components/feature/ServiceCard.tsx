@@ -3,7 +3,6 @@ import { View, Text, Pressable, ScrollView, Image, StyleSheet, type LayoutChange
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useLanguage } from "@/lib/i18n";
-import type { ServiceIconComponent } from "@/lib/serviceIcon";
 import type { ServicePhoto } from "@/lib/serviceImage";
 import { BRAND } from "@/theme";
 
@@ -33,7 +32,6 @@ type Props = {
   name: string;
   /** "summary\n• feature\n• feature…" (translated). */
   description: string;
-  icon: ServiceIconComponent;
   /** Background photo for the whole card; text turns white over it. */
   image?: ServicePhoto;
   onPress: () => void;
@@ -59,12 +57,12 @@ function coverAround(photo: ServicePhoto, w: number, h: number) {
 }
 
 /**
- * Service card with two sides you swipe between. Side 1: icon, name, summary.
+ * Service card with two sides you swipe between. Side 1: name and summary.
  * Side 2: the "<service> includes" feature list. Tapping anywhere on either
  * side books. Swipe the card sideways, or use "Know more" / "Back" (for a
  * mouse, which can't swipe), to move between sides. All cards share one height.
  */
-export function ServiceCard({ name, description, icon: Icon, image, onPress }: Props) {
+export function ServiceCard({ name, description, image, onPress }: Props) {
   const { t } = useLanguage();
   const scroller = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
@@ -97,15 +95,16 @@ export function ServiceCard({ name, description, icon: Icon, image, onPress }: P
       }}
       className="overflow-hidden rounded-xl border border-gray-100 bg-white"
     >
-      {/* The photo sits still behind both sides; a dark wash (heavier on the
-          left, where the text starts) keeps the white text readable. */}
+      {/* The photo sits still behind both sides; a dark wash that deepens
+          towards the bottom, where the text sits, keeps the white text readable. */}
       {image && width > 0 && height > 0 ? (
         <>
           <Image source={image.source} resizeMode="cover" style={coverAround(image, width, height)} />
           <LinearGradient
-            colors={["rgba(15,23,42,0.82)", "rgba(15,23,42,0.45)"]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
+            colors={["rgba(15,23,42,0.05)", "rgba(15,23,42,0.35)", "rgba(15,23,42,0.88)"]}
+            locations={[0, 0.4, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
         </>
@@ -125,23 +124,19 @@ export function ServiceCard({ name, description, icon: Icon, image, onPress }: P
             child as one page, so a fragment would stack both in one page. */}
         {/* Side 1 — the service. */}
         {width > 0 ? (
-            <Pressable onPress={onPress} style={{ width, minHeight }} className="justify-between active:opacity-80">
-              <View onLayout={measure("body1")} className="flex-row items-start gap-3 p-4">
-                <View className={`mt-0.5 h-9 w-9 items-center justify-center rounded-lg ${onPhoto ? "bg-white/20" : "bg-purple-50"}`}>
-                  <Icon size={18} color={linkColor} />
-                </View>
-                <View className="flex-1">
-                  <Text className={`text-base font-semibold ${onPhoto ? "text-white" : "text-gray-900"}`}>{name}</Text>
-                  {summary ? <Text className={`mt-0.5 text-sm ${onPhoto ? "text-white" : "text-gray-500"}`}>{summary}</Text> : null}
-                </View>
+            <Pressable onPress={onPress} style={{ width, minHeight }} className="justify-end active:opacity-80">
+              {/* Name and summary sit at the bottom of the card, "Know more" bottom-right. */}
+              <View onLayout={measure("body1")} className="px-4 pt-4">
+                <Text className={`text-lg font-bold ${onPhoto ? "text-white" : "text-gray-900"}`}>{name}</Text>
+                {summary ? <Text className={`mt-0.5 text-sm ${onPhoto ? "text-white" : "text-gray-500"}`}>{summary}</Text> : null}
               </View>
               {hasFeatures ? (
-                <View onLayout={measure("link1")} className="pb-3 pl-[64px]">
+                <View onLayout={measure("link1")} className="px-4 pb-3 pt-1">
                   <Pressable
                     onPress={() => goTo(1)}
                     hitSlop={8}
                     accessibilityRole="button"
-                    className="flex-row items-center gap-0.5 self-start active:opacity-70"
+                    className="flex-row items-center gap-0.5 self-end active:opacity-70"
                   >
                     <Text className={`text-sm font-semibold ${linkText}`}>{t("services.card.viewMore")}</Text>
                     <ChevronRight size={14} color={linkColor} />
@@ -155,7 +150,9 @@ export function ServiceCard({ name, description, icon: Icon, image, onPress }: P
         {width > 0 && hasFeatures ? (
               <Pressable
                 onPress={onPress}
-                style={{ width, minHeight }}
+                // Over a photo the feature list starts at the top, where the wash is
+                // lightest, so this side gets an even dark layer of its own.
+                style={[{ width, minHeight }, onPhoto ? { backgroundColor: "rgba(15,23,42,0.55)" } : null]}
                 className={`justify-between active:opacity-80 ${onPhoto ? "" : "bg-purple-50"}`}
               >
                 <View onLayout={measure("body2")} className="gap-1 p-4 pb-2">
