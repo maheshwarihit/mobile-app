@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PhoneCall, ArrowRight } from "lucide-react-native";
@@ -10,6 +10,8 @@ import { ServiceCard } from "@/components/feature/ServiceCard";
 import { iconForService } from "@/lib/serviceIcon";
 import { imageForService } from "@/lib/serviceImage";
 import { useLanguage } from "@/lib/i18n";
+import { takeOAuthRedirectError } from "@/lib/oauth";
+import { toast } from "@/lib/toast";
 import { BRAND } from "@/theme";
 import { SEED_SERVICES, money, HOSPITAL_CONTACT_PHONE } from "@vagewell/shared";
 
@@ -26,6 +28,12 @@ export function HomeScreen() {
   const { t } = useLanguage();
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
+
+  // Back from a Google sign-in that failed after the Google page: say why.
+  useEffect(() => {
+    const reason = takeOAuthRedirectError();
+    if (reason) toast.error(t("auth.google.failed", { reason }));
+  }, [t]);
 
   const open = (mode: "login" | "register") => {
     setAuthMode(mode);

@@ -14,7 +14,7 @@ import {
   GoogleIcon,
 } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import { signInWithProvider, type OAuthProvider } from "@/lib/oauth";
+import { signInWithProvider, isInAppBrowser, openInSystemBrowser, type OAuthProvider } from "@/lib/oauth";
 import { useResendTimer } from "@/hooks/useResendTimer";
 import { useLanguage } from "@/lib/i18n";
 import { normalizePhone, OTP_LENGTH } from "@vagewell/shared";
@@ -123,6 +123,12 @@ export function AuthModal({
   // way around it.
   const oauthSignIn = async (provider: OAuthProvider) => {
     setErr(null);
+    // Google blocks sign-in inside other apps' browsers (link tapped in
+    // WhatsApp etc.): reopen in Chrome on Android, explain on iPhone.
+    if (isInAppBrowser()) {
+      setErr(openInSystemBrowser() ? t("auth.google.openingChrome") : t("auth.google.openInSafari"));
+      return;
+    }
     setOauthBusy(provider);
     const { error } = await signInWithProvider(provider);
     setOauthBusy(null);
