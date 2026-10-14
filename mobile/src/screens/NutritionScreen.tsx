@@ -13,6 +13,7 @@ import {
   UserCircle,
   Users,
   Plus,
+  LogOut,
   type LucideIcon,
 } from "lucide-react-native";
 import { useFamilyMembers } from "@vagewell/shared";
@@ -91,7 +92,12 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
             onBack={back}
           />
           {active.id === "bmi" ? (
-            <BmiCard key={personName} personName={personName || undefined} />
+            <View className="gap-4">
+              <BmiCard key={personName} personName={personName || undefined} />
+              <OutlineButton fullWidth icon={LogOut} onPress={() => setActiveId(null)}>
+                {t("nutrition.exit")}
+              </OutlineButton>
+            </View>
           ) : active.id === "bodyMetrics" ? (
             <BodyMetricsForm
               key={dependent?.id ?? "self"}

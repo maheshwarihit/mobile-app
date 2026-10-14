@@ -16,6 +16,7 @@ export const en = {
   "nutrition.addDependent": "Add a family member",
   "nutrition.forPerson": "For {name}",
   "nutrition.changeDependent": "Change",
+  "nutrition.exit": "Exit",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -36,4 +37,5 @@ export const ta: Record<keyof typeof en, string> = {
   "nutrition.addDependent": "குடும்ப உறுப்பினரைச் சேர்",
   "nutrition.forPerson": "{name} அவர்களுக்காக",
   "nutrition.changeDependent": "மாற்று",
+  "nutrition.exit": "வெளியேறு",
 };
