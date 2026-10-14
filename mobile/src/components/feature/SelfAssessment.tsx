@@ -279,7 +279,7 @@ export function SelfAssessment({ personKey, onExit }: Props) {
   );
 }
 
-/** Top of the results: the overall wellbeing score as a big number with its band. */
+/** Top of the results: the overall wellbeing score as a big number, in its band colour. */
 function OverallScore({ overall }: { overall: number }) {
   const { t } = useLanguage();
   const band = bandFor(overall);
@@ -291,9 +291,6 @@ function OverallScore({ overall }: { overall: number }) {
       <Text className="text-5xl font-bold" style={{ color: BAND_COLORS[band].fg }}>
         {overall}
         <Text className="text-lg font-semibold">/100</Text>
-      </Text>
-      <Text className="text-sm font-bold" style={{ color: BAND_COLORS[band].fg }}>
-        {t(key(`selfAssessment.band.${band}`))}
       </Text>
     </View>
   );
