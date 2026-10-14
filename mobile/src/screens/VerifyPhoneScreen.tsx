@@ -3,7 +3,7 @@ import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from "react-na
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "@/lib/toast";
 import { ArrowLeft } from "lucide-react-native";
-import { BrandLogo, FormInput, OtpInput, PrimaryButton, OutlineButton, TextButton, ErrorBanner } from "@/components/ui";
+import { BrandLogo, FormInput, OtpInput, PrimaryButton, OutlineButton, TextButton, ErrorBanner, PhoneField } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 import { useResendTimer } from "@/hooks/useResendTimer";
@@ -142,14 +142,7 @@ export function VerifyPhoneScreen() {
                   autoCapitalize="words"
                   required
                 />
-                <FormInput
-                  label={t("auth.mobileNumber")}
-                  value={phoneRaw}
-                  onChangeText={setPhoneRaw}
-                  placeholder={t("auth.mobilePlaceholder")}
-                  keyboardType="phone-pad"
-                  required
-                />
+                <PhoneField label={t("auth.mobileNumber")} value={phoneRaw} onChangeText={setPhoneRaw} required />
                 <PrimaryButton fullWidth loading={busy} onPress={sendOtp}>
                   {t("verifyPhone.sendOtp")}
                 </PrimaryButton>

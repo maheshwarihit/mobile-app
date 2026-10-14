@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, KeyboardAvoidingView, Platform, useWindowDimensions } from "react-native";
 import { X } from "lucide-react-native";
-import { FormInput, SelectSheet, PrimaryButton, OutlineButton, AgeField, BirthDateField } from "@/components/ui";
+import { FormInput, SelectSheet, PrimaryButton, OutlineButton, AgeField, BirthDateField, PhoneField } from "@/components/ui";
 import { useLanguage } from "@/lib/i18n";
 import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
@@ -131,7 +131,7 @@ export function DependentModal({
                   error={errors.gender}
                   required
                 />
-                <FormInput label={t("modal.dependent.contactNumber")} value={form.contact_phone} onChangeText={set("contact_phone")} keyboardType="phone-pad" error={errors.contact_phone} required />
+                <PhoneField label={t("modal.dependent.contactNumber")} value={form.contact_phone} onChangeText={set("contact_phone")} error={errors.contact_phone} required />
               </View>
 
               <View className="mt-6 flex-row justify-end gap-2">

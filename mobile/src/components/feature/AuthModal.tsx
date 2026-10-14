@@ -12,6 +12,7 @@ import {
   TextButton,
   ErrorBanner,
   GoogleIcon,
+  PhoneField,
 } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { signInWithProvider, isInAppBrowser, openInSystemBrowser, type OAuthProvider } from "@/lib/oauth";
@@ -315,14 +316,7 @@ export function AuthModal({
               required
             />
           ) : null}
-          <FormInput
-            label={t("auth.mobileNumber")}
-            value={phoneRaw}
-            onChangeText={setPhoneRaw}
-            placeholder={t("auth.mobilePlaceholder")}
-            keyboardType="phone-pad"
-            required
-          />
+          <PhoneField label={t("auth.mobileNumber")} value={phoneRaw} onChangeText={setPhoneRaw} required />
           <PrimaryButton fullWidth loading={busy} onPress={sendOtp}>
             {t("auth.sendOtp")}
           </PrimaryButton>
