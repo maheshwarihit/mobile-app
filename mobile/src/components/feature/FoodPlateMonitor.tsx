@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, ArrowLeft, RotateCcw, BookOpen, Trash2, ChevronRight, LogOut } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
+import { View, Text, Image, Pressable, Animated } from "react-native";
+import { Camera, ImageUp, ArrowLeft, BookOpen, Trash2, ChevronRight, LogOut } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, WarningBanner, Spinner, ConfirmModal, LoadingState } from "@/components/ui";
 import { PlateCropModal } from "@/components/feature/PlateCropModal";
@@ -178,68 +178,46 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
         </>
       ) : null}
 
-      {stage.name === "analyzing" ? (
-        <Card className="overflow-hidden">
-          <Image source={{ uri: stage.photoUri }} resizeMode="cover" style={{ width: "100%", aspectRatio: 1 }} />
-          <View className="flex-row items-center justify-center gap-3 p-5">
-            <Spinner />
-            <Text className="text-sm font-semibold text-gray-700">{t("foodPlate.analyzing")}</Text>
-          </View>
-        </Card>
-      ) : null}
+      {stage.name === "analyzing" ? <PlateCard photoUri={stage.photoUri} analysis={null} /> : null}
 
       {stage.name === "result" ? (
         <>
-          <Card className="overflow-hidden">
-            <Image source={{ uri: stage.photoUri }} resizeMode="cover" style={{ width: "100%", aspectRatio: 1 }} />
-            <View className="gap-1 p-4">
-              <Text className="text-base font-bold text-gray-900">{stage.analysis.dish_summary}</Text>
-              {stage.analysis.items.length ? (
-                <Text className="text-sm text-gray-500">{stage.analysis.items.join(" · ")}</Text>
-              ) : null}
-              {stage.savedAt ? (
-                <Text className="mt-1 text-xs text-gray-400">
-                  {t(stage.from === "new" ? "foodPlate.savedToLibrary" : "foodPlate.uploadedAt", { date: formatLocalDateTime(stage.savedAt) })}
-                </Text>
-              ) : null}
-            </View>
-          </Card>
-
           {stage.analysis.is_food ? (
-            <Results analysis={stage.analysis} />
+            <PlateCard
+              photoUri={stage.photoUri}
+              analysis={stage.analysis}
+              dateLine={
+                stage.savedAt
+                  ? t(stage.from === "new" ? "foodPlate.savedToLibrary" : "foodPlate.uploadedAt", { date: formatLocalDateTime(stage.savedAt) })
+                  : undefined
+              }
+            />
           ) : (
-            <Card className="p-5">
-              <Text className="text-sm text-gray-700">{t("foodPlate.notFood")}</Text>
+            <Card className="overflow-hidden">
+              <Image source={{ uri: stage.photoUri }} resizeMode="cover" style={{ width: "100%", aspectRatio: 2 }} />
+              <Text className="p-5 text-sm text-gray-700">{t("foodPlate.notFood")}</Text>
             </Card>
           )}
 
-          <View className="gap-3">
-            {stage.from === "new" ? (
-              <>
-                <PrimaryButton fullWidth icon={RotateCcw} onPress={() => setStage({ name: "start" })}>
-                  {t("foodPlate.another")}
-                </PrimaryButton>
-                {meals.length > 0 ? (
-                  <OutlineButton fullWidth icon={BookOpen} onPress={() => setStage({ name: "library" })}>
-                    {t("foodPlate.mealLibrary")}
-                  </OutlineButton>
-                ) : null}
-                <OutlineButton fullWidth icon={ArrowLeft} onPress={onExit}>
-                  {t("common.back")}
-                </OutlineButton>
-              </>
+          {/* Exit goes back one step: to the start (take / upload / Meal library)
+              for a new plate, or to the Meal library for a stored one. */}
+          <View className="flex-row items-center justify-between">
+            {stage.from === "library" && stage.mealId ? (
+              <Pressable onPress={() => setConfirmDelete(stage.mealId)} hitSlop={8} className="flex-row items-center gap-1 active:opacity-70">
+                <Trash2 size={14} color={DANGER} />
+                <Text className="text-sm font-semibold" style={{ color: DANGER }}>
+                  {t("foodPlate.deleteMeal")}
+                </Text>
+              </Pressable>
             ) : (
-              <>
-                <PrimaryButton fullWidth icon={ArrowLeft} onPress={() => setStage({ name: "library" })}>
-                  {t("foodPlate.backToLibrary")}
-                </PrimaryButton>
-                {stage.mealId ? (
-                  <OutlineButton fullWidth icon={Trash2} onPress={() => setConfirmDelete(stage.mealId)}>
-                    {t("foodPlate.deleteMeal")}
-                  </OutlineButton>
-                ) : null}
-              </>
+              <View />
             )}
+            <OutlineButton
+              icon={LogOut}
+              onPress={() => setStage(stage.from === "library" ? { name: "library" } : { name: "start" })}
+            >
+              {t("foodPlate.exit")}
+            </OutlineButton>
           </View>
         </>
       ) : null}
@@ -313,106 +291,130 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
   );
 }
 
-function Results({ analysis }: { analysis: PlateAnalysis }) {
+/**
+ * The plate result in one card, laid out as: photo | Calories, Carbs, Protein, Fat;
+ * Score | Micronutrients; Suggestions. With `analysis` null (still analysing)
+ * the same layout shows shimmering placeholders, so the result fills in place.
+ */
+function PlateCard({ photoUri, analysis, dateLine }: { photoUri: string; analysis: PlateAnalysis | null; dateLine?: string }) {
   const { t } = useLanguage();
-  const score = Math.max(0, Math.min(100, Math.round(analysis.score)));
+  const score = analysis ? Math.max(0, Math.min(100, Math.round(analysis.score))) : 0;
   const meta = scoreMeta(score);
-  const macros: { labelKey: TranslationKey; value: number; unit: string }[] = [
-    { labelKey: "foodPlate.calories", value: analysis.calories_kcal, unit: "kcal" },
-    { labelKey: "foodPlate.protein", value: analysis.protein_g, unit: "g" },
-    { labelKey: "foodPlate.carbs", value: analysis.carbs_g, unit: "g" },
-    { labelKey: "foodPlate.fat", value: analysis.fat_g, unit: "g" },
+  const macros: { labelKey: TranslationKey; value: number | null; unit: string }[] = [
+    { labelKey: "foodPlate.calories", value: analysis?.calories_kcal ?? null, unit: "kcal" },
+    { labelKey: "foodPlate.carbs", value: analysis?.carbs_g ?? null, unit: "g" },
+    { labelKey: "foodPlate.protein", value: analysis?.protein_g ?? null, unit: "g" },
+    { labelKey: "foodPlate.fat", value: analysis?.fat_g ?? null, unit: "g" },
   ];
+  const micros = analysis ? analysis.micronutrients.slice(0, MAX_MICROS) : [];
+  const tips = analysis ? analysis.recommendations.slice(0, MAX_POINTS) : [];
 
   return (
-    <>
-      <Card className="gap-3 p-5">
-        <View>
-          <Text className="text-sm font-bold text-gray-900">{t("foodPlate.scoreTitle")}</Text>
-          <Text className="text-xs text-gray-400">{t("foodPlate.scoreMethod")}</Text>
+    <Card className="gap-4 p-4">
+      {analysis ? (
+        <Text className="text-sm font-bold text-gray-900">{analysis.dish_summary}</Text>
+      ) : (
+        <View className="flex-row items-center gap-2">
+          <Spinner />
+          <Text className="text-sm font-semibold text-gray-700">{t("foodPlate.analyzing")}</Text>
         </View>
-        <View className="flex-row items-end justify-between">
-          <View className="flex-row items-end gap-1">
-            <Text className="text-4xl font-extrabold text-gray-900">{score}</Text>
-            <Text className="mb-1 text-base font-semibold text-gray-400">/ 100</Text>
-          </View>
-          <View style={{ backgroundColor: meta.color }} className="rounded-full px-3 py-1">
-            <Text className="text-xs font-bold text-white">{t(meta.labelKey)}</Text>
-          </View>
-        </View>
-        <View className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
-          <View style={{ width: `${score}%`, backgroundColor: meta.color }} className="h-2.5 rounded-full" />
-        </View>
-      </Card>
+      )}
 
-      <Card className="gap-3 p-5">
-        <Text className="text-sm font-bold text-gray-900">{t("foodPlate.macrosTitle")}</Text>
-        <View className="flex-row flex-wrap gap-2">
+      {/* Photo | the four macros */}
+      <View className="flex-row gap-3">
+        <Image source={{ uri: photoUri }} resizeMode="cover" style={{ width: "40%", aspectRatio: 1, borderRadius: 12 }} />
+        <View className="flex-1 flex-row flex-wrap justify-between gap-y-2">
           {macros.map((m) => (
-            <View key={m.labelKey} className="min-w-[120px] flex-1 rounded-xl bg-purple-50 p-3">
-              <Text className="text-xs text-gray-500">{t(m.labelKey)}</Text>
-              <Text className="mt-0.5 text-lg font-extrabold text-gray-900">
-                {Math.round(m.value)}
-                <Text className="text-xs font-semibold text-gray-500"> {m.unit}</Text>
-              </Text>
+            <View key={m.labelKey} style={{ width: "48%" }} className="justify-center rounded-xl bg-purple-50 p-2">
+              <Text className="text-[11px] text-gray-500">{t(m.labelKey)}</Text>
+              {m.value === null ? (
+                <Shimmer width="70%" height={18} />
+              ) : (
+                <Text className="text-base font-extrabold text-gray-900">
+                  {Math.round(m.value)}
+                  <Text className="text-[11px] font-semibold text-gray-500"> {m.unit}</Text>
+                </Text>
+              )}
             </View>
           ))}
         </View>
-      </Card>
+      </View>
 
-      {analysis.micronutrients.length ? (
-        <Card className="gap-3 p-5">
-          <View>
-            <Text className="text-sm font-bold text-gray-900">{t("foodPlate.microsTitle")}</Text>
-            <Text className="text-xs text-gray-400">{t("foodPlate.microsHint")}</Text>
-          </View>
-          {analysis.micronutrients.slice(0, MAX_MICROS).map((m) => {
-            const pct = Math.max(0, Math.round(m.percent_of_daily_need));
-            return (
-              <View key={m.name} className="gap-1">
-                <View className="flex-row items-baseline justify-between gap-3">
-                  <Text className="flex-1 text-sm font-semibold text-gray-900">{m.name}</Text>
-                  <Text className="text-xs text-gray-500">
-                    {t("foodPlate.ofDailyNeed", { amount: m.amount, need: m.daily_need })}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-2">
-                  <View className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
-                    <View style={{ width: `${Math.min(100, pct)}%`, backgroundColor: BRAND }} className="h-2 rounded-full" />
+      {/* Score | micronutrients */}
+      <View className="flex-row gap-3">
+        <View style={{ width: "34%" }} className="items-center justify-center gap-1 rounded-xl bg-gray-50 p-3">
+          <Text className="text-[11px] font-semibold text-gray-500">{t("foodPlate.scoreTitle")}</Text>
+          {analysis ? (
+            <>
+              <View style={{ borderColor: meta.color }} className="h-16 w-16 items-center justify-center rounded-full border-4">
+                <Text className="text-xl font-extrabold text-gray-900">{score}</Text>
+              </View>
+              <Text className="text-center text-[11px] font-bold" style={{ color: meta.color }}>
+                {t(meta.labelKey)}
+              </Text>
+            </>
+          ) : (
+            <Shimmer width={64} height={64} radius={32} />
+          )}
+        </View>
+        <View className="flex-1 gap-2 rounded-xl border border-gray-200 p-3">
+          <Text className="text-[11px] font-semibold text-gray-500">{t("foodPlate.micros")}</Text>
+          {analysis
+            ? micros.map((m) => {
+                const pct = Math.max(0, Math.round(m.percent_of_daily_need));
+                return (
+                  <View key={m.name} className="gap-1">
+                    <View className="flex-row justify-between gap-2">
+                      <Text className="flex-1 text-xs font-semibold text-gray-900" numberOfLines={1}>
+                        {m.name}
+                      </Text>
+                      <Text className="text-xs font-bold text-gray-900">{pct}%</Text>
+                    </View>
+                    <View className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                      <View style={{ width: `${Math.min(100, pct)}%`, backgroundColor: BRAND }} className="h-1.5 rounded-full" />
+                    </View>
                   </View>
-                  <Text className="w-11 text-right text-xs font-bold text-gray-900">{pct}%</Text>
-                </View>
+                );
+              })
+            : [0, 1, 2, 3].map((i) => <Shimmer key={i} width="100%" height={12} />)}
+        </View>
+      </View>
+
+      {/* Suggestions */}
+      <View className="gap-1.5">
+        <Text className="text-sm font-bold text-gray-900">{t("foodPlate.suggestions")}</Text>
+        {analysis
+          ? tips.map((s) => (
+              <View key={s} className="flex-row gap-2">
+                <Text className="text-sm text-gray-700">•</Text>
+                <Text className="flex-1 text-sm leading-5 text-gray-700">{s}</Text>
               </View>
-            );
-          })}
-        </Card>
-      ) : null}
+            ))
+          : [0, 1, 2].map((i) => <Shimmer key={i} width={i === 2 ? "60%" : "100%"} height={12} />)}
+      </View>
 
-      {analysis.missing.length ? (
-        <Card className="gap-2 p-5">
-          <Text className="text-sm font-bold text-gray-900">{t("foodPlate.missingTitle")}</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {analysis.missing.slice(0, MAX_POINTS).map((m) => (
-              <View key={m} className="rounded-full border border-gray-300 bg-white px-3 py-1">
-                <Text className="text-xs font-semibold text-gray-700">{m}</Text>
-              </View>
-            ))}
-          </View>
-        </Card>
+      {analysis ? (
+        <View className="gap-0.5">
+          {dateLine ? <Text className="text-[11px] text-gray-400">{dateLine}</Text> : null}
+          <Text className="text-[11px] text-gray-400">{t("foodPlate.disclaimer")}</Text>
+        </View>
       ) : null}
-
-      {analysis.recommendations.length ? (
-        <Card className="gap-2 p-5">
-          <Text className="text-sm font-bold text-gray-900">{t("foodPlate.recommendationsTitle")}</Text>
-          {analysis.recommendations.slice(0, MAX_POINTS).map((s) => (
-            <Text key={s} className="text-sm leading-5 text-gray-700">
-              • {s}
-            </Text>
-          ))}
-        </Card>
-      ) : null}
-
-      <Text className="text-center text-xs text-gray-400">{t("foodPlate.disclaimer")}</Text>
-    </>
+    </Card>
   );
+}
+
+/** A grey placeholder bar that gently pulses while the result is on its way. */
+function Shimmer({ width, height, radius = 6 }: { width: number | `${number}%`; height: number; radius?: number }) {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+  return <Animated.View style={{ width, height, borderRadius: radius, backgroundColor: "#e5e7eb", opacity, marginTop: 4 }} />;
 }
