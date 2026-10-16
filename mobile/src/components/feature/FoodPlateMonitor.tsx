@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable, Animated } from "react-native";
-import { Camera, ImageUp, ArrowLeft, BookOpen, Trash2, ChevronRight, LogOut } from "lucide-react-native";
+import { Camera, ImageUp, ArrowLeft, BookOpen, Trash2, ChevronRight, LogOut, Download } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, WarningBanner, Spinner, ConfirmModal, LoadingState } from "@/components/ui";
 import { PlateCropModal } from "@/components/feature/PlateCropModal";
@@ -9,6 +9,8 @@ import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickPlate, analyzePlate, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
 import { loadMeals, saveMeal, deleteMeal, type SavedMeal } from "@/lib/mealLibrary";
 import { loadBodyMetrics } from "@/lib/bodyMetricsStorage";
+import { saveViewImage } from "@/lib/saveViewImage";
+import { toast } from "@/lib/toast";
 import { BRAND, ACCENT_GREEN, WARN, DANGER } from "@/theme";
 
 // Keep the result short: only the most important few of each list (meals saved
@@ -183,9 +185,10 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
       {stage.name === "result" ? (
         <>
           {stage.analysis.is_food ? (
-            <PlateCard
+            <SavablePlateCard
               photoUri={stage.photoUri}
               analysis={stage.analysis}
+              savedAt={stage.savedAt ?? undefined}
               dateLine={
                 stage.savedAt
                   ? t(stage.from === "new" ? "foodPlate.savedToLibrary" : "foodPlate.uploadedAt", { date: formatLocalDateTime(stage.savedAt) })
@@ -230,23 +233,14 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
           </View>
           {/* Each stored meal as its full result card, newest first. */}
           {meals.map((m) => (
-            <View key={m.id} className="gap-2">
-              <PlateCard
-                photoUri={m.photoUri}
-                analysis={m.analysis}
-                dateLine={t("foodPlate.uploadedAt", { date: formatLocalDateTime(m.savedAt) })}
-              />
-              <Pressable
-                onPress={() => setConfirmDelete(m.id)}
-                hitSlop={8}
-                className="flex-row items-center gap-1 self-end active:opacity-70"
-              >
-                <Trash2 size={14} color={DANGER} />
-                <Text className="text-sm font-semibold" style={{ color: DANGER }}>
-                  {t("foodPlate.deleteMeal")}
-                </Text>
-              </Pressable>
-            </View>
+            <SavablePlateCard
+              key={m.id}
+              photoUri={m.photoUri}
+              analysis={m.analysis}
+              savedAt={m.savedAt}
+              dateLine={t("foodPlate.uploadedAt", { date: formatLocalDateTime(m.savedAt) })}
+              onDelete={() => setConfirmDelete(m.id)}
+            />
           ))}
           <OutlineButton fullWidth icon={ArrowLeft} onPress={() => setStage({ name: "start" })}>
             {t("common.back")}
@@ -278,6 +272,68 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
       >
         <Text className="text-sm text-gray-600">{t("foodPlate.deleteBody")}</Text>
       </ConfirmModal>
+    </View>
+  );
+}
+
+/**
+ * A result card with "Download image" (and optionally "Delete") under it. The
+ * download is a picture of exactly what the card shows.
+ */
+function SavablePlateCard({
+  photoUri,
+  analysis,
+  savedAt,
+  dateLine,
+  onDelete,
+}: {
+  photoUri: string;
+  analysis: PlateAnalysis;
+  savedAt?: string;
+  dateLine?: string;
+  onDelete?: () => void;
+}) {
+  const { t } = useLanguage();
+  const cardRef = useRef<View>(null);
+  const [saving, setSaving] = useState(false);
+
+  const download = async () => {
+    setSaving(true);
+    // Local date and time in the file name, e.g. vagewell-meal-2026-10-16-1429.png
+    const d = savedAt ? new Date(savedAt) : new Date();
+    const two = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
+    const ok = await saveViewImage(cardRef, `vagewell-meal-${stamp}.png`);
+    setSaving(false);
+    if (!ok) toast.error(t("foodPlate.downloadFailed"));
+  };
+
+  return (
+    <View className="gap-2">
+      {/* collapsable={false}: Android must keep this wrapper as a real view to capture it. */}
+      <View ref={cardRef} collapsable={false}>
+        <PlateCard photoUri={photoUri} analysis={analysis} dateLine={dateLine} />
+      </View>
+      <View className="flex-row items-center justify-between">
+        <Pressable
+          onPress={() => void download()}
+          disabled={saving}
+          hitSlop={8}
+          accessibilityRole="button"
+          className="flex-row items-center gap-1 active:opacity-70"
+        >
+          {saving ? <Spinner /> : <Download size={14} color={BRAND} />}
+          <Text className="text-sm font-semibold text-purple-700">{t("foodPlate.download")}</Text>
+        </Pressable>
+        {onDelete ? (
+          <Pressable onPress={onDelete} hitSlop={8} accessibilityRole="button" className="flex-row items-center gap-1 active:opacity-70">
+            <Trash2 size={14} color={DANGER} />
+            <Text className="text-sm font-semibold" style={{ color: DANGER }}>
+              {t("foodPlate.deleteMeal")}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -356,7 +412,8 @@ function PlateCard({ photoUri, analysis, dateLine }: { photoUri: string; analysi
                 return (
                   <View key={m.name} className="gap-1">
                     <View className="flex-row justify-between gap-2">
-                      <Text className="flex-1 text-xs font-semibold text-gray-900" numberOfLines={1}>
+                      {/* No numberOfLines: its clipping cuts the text off in the downloaded picture. */}
+                      <Text className="flex-1 text-xs font-semibold text-gray-900">
                         {m.name}
                       </Text>
                       <Text className="text-xs font-bold text-gray-900">{pct}%</Text>
