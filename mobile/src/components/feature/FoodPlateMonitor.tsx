@@ -228,35 +228,26 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
             <Text className="text-base font-bold text-gray-900">{t("foodPlate.mealLibrary")}</Text>
             <Text className="text-sm text-gray-500">{t("foodPlate.mealLibraryHint")}</Text>
           </View>
-          {meals.map((m) => {
-            const score = Math.max(0, Math.min(100, Math.round(m.analysis.score)));
-            const meta = scoreMeta(score);
-            return (
+          {/* Each stored meal as its full result card, newest first. */}
+          {meals.map((m) => (
+            <View key={m.id} className="gap-2">
+              <PlateCard
+                photoUri={m.photoUri}
+                analysis={m.analysis}
+                dateLine={t("foodPlate.uploadedAt", { date: formatLocalDateTime(m.savedAt) })}
+              />
               <Pressable
-                key={m.id}
-                onPress={() =>
-                  setStage({ name: "result", photoUri: m.photoUri, analysis: m.analysis, savedAt: m.savedAt, mealId: m.id, from: "library" })
-                }
-                className="active:opacity-70"
+                onPress={() => setConfirmDelete(m.id)}
+                hitSlop={8}
+                className="flex-row items-center gap-1 self-end active:opacity-70"
               >
-                <Card className="flex-row items-center gap-3 p-3">
-                  <Image source={{ uri: m.photoUri }} resizeMode="cover" style={{ width: 64, height: 64, borderRadius: 10, backgroundColor: "#e5e7eb" }} />
-                  <View className="flex-1 gap-0.5">
-                    <Text numberOfLines={2} className="text-sm font-semibold text-gray-900">
-                      {m.analysis.dish_summary}
-                    </Text>
-                    <Text className="text-xs text-gray-500">{formatLocalDateTime(m.savedAt)}</Text>
-                    <Text className="text-xs text-gray-500">
-                      {Math.round(m.analysis.calories_kcal)} kcal
-                    </Text>
-                  </View>
-                  <View style={{ backgroundColor: meta.color }} className="h-11 w-11 items-center justify-center rounded-full">
-                    <Text className="text-sm font-extrabold text-white">{score}</Text>
-                  </View>
-                </Card>
+                <Trash2 size={14} color={DANGER} />
+                <Text className="text-sm font-semibold" style={{ color: DANGER }}>
+                  {t("foodPlate.deleteMeal")}
+                </Text>
               </Pressable>
-            );
-          })}
+            </View>
+          ))}
           <OutlineButton fullWidth icon={ArrowLeft} onPress={() => setStage({ name: "start" })}>
             {t("common.back")}
           </OutlineButton>
