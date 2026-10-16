@@ -11,6 +11,11 @@ import { loadMeals, saveMeal, deleteMeal, type SavedMeal } from "@/lib/mealLibra
 import { loadBodyMetrics } from "@/lib/bodyMetricsStorage";
 import { BRAND, ACCENT_GREEN, WARN, DANGER } from "@/theme";
 
+// Keep the result short: only the most important few of each list (meals saved
+// before the AI was told to return fewer still show this many).
+const MAX_MICROS = 4;
+const MAX_POINTS = 3;
+
 type Stage =
   | { name: "start" }
   | { name: "analyzing"; photoUri: string }
@@ -361,7 +366,7 @@ function Results({ analysis }: { analysis: PlateAnalysis }) {
             <Text className="text-sm font-bold text-gray-900">{t("foodPlate.microsTitle")}</Text>
             <Text className="text-xs text-gray-400">{t("foodPlate.microsHint")}</Text>
           </View>
-          {analysis.micronutrients.map((m) => {
+          {analysis.micronutrients.slice(0, MAX_MICROS).map((m) => {
             const pct = Math.max(0, Math.round(m.percent_of_daily_need));
             return (
               <View key={m.name} className="gap-1">
@@ -387,7 +392,7 @@ function Results({ analysis }: { analysis: PlateAnalysis }) {
         <Card className="gap-2 p-5">
           <Text className="text-sm font-bold text-gray-900">{t("foodPlate.missingTitle")}</Text>
           <View className="flex-row flex-wrap gap-2">
-            {analysis.missing.map((m) => (
+            {analysis.missing.slice(0, MAX_POINTS).map((m) => (
               <View key={m} className="rounded-full border border-gray-300 bg-white px-3 py-1">
                 <Text className="text-xs font-semibold text-gray-700">{m}</Text>
               </View>
@@ -399,7 +404,7 @@ function Results({ analysis }: { analysis: PlateAnalysis }) {
       {analysis.recommendations.length ? (
         <Card className="gap-2 p-5">
           <Text className="text-sm font-bold text-gray-900">{t("foodPlate.recommendationsTitle")}</Text>
-          {analysis.recommendations.map((s) => (
+          {analysis.recommendations.slice(0, MAX_POINTS).map((s) => (
             <Text key={s} className="text-sm leading-5 text-gray-700">
               • {s}
             </Text>
