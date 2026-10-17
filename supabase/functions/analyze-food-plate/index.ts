@@ -61,7 +61,7 @@ const PlateAnalysis = z.object({
     )
     .describe("The 4 micronutrients that matter most for this person's daily needs, including ones this plate is low in"),
   missing: z.array(z.string()).describe("What this plate lacks: at most 3 short items, each a food group or nutrient"),
-  recommendations: z.array(z.string()).describe("At most 3 simple suggestions, each a short phrase of no more than 8 words, e.g. "Add a bowl of curd""),
+  recommendations: z.array(z.string()).describe("At most 3 simple suggestions, each a short phrase of no more than 8 words, e.g. 'Add a bowl of curd'"),
 });
 
 const SYSTEM = `You are the nutrition estimator inside VAgeWell Care, a home-care app used mostly by families in India, often for older adults.
