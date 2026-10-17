@@ -61,7 +61,7 @@ const PlateAnalysis = z.object({
     )
     .describe("The 4 micronutrients that matter most for this person's daily needs, including ones this plate is low in"),
   missing: z.array(z.string()).describe("What this plate lacks: at most 3 short items, each a food group or nutrient"),
-  recommendations: z.array(z.string()).describe("At most 3 short, practical recommendations (one sentence each) that supply what is missing"),
+  recommendations: z.array(z.string()).describe("At most 3 simple suggestions, each a short phrase of no more than 8 words, e.g. "Add a bowl of curd""),
 });
 
 const SYSTEM = `You are the nutrition estimator inside VAgeWell Care, a home-care app used mostly by families in India, often for older adults.
@@ -76,7 +76,7 @@ How to estimate:
 - Use the person's age, gender, height, weight and activity level to work out their daily needs: their energy requirement, and the recommended daily amount of each micronutrient for someone of that age and gender. Where a detail is not given, assume a typical healthy adult and do not mention the assumption.
 - For micronutrients, list the ones that matter most for this person, state how much this plate provides, their daily need, and the percentage of the daily need this plate covers. Include important ones the plate is low in, not only the ones it is rich in.
 - Let the person's details shape the meal score only where they change what is healthful for them (for example portion size against their energy needs); the Food Compass domains remain the basis.
-- "missing" names what the plate lacks. "recommendations" says how to supply it at this or the next meal: what to add, reduce or swap, specific to this plate and easy to act on. Do not give medical advice or mention diseases.
+- "missing" names what the plate lacks. "recommendations" are simple suggestions for this or the next meal: what to add, reduce or swap. Keep each one a short, plain phrase of no more than 8 words (for example "Add a bowl of curd", "Use less oil", "Swap white rice for millet"), with no explanation. Do not give medical advice or mention diseases.
 
 If the photo does not show food, set is_food to false, explain briefly in dish_summary, and use 0 and empty lists for everything else.`;
 
