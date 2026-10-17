@@ -180,7 +180,7 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
         </>
       ) : null}
 
-      {stage.name === "analyzing" ? <PlateCard photoUri={stage.photoUri} analysis={null} /> : null}
+      {stage.name === "analyzing" ? <AnalyzingCard photoUri={stage.photoUri} /> : null}
 
       {stage.name === "result" ? (
         <>
@@ -340,32 +340,24 @@ function SavablePlateCard({
 
 /**
  * The plate result in one card, laid out as: photo | Calories, Carbs, Protein, Fat;
- * Score | Micronutrients; Suggestions. With `analysis` null (still analysing)
- * the same layout shows shimmering placeholders, so the result fills in place.
+ * Score | Micronutrients; Suggestions.
  */
-function PlateCard({ photoUri, analysis, dateLine }: { photoUri: string; analysis: PlateAnalysis | null; dateLine?: string }) {
+function PlateCard({ photoUri, analysis, dateLine }: { photoUri: string; analysis: PlateAnalysis; dateLine?: string }) {
   const { t } = useLanguage();
-  const score = analysis ? Math.max(0, Math.min(100, Math.round(analysis.score))) : 0;
+  const score = Math.max(0, Math.min(100, Math.round(analysis.score)));
   const meta = scoreMeta(score);
-  const macros: { labelKey: TranslationKey; value: number | null; unit: string }[] = [
-    { labelKey: "foodPlate.calories", value: analysis?.calories_kcal ?? null, unit: "kcal" },
-    { labelKey: "foodPlate.carbs", value: analysis?.carbs_g ?? null, unit: "g" },
-    { labelKey: "foodPlate.protein", value: analysis?.protein_g ?? null, unit: "g" },
-    { labelKey: "foodPlate.fat", value: analysis?.fat_g ?? null, unit: "g" },
+  const macros: { labelKey: TranslationKey; value: number; unit: string }[] = [
+    { labelKey: "foodPlate.calories", value: analysis.calories_kcal, unit: "kcal" },
+    { labelKey: "foodPlate.carbs", value: analysis.carbs_g, unit: "g" },
+    { labelKey: "foodPlate.protein", value: analysis.protein_g, unit: "g" },
+    { labelKey: "foodPlate.fat", value: analysis.fat_g, unit: "g" },
   ];
-  const micros = analysis ? analysis.micronutrients.slice(0, MAX_MICROS) : [];
-  const tips = analysis ? analysis.recommendations.slice(0, MAX_POINTS) : [];
+  const micros = analysis.micronutrients.slice(0, MAX_MICROS);
+  const tips = analysis.recommendations.slice(0, MAX_POINTS);
 
   return (
     <Card className="gap-4 p-4">
-      {analysis ? (
-        <Text className="text-sm font-bold text-gray-900">{analysis.dish_summary}</Text>
-      ) : (
-        <View className="flex-row items-center gap-2">
-          <Spinner />
-          <Text className="text-sm font-semibold text-gray-700">{t("foodPlate.analyzing")}</Text>
-        </View>
-      )}
+      <Text className="text-sm font-bold text-gray-900">{analysis.dish_summary}</Text>
 
       {/* Photo | the four macros */}
       <View className="flex-row gap-3">
@@ -374,14 +366,10 @@ function PlateCard({ photoUri, analysis, dateLine }: { photoUri: string; analysi
           {macros.map((m) => (
             <View key={m.labelKey} style={{ width: "48%" }} className="justify-center rounded-xl bg-purple-50 p-2">
               <Text className="text-[11px] text-gray-500">{t(m.labelKey)}</Text>
-              {m.value === null ? (
-                <Shimmer width="70%" height={18} />
-              ) : (
-                <Text className="text-base font-extrabold text-gray-900">
-                  {Math.round(m.value)}
-                  <Text className="text-[11px] font-semibold text-gray-500"> {m.unit}</Text>
-                </Text>
-              )}
+              <Text className="text-base font-extrabold text-gray-900">
+                {Math.round(m.value)}
+                <Text className="text-[11px] font-semibold text-gray-500"> {m.unit}</Text>
+              </Text>
             </View>
           ))}
         </View>
@@ -391,78 +379,142 @@ function PlateCard({ photoUri, analysis, dateLine }: { photoUri: string; analysi
       <View className="flex-row gap-3">
         <View style={{ width: "34%" }} className="items-center justify-center gap-1 rounded-xl bg-gray-50 p-3">
           <Text className="text-[11px] font-semibold text-gray-500">{t("foodPlate.scoreTitle")}</Text>
-          {analysis ? (
-            <>
-              <View style={{ borderColor: meta.color }} className="h-16 w-16 items-center justify-center rounded-full border-4">
-                <Text className="text-xl font-extrabold text-gray-900">{score}</Text>
-              </View>
-              <Text className="text-center text-[11px] font-bold" style={{ color: meta.color }}>
-                {t(meta.labelKey)}
-              </Text>
-            </>
-          ) : (
-            <Shimmer width={64} height={64} radius={32} />
-          )}
+          <View style={{ borderColor: meta.color }} className="h-16 w-16 items-center justify-center rounded-full border-4">
+            <Text className="text-xl font-extrabold text-gray-900">{score}</Text>
+          </View>
+          <Text className="text-center text-[11px] font-bold" style={{ color: meta.color }}>
+            {t(meta.labelKey)}
+          </Text>
         </View>
         <View className="flex-1 gap-2 rounded-xl border border-gray-200 p-3">
           <Text className="text-[11px] font-semibold text-gray-500">{t("foodPlate.micros")}</Text>
-          {analysis
-            ? micros.map((m) => {
-                const pct = Math.max(0, Math.round(m.percent_of_daily_need));
-                return (
-                  <View key={m.name} className="gap-1">
-                    <View className="flex-row justify-between gap-2">
-                      {/* No numberOfLines: its clipping cuts the text off in the downloaded picture. */}
-                      <Text className="flex-1 text-xs font-semibold text-gray-900">
-                        {m.name}
-                      </Text>
-                      <Text className="text-xs font-bold text-gray-900">{pct}%</Text>
-                    </View>
-                    <View className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                      <View style={{ width: `${Math.min(100, pct)}%`, backgroundColor: BRAND }} className="h-1.5 rounded-full" />
-                    </View>
-                  </View>
-                );
-              })
-            : [0, 1, 2, 3].map((i) => <Shimmer key={i} width="100%" height={12} />)}
+          {micros.map((m) => {
+            const pct = Math.max(0, Math.round(m.percent_of_daily_need));
+            return (
+              <View key={m.name} className="gap-1">
+                <View className="flex-row justify-between gap-2">
+                  {/* No numberOfLines: its clipping cuts the text off in the downloaded picture. */}
+                  <Text className="flex-1 text-xs font-semibold text-gray-900">{m.name}</Text>
+                  <Text className="text-xs font-bold text-gray-900">{pct}%</Text>
+                </View>
+                <View className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                  <View style={{ width: `${Math.min(100, pct)}%`, backgroundColor: BRAND }} className="h-1.5 rounded-full" />
+                </View>
+              </View>
+            );
+          })}
         </View>
       </View>
 
       {/* Suggestions */}
       <View className="gap-1.5">
         <Text className="text-sm font-bold text-gray-900">{t("foodPlate.suggestions")}</Text>
-        {analysis
-          ? tips.map((s) => (
-              <View key={s} className="flex-row gap-2">
-                <Text className="text-sm text-gray-700">•</Text>
-                <Text className="flex-1 text-sm leading-5 text-gray-700">{s}</Text>
-              </View>
-            ))
-          : [0, 1, 2].map((i) => <Shimmer key={i} width={i === 2 ? "60%" : "100%"} height={12} />)}
+        {tips.map((tip) => (
+          <View key={tip} className="flex-row gap-2">
+            <Text className="text-sm text-gray-700">•</Text>
+            <Text className="flex-1 text-sm leading-5 text-gray-700">{tip}</Text>
+          </View>
+        ))}
       </View>
 
-      {analysis ? (
-        <View className="gap-0.5">
-          {dateLine ? <Text className="text-[11px] text-gray-400">{dateLine}</Text> : null}
-          <Text className="text-[11px] text-gray-400">{t("foodPlate.disclaimer")}</Text>
-        </View>
-      ) : null}
+      {dateLine ? <Text className="text-[11px] text-gray-400">{dateLine}</Text> : null}
     </Card>
   );
 }
 
-/** A grey placeholder bar that gently pulses while the result is on its way. */
-function Shimmer({ width, height, radius = 6 }: { width: number | `${number}%`; height: number; radius?: number }) {
-  const opacity = useRef(new Animated.Value(0.4)).current;
+// What the analysis is doing, shown one after another while it runs.
+const ANALYSIS_STEPS: TranslationKey[] = [
+  "foodPlate.step.find",
+  "foodPlate.step.portion",
+  "foodPlate.step.nutrients",
+  "foodPlate.step.score",
+];
+const STEP_MS = 4000;
+// The bar creeps towards (never reaches) the end, since the real time varies.
+const PROGRESS_MS = 20000;
+
+/**
+ * While the photo is being analysed: the photo with a scan line sweeping over
+ * it, the current step with the steps done so far ticked, and a progress bar.
+ */
+function AnalyzingCard({ photoUri }: { photoUri: string }) {
+  const { t } = useLanguage();
+  const [photoHeight, setPhotoHeight] = useState(0);
+  const [step, setStep] = useState(0);
+  const scan = useRef(new Animated.Value(0)).current;
+  const progress = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    const loop = Animated.loop(
+    const sweep = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+        Animated.timing(scan, { toValue: 1, duration: 1600, useNativeDriver: false }),
+        Animated.timing(scan, { toValue: 0, duration: 1600, useNativeDriver: false }),
       ]),
     );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
-  return <Animated.View style={{ width, height, borderRadius: radius, backgroundColor: "#e5e7eb", opacity, marginTop: 4 }} />;
+    sweep.start();
+    Animated.timing(progress, { toValue: 0.92, duration: PROGRESS_MS, useNativeDriver: false }).start();
+    const timer = setInterval(() => setStep((s) => Math.min(s + 1, ANALYSIS_STEPS.length - 1)), STEP_MS);
+    return () => {
+      sweep.stop();
+      progress.stopAnimation();
+      clearInterval(timer);
+    };
+  }, [scan, progress]);
+
+  return (
+    <Card className="gap-4 overflow-hidden p-4">
+      <View onLayout={(e) => setPhotoHeight(e.nativeEvent.layout.height)} className="overflow-hidden rounded-xl">
+        <Image source={{ uri: photoUri }} resizeMode="cover" style={{ width: "100%", aspectRatio: 1 }} />
+        {/* A soft tint and a bright line sweeping up and down over the photo. */}
+        <View pointerEvents="none" className="absolute inset-0" style={{ backgroundColor: "rgba(28,124,190,0.12)" }} />
+        {photoHeight > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              height: 3,
+              backgroundColor: BRAND,
+              shadowColor: BRAND,
+              shadowOpacity: 0.9,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 0 },
+              transform: [{ translateY: scan.interpolate({ inputRange: [0, 1], outputRange: [0, photoHeight - 3] }) }],
+            }}
+          />
+        ) : null}
+      </View>
+
+      <View className="gap-2">
+        {ANALYSIS_STEPS.map((key, i) => (
+          <View key={key} className="flex-row items-center gap-2">
+            {i < step ? (
+              <View style={{ backgroundColor: ACCENT_GREEN }} className="h-5 w-5 items-center justify-center rounded-full">
+                <Text className="text-[11px] font-bold text-white">✓</Text>
+              </View>
+            ) : i === step ? (
+              <Spinner />
+            ) : (
+              <View className="h-5 w-5 rounded-full border-2 border-gray-200" />
+            )}
+            <Text className={`text-sm ${i === step ? "font-semibold text-gray-900" : i < step ? "text-gray-600" : "text-gray-400"}`}>
+              {t(key)}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <View className="h-2 overflow-hidden rounded-full bg-gray-100">
+        <Animated.View
+          style={{
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: BRAND,
+            width: progress.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
+          }}
+        />
+      </View>
+    </Card>
+  );
 }
