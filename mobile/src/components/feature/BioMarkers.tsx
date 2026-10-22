@@ -5,6 +5,7 @@ import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, LoadingState, Spinner } from "@/components/ui";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
 import { PhotoTray } from "@/components/feature/PhotoTray";
+import { LibraryCalendar, dayKey, latestDay, dayHeading } from "@/components/feature/LibraryCalendar";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, type PickedReport, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
@@ -75,6 +76,8 @@ export function BioMarkers({
   const [pending, setPending] = useState<Pending[]>([]);
   const [busy, setBusy] = useState<ReportSource | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The Report library day being shown (null: the latest day with a report).
+  const [libDay, setLibDay] = useState<string | null>(null);
   // Pages of the next report gathered so far, waiting for "Read report".
   const [draft, setDraft] = useState<PickedReport[]>([]);
 
@@ -145,6 +148,9 @@ export function BioMarkers({
   const removeSaved = async (id: string) => setSaved(await deleteReport(userId, personKey, id));
 
   if (!loaded) return <LoadingState message={t("common.loading")} />;
+
+  // The chosen day while it still has reports, otherwise the latest day.
+  const activeDay = libDay && saved.some((r) => dayKey(r.savedAt) === libDay) ? libDay : latestDay(saved);
 
   return (
     <View className="gap-4">
@@ -222,14 +228,23 @@ export function BioMarkers({
         <Text className="text-sm text-gray-500">{t(saved.length ? "bioMarkers.libraryHint" : "bioMarkers.empty")}</Text>
       </View>
 
-      {saved.map((r) => (
-        <SavableReport
-          key={r.id}
-          report={r}
-          onRemove={() => void removeSaved(r.id)}
-          onTranslated={(lang, translated) => void addReportTranslation(userId, personKey, r.id, lang, translated).then(setSaved)}
-        />
-      ))}
+      {/* The library as a calendar: tap a date to see that day's reports. */}
+      {activeDay ? (
+        <>
+          <LibraryCalendar items={saved} selectedDay={activeDay} onSelectDay={setLibDay} />
+          <Text className="text-sm font-bold text-gray-900">{dayHeading(activeDay, language)}</Text>
+          {saved
+            .filter((r) => dayKey(r.savedAt) === activeDay)
+            .map((r) => (
+              <SavableReport
+                key={r.id}
+                report={r}
+                onRemove={() => void removeSaved(r.id)}
+                onTranslated={(lang, translated) => void addReportTranslation(userId, personKey, r.id, lang, translated).then(setSaved)}
+              />
+            ))}
+        </>
+      ) : null}
 
       <OutlineButton fullWidth icon={LogOut} onPress={onExit}>
         {t("bioMarkers.exit")}

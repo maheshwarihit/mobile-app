@@ -6,6 +6,7 @@ import { Card, PrimaryButton, OutlineButton, ErrorBanner, WarningBanner, Spinner
 import { PlateCropModal } from "@/components/feature/PlateCropModal";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
 import { PhotoTray } from "@/components/feature/PhotoTray";
+import { LibraryCalendar, dayKey, latestDay, dayHeading } from "@/components/feature/LibraryCalendar";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickPlate, analyzePlate, translatePlate, MAX_MEAL_PHOTOS, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
@@ -76,6 +77,8 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
   const [person, setPerson] = useState<PlatePerson>({});
   const [loaded, setLoaded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // The Meal library day being shown (null: the latest day with a meal).
+  const [libDay, setLibDay] = useState<string | null>(null);
   // Photos of the meal gathered so far (cropped), waiting for "Analyse meal".
   const [photos, setPhotos] = useState<{ base64: string; mediaType: PickedPlate["mediaType"]; uri: string }[]>([]);
 
@@ -148,6 +151,9 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
   };
 
   if (!loaded) return <LoadingState message={t("common.loading")} />;
+
+  // The chosen day while it still has meals, otherwise the latest day.
+  const mealDay = libDay && meals.some((m) => dayKey(m.savedAt) === libDay) ? libDay : latestDay(meals);
 
   const missingBodyDetails = !person.height_cm || !person.weight_kg;
 
@@ -268,15 +274,23 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
             <Text className="text-base font-bold text-gray-900">{t("foodPlate.mealLibrary")}</Text>
             <Text className="text-sm text-gray-500">{t("foodPlate.mealLibraryHint")}</Text>
           </View>
-          {/* Each stored meal as its full result card, newest first. */}
-          {meals.map((m) => (
-            <LibraryMealCard
-              key={m.id}
-              meal={m}
-              onDelete={() => setConfirmDelete(m.id)}
-              onTranslated={(lang, translated) => void addMealTranslation(userId, personKey, m.id, lang, translated).then(setMeals)}
-            />
-          ))}
+          {/* The library as a calendar: tap a date to see that day's meals. */}
+          {mealDay ? (
+            <>
+              <LibraryCalendar items={meals} selectedDay={mealDay} onSelectDay={setLibDay} />
+              <Text className="text-sm font-bold text-gray-900">{dayHeading(mealDay, language)}</Text>
+              {meals
+                .filter((m) => dayKey(m.savedAt) === mealDay)
+                .map((m) => (
+                  <LibraryMealCard
+                    key={m.id}
+                    meal={m}
+                    onDelete={() => setConfirmDelete(m.id)}
+                    onTranslated={(lang, translated) => void addMealTranslation(userId, personKey, m.id, lang, translated).then(setMeals)}
+                  />
+                ))}
+            </>
+          ) : null}
           <OutlineButton fullWidth icon={ArrowLeft} onPress={() => setStage({ name: "start" })}>
             {t("common.back")}
           </OutlineButton>
