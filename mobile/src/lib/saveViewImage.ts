@@ -16,9 +16,10 @@ export async function saveViewImage(view: RefObject<View | null>, fileName: stri
       // findNodeHandle (unsupported on web), so draw the element directly.
       const element = view.current as unknown as HTMLElement | null;
       if (!element) return false;
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(element, { backgroundColor: "#ffffff", scale: 2, useCORS: true });
-      const dataUri = canvas.toDataURL("image/png");
+      // html-to-image lets the browser itself draw the element (via SVG), so the
+      // picture matches the screen; html2canvas re-draws text a few pixels low.
+      const { toPng } = await import("html-to-image");
+      const dataUri = await toPng(element, { pixelRatio: 2, backgroundColor: "#ffffff", cacheBust: true });
       const doc = (globalThis as any).document;
       const a = doc.createElement("a");
       a.href = dataUri;

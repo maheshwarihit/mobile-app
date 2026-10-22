@@ -1,19 +1,24 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert } from "lucide-react-native";
+import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert, Download } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
-import { Card, PrimaryButton, OutlineButton, ErrorBanner } from "@/components/ui";
+import { Card, PrimaryButton, OutlineButton, ErrorBanner, LoadingState, Spinner } from "@/components/ui";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
+import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickReport, analyzeReport, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
+import { loadReports, saveReport, deleteReport, type SavedReport } from "@/lib/reportLibrary";
+import { saveViewImage } from "@/lib/saveViewImage";
+import { toast } from "@/lib/toast";
 import { BRAND } from "@/theme";
 
-type Report = {
+/** A report being read right now, or one whose reading failed (not stored). */
+type Pending = {
   id: string;
   uri: string;
   base64: string;
   addedAt: string;
-  phase: "analysing" | "done" | "error";
+  phase: "analysing" | "error" | "done";
   result?: LabReport;
   error?: string;
 };
@@ -45,24 +50,60 @@ const TYPE_KEY: Record<LabReport["report_type"], TranslationKey> = {
  * Nutrition → Bio Markers: take or upload a photo of a lab report (blood test,
  * urine routine, stool routine…) and get it read in simple language: every
  * test with its range and Normal / High / Low / Critical status, what the
- * unusual values mean, suggestions, questions for the doctor and how soon to
- * see one. Reports are kept on this screen only, for the visit.
+ * unusual values mean, suggestions and how soon to see a doctor. Each report
+ * that is read is kept in this person's Report library on the device, where
+ * every result can also be downloaded as a picture.
  */
-export function BioMarkers({ person, onExit }: { person: { age?: number; gender?: string }; onExit: () => void }) {
+export function BioMarkers({
+  personKey,
+  person,
+  onExit,
+}: {
+  personKey: string;
+  person: { age?: number; gender?: string };
+  onExit: () => void;
+}) {
   const { t, language } = useLanguage();
-  const [reports, setReports] = useState<Report[]>([]);
+  const { profile } = useAuth();
+  const userId = profile?.id ?? null;
+  const [loaded, setLoaded] = useState(false);
+  const [saved, setSaved] = useState<SavedReport[]>([]);
+  const [pending, setPending] = useState<Pending[]>([]);
   const [busy, setBusy] = useState<ReportSource | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const update = (id: string, patch: Partial<Report>) => setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  useEffect(() => {
+    let active = true;
+    void loadReports(userId, personKey).then((list) => {
+      if (!active) return;
+      setSaved(list);
+      setLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId, personKey]);
 
-  const read = async (id: string, base64: string) => {
-    update(id, { phase: "analysing", error: undefined });
+  const update = (id: string, patch: Partial<Pending>) => setPending((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const dropPending = (id: string) => setPending((prev) => prev.filter((r) => r.id !== id));
+
+  const read = async (item: Pending) => {
+    update(item.id, { phase: "analysing", error: undefined });
     try {
-      const result = await analyzeReport(base64, language ?? "en", person);
-      update(id, { phase: "done", result });
+      const result = await analyzeReport(item.base64, language ?? "en", person);
+      // A report that could be read goes into the library; an unreadable photo
+      // stays here only, with its retake tip.
+      if (result.status === "ok") {
+        const next = await saveReport(userId, personKey, item.uri, result);
+        if (next) {
+          setSaved(next);
+          dropPending(item.id);
+          return;
+        }
+      }
+      update(item.id, { phase: "done", result });
     } catch (e) {
-      update(id, { phase: "error", error: e instanceof Error ? e.message : t("bioMarkers.error.failed") });
+      update(item.id, { phase: "error", error: e instanceof Error ? e.message : t("bioMarkers.error.failed") });
     }
   };
 
@@ -73,10 +114,10 @@ export function BioMarkers({ person, onExit }: { person: { age?: number; gender?
       const picked = await pickReport(source);
       if (!picked) return;
       const now = new Date().toISOString();
-      const id = `${now}-${Math.random().toString(36).slice(2, 7)}`;
-      setReports((prev) => [{ id, uri: picked.uri, base64: picked.base64, addedAt: now, phase: "analysing" }, ...prev]);
+      const item: Pending = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, uri: picked.uri, base64: picked.base64, addedAt: now, phase: "analysing" };
+      setPending((prev) => [item, ...prev]);
       setBusy(null);
-      void read(id, picked.base64);
+      void read(item);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("bioMarkers.error.failed"));
     } finally {
@@ -84,7 +125,9 @@ export function BioMarkers({ person, onExit }: { person: { age?: number; gender?
     }
   };
 
-  const remove = (id: string) => setReports((prev) => prev.filter((r) => r.id !== id));
+  const removeSaved = async (id: string) => setSaved(await deleteReport(userId, personKey, id));
+
+  if (!loaded) return <LoadingState message={t("common.loading")} />;
 
   return (
     <View className="gap-4">
@@ -109,9 +152,7 @@ export function BioMarkers({ person, onExit }: { person: { age?: number; gender?
         {error ? <ErrorBanner message={error} /> : null}
       </Card>
 
-      {reports.length === 0 ? <Text className="text-center text-sm text-gray-400">{t("bioMarkers.empty")}</Text> : null}
-
-      {reports.map((r) =>
+      {pending.map((r) =>
         r.phase === "analysing" ? (
           <AnalysisProgress key={r.id} photoUri={r.uri} steps={STEPS} expectedMs={EXPECTED_MS} aspectRatio={3 / 4} fit="contain" />
         ) : r.phase === "error" ? (
@@ -119,21 +160,72 @@ export function BioMarkers({ person, onExit }: { person: { age?: number; gender?
             <ReportHeader uri={r.uri} addedAt={r.addedAt} />
             <ErrorBanner message={r.error ?? t("bioMarkers.error.failed")} />
             <View className="flex-row items-center justify-between">
-              <Pressable onPress={() => void read(r.id, r.base64)} hitSlop={8} className="flex-row items-center gap-1 active:opacity-70">
+              <Pressable onPress={() => void read(r)} hitSlop={8} className="flex-row items-center gap-1 active:opacity-70">
                 <RotateCcw size={14} color={BRAND} />
                 <Text className="text-sm font-semibold text-purple-700">{t("bioMarkers.tryAgain")}</Text>
               </Pressable>
-              <RemoveLink onPress={() => remove(r.id)} />
+              <RemoveLink onPress={() => dropPending(r.id)} />
             </View>
           </Card>
         ) : r.result ? (
-          <ReportResult key={r.id} report={r} result={r.result} onRemove={() => remove(r.id)} />
+          <View key={r.id} className="gap-2">
+            <ReportResult uri={r.uri} addedAt={r.addedAt} result={r.result} />
+            <View className="items-end">
+              <RemoveLink onPress={() => dropPending(r.id)} />
+            </View>
+          </View>
         ) : null,
       )}
+
+      {saved.length ? (
+        <View>
+          <Text className="text-base font-bold text-gray-900">{t("bioMarkers.libraryTitle")}</Text>
+          <Text className="text-sm text-gray-500">{t("bioMarkers.libraryHint")}</Text>
+        </View>
+      ) : pending.length === 0 ? (
+        <Text className="text-center text-sm text-gray-400">{t("bioMarkers.empty")}</Text>
+      ) : null}
+
+      {saved.map((r) => (
+        <SavableReport key={r.id} report={r} onRemove={() => void removeSaved(r.id)} />
+      ))}
 
       <OutlineButton fullWidth icon={LogOut} onPress={onExit}>
         {t("bioMarkers.exit")}
       </OutlineButton>
+    </View>
+  );
+}
+
+/** A stored report's result card with "Download image" and "Remove" under it. The download is a picture of exactly what the card shows. */
+function SavableReport({ report, onRemove }: { report: SavedReport; onRemove: () => void }) {
+  const { t } = useLanguage();
+  const cardRef = useRef<View>(null);
+  const [saving, setSaving] = useState(false);
+
+  const download = async () => {
+    setSaving(true);
+    const d = new Date(report.savedAt);
+    const two = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
+    const ok = await saveViewImage(cardRef, `vagewell-report-${stamp}.png`);
+    setSaving(false);
+    if (!ok) toast.error(t("bioMarkers.downloadFailed"));
+  };
+
+  return (
+    <View className="gap-2">
+      {/* collapsable={false}: Android must keep this wrapper as a real view to capture it. */}
+      <View ref={cardRef} collapsable={false}>
+        <ReportResult uri={report.photoUri} addedAt={report.savedAt} result={report.result} />
+      </View>
+      <View className="flex-row items-center justify-between">
+        <Pressable onPress={() => void download()} disabled={saving} hitSlop={8} accessibilityRole="button" className="flex-row items-center gap-1 active:opacity-70">
+          {saving ? <Spinner /> : <Download size={14} color={BRAND} />}
+          <Text className="text-sm font-semibold text-purple-700">{t("bioMarkers.download")}</Text>
+        </Pressable>
+        <RemoveLink onPress={onRemove} />
+      </View>
     </View>
   );
 }
@@ -166,8 +258,10 @@ function RemoveLink({ onPress }: { onPress: () => void }) {
 
 function Pill({ fg, bg, label }: { fg: string; bg: string; label: string }) {
   return (
-    <View style={{ backgroundColor: bg }} className="rounded-full px-2.5 py-1">
-      <Text style={{ color: fg }} className="text-xs font-bold">
+    // A fixed height and corner radius (not "rounded-full"): the downloaded
+    // picture draws a fully-rounded label clipped at the bottom.
+    <View style={{ backgroundColor: bg, height: 24, borderRadius: 12 }} className="justify-center px-2.5">
+      <Text style={{ color: fg, lineHeight: 16 }} className="text-xs font-bold">
         {label}
       </Text>
     </View>
@@ -189,22 +283,19 @@ function Bullets({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function ReportResult({ report, result, onRemove }: { report: Report; result: LabReport; onRemove: () => void }) {
+function ReportResult({ uri, addedAt, result }: { uri: string; addedAt: string; result: LabReport }) {
   const { t } = useLanguage();
 
   if (result.status === "unreadable") {
     return (
       <Card className="gap-3 p-4">
-        <ReportHeader uri={report.uri} addedAt={report.addedAt} title={t("bioMarkers.unreadableTitle")} />
+        <ReportHeader uri={uri} addedAt={addedAt} title={t("bioMarkers.unreadableTitle")} />
         {result.unreadable_reason ? <Text className="text-sm text-gray-700">{result.unreadable_reason}</Text> : null}
         {result.retake_tip ? (
           <View className="rounded-xl bg-amber-50 p-3">
             <Text className="text-sm text-amber-900">{result.retake_tip}</Text>
           </View>
         ) : null}
-        <View className="items-end">
-          <RemoveLink onPress={onRemove} />
-        </View>
       </Card>
     );
   }
@@ -214,12 +305,7 @@ function ReportResult({ report, result, onRemove }: { report: Report; result: La
 
   return (
     <Card className="gap-4 p-4">
-      <ReportHeader
-        uri={report.uri}
-        addedAt={report.addedAt}
-        title={title}
-        badge={<Pill fg={urgency.fg} bg={urgency.bg} label={t(urgency.key)} />}
-      />
+      <ReportHeader uri={uri} addedAt={addedAt} title={title} badge={<Pill fg={urgency.fg} bg={urgency.bg} label={t(urgency.key)} />} />
 
       {result.urgency === "Urgent" ? (
         <View className="flex-row items-start gap-2 rounded-xl p-3" style={{ backgroundColor: "#FDE8E7" }}>
@@ -279,10 +365,6 @@ function ReportResult({ report, result, onRemove }: { report: Report; result: La
 
       <Bullets title={t("bioMarkers.concernsTitle")} items={result.health_concerns} />
       <Bullets title={t("bioMarkers.dietTitle")} items={result.diet_lifestyle} />
-
-      <View className="items-end">
-        <RemoveLink onPress={onRemove} />
-      </View>
     </Card>
   );
 }
