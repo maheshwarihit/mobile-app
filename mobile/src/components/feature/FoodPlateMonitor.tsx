@@ -68,7 +68,10 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
   const [busy, setBusy] = useState<PlateSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Web only: the picked photo waiting in the crop screen.
-  const [toCrop, setToCrop] = useState<PickedPlate | null>(null);
+  // Web only: picked photos waiting for the crop screen, one at a time.
+  const [cropQueue, setCropQueue] = useState<PickedPlate[]>([]);
+  const toCrop = cropQueue[0] ?? null;
+  const nextCrop = () => setCropQueue((q) => q.slice(1));
   const [meals, setMeals] = useState<SavedMeal[]>([]);
   const [person, setPerson] = useState<PlatePerson>({});
   const [loaded, setLoaded] = useState(false);
@@ -126,10 +129,11 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
     setError(null);
     setBusy(source);
     try {
-      const picked = await pickPlate(source);
-      if (!picked) return;
-      if (picked.base64) setPhotos((prev) => [...prev, { base64: picked.base64!, mediaType: picked.mediaType, uri: picked.uri }]);
-      else setToCrop(picked);
+      const picked = await pickPlate(source, MAX_MEAL_PHOTOS - photos.length);
+      const ready = picked.filter((p) => p.base64);
+      if (ready.length) setPhotos((prev) => [...prev, ...ready.map((p) => ({ base64: p.base64!, mediaType: p.mediaType, uri: p.uri }))]);
+      const uncropped = picked.filter((p) => !p.base64);
+      if (uncropped.length) setCropQueue((q) => [...q, ...uncropped]);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("foodPlate.error.failed"));
     } finally {
@@ -279,11 +283,13 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
         </>
       ) : null}
 
+      {/* Keyed by photo, so each photo in the queue starts with a fresh crop. */}
       <PlateCropModal
+        key={toCrop?.uri ?? "none"}
         uri={toCrop?.uri ?? null}
-        onCancel={() => setToCrop(null)}
+        onCancel={nextCrop}
         onCropped={(base64, previewUri) => {
-          setToCrop(null);
+          nextCrop();
           setPhotos((prev) => [...prev, { base64, mediaType: "image/jpeg", uri: previewUri }]);
         }}
       />

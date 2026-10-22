@@ -60,7 +60,7 @@ function mediaTypeOf(mime: string | undefined): PickedPlate["mediaType"] {
  * first (the system prompt appears the first time only). Null if cancelled;
  * throws with a readable message if the permission is refused.
  */
-export async function pickPlate(source: PlateSource): Promise<PickedPlate | null> {
+export async function pickPlate(source: PlateSource, limit = 1): Promise<PickedPlate[]> {
   if (source === "camera") {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) throw new Error("Camera access is needed to take a picture. Allow it in your phone's Settings for VAgeWell Care.");
@@ -68,16 +68,22 @@ export async function pickPlate(source: PlateSource): Promise<PickedPlate | null
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) throw new Error("Photo access is needed to choose a picture. Allow it in your phone's Settings for VAgeWell Care.");
   }
+  // Several photos can be chosen from the gallery at once. A phone has no
+  // crop step for a multiple choice, so those photos are used whole.
+  const multiple = source === "gallery" && limit > 1;
   const res =
     source === "camera"
       ? await ImagePicker.launchCameraAsync(PICKER_OPTIONS)
-      : await ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS);
-  if (res.canceled || !res.assets[0]) return null;
-  const a = res.assets[0];
-  // Native: already cropped by the system editor, base64 included.
-  // Web: uncropped; the crop screen makes the base64.
-  const cropped = Platform.OS !== "web" && !!a.base64;
-  return { uri: a.uri, base64: cropped ? (a.base64 ?? null) : null, mediaType: mediaTypeOf(a.mimeType) };
+      : await ImagePicker.launchImageLibraryAsync(
+          multiple ? { ...PICKER_OPTIONS, allowsEditing: false, allowsMultipleSelection: true, selectionLimit: limit } : PICKER_OPTIONS,
+        );
+  if (res.canceled || !res.assets.length) return [];
+  // Native: base64 included (cropped by the system editor for a single photo).
+  // Web: uncropped; the app's crop screen makes the base64.
+  return res.assets.slice(0, limit).map((a) => {
+    const ready = Platform.OS !== "web" && !!a.base64;
+    return { uri: a.uri, base64: ready ? (a.base64 ?? null) : null, mediaType: mediaTypeOf(a.mimeType) };
+  });
 }
 
 /** Send a meal's cropped photos (one or more, e.g. the plate and side bowls) for AI analysis as one meal. Throws an Error with a user-readable message on failure. */
