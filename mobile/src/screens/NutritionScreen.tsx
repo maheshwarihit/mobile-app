@@ -122,6 +122,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
           ) : active.id === "bioMarkers" ? (
             <BioMarkers
               key={dependent?.id ?? "self"}
+              personKey={dependent?.id ?? "self"}
               person={{
                 age: (subject === "self" ? profile?.age : dependent?.age) ?? undefined,
                 gender: (subject === "self" ? profile?.gender : dependent?.gender) ?? undefined,
