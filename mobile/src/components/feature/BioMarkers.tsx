@@ -279,9 +279,6 @@ function ReportResult({ report, result, onRemove }: { report: Report; result: La
 
       <Bullets title={t("bioMarkers.concernsTitle")} items={result.health_concerns} />
       <Bullets title={t("bioMarkers.dietTitle")} items={result.diet_lifestyle} />
-      <Bullets title={t("bioMarkers.questionsTitle")} items={result.doctor_questions} />
-
-      {result.disclaimer ? <Text className="text-[11px] text-gray-400">{result.disclaimer}</Text> : null}
 
       <View className="items-end">
         <RemoveLink onPress={onRemove} />

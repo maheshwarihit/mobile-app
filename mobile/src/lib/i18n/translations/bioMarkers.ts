@@ -34,7 +34,6 @@ export const en = {
   "bioMarkers.explainTitle": "What the unusual results mean",
   "bioMarkers.concernsTitle": "Possible health concerns",
   "bioMarkers.dietTitle": "Diet & lifestyle",
-  "bioMarkers.questionsTitle": "Questions for your doctor",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -73,5 +72,4 @@ export const ta: Record<keyof typeof en, string> = {
   "bioMarkers.explainTitle": "வழக்கத்திற்கு மாறான முடிவுகளின் பொருள்",
   "bioMarkers.concernsTitle": "சாத்தியமான உடல்நலக் கவலைகள்",
   "bioMarkers.dietTitle": "உணவு & வாழ்க்கை முறை",
-  "bioMarkers.questionsTitle": "உங்கள் மருத்துவரிடம் கேட்க வேண்டியவை",
 };
