@@ -29,6 +29,9 @@ export type PlatePerson = {
 
 export type PlateSource = "camera" | "gallery";
 
+/** Most photos one meal can have (the analysis function accepts up to this many). */
+export const MAX_MEAL_PHOTOS = 4;
+
 /**
  * A photo ready to analyse (`base64` set), or one that still needs cropping
  * (`base64` null — the web has no built-in crop step, so the app's own crop
@@ -77,15 +80,14 @@ export async function pickPlate(source: PlateSource): Promise<PickedPlate | null
   return { uri: a.uri, base64: cropped ? (a.base64 ?? null) : null, mediaType: mediaTypeOf(a.mimeType) };
 }
 
-/** Send a cropped plate photo for AI analysis. Throws an Error with a user-readable message on failure. */
+/** Send a meal's cropped photos (one or more, e.g. the plate and side bowls) for AI analysis as one meal. Throws an Error with a user-readable message on failure. */
 export async function analyzePlate(
-  base64: string,
-  mediaType: PickedPlate["mediaType"],
+  photos: { base64: string; mediaType: PickedPlate["mediaType"] }[],
   language: string,
   person: PlatePerson,
 ): Promise<PlateAnalysis> {
   const { data, error } = await supabase.functions.invoke("analyze-food-plate", {
-    body: { image_base64: base64, media_type: mediaType, language, person },
+    body: { images: photos.map((p) => ({ image_base64: p.base64, media_type: p.mediaType })), language, person },
   });
   if (error) {
     // The function's own { error } message, when it sent one.

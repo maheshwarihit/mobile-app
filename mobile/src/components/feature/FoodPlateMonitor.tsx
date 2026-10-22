@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, ArrowLeft, BookOpen, Trash2, ChevronRight, LogOut, Download } from "lucide-react-native";
+import { Camera, ImageUp, ArrowLeft, BookOpen, Trash2, ChevronRight, LogOut, Download, Sparkles } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, WarningBanner, Spinner, ConfirmModal, LoadingState } from "@/components/ui";
 import { PlateCropModal } from "@/components/feature/PlateCropModal";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
+import { PhotoTray } from "@/components/feature/PhotoTray";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
-import { pickPlate, analyzePlate, translatePlate, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
+import { pickPlate, analyzePlate, translatePlate, MAX_MEAL_PHOTOS, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
 import { loadMeals, saveMeal, deleteMeal, addMealTranslation, type SavedMeal } from "@/lib/mealLibrary";
 import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import { loadBodyMetrics } from "@/lib/bodyMetricsStorage";
@@ -72,6 +73,8 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
   const [person, setPerson] = useState<PlatePerson>({});
   const [loaded, setLoaded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // Photos of the meal gathered so far (cropped), waiting for "Analyse meal".
+  const [photos, setPhotos] = useState<{ base64: string; mediaType: PickedPlate["mediaType"]; uri: string }[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -93,12 +96,16 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
     };
   }, [userId, personKey, defaultAge, defaultGender]);
 
-  const analyse = async (base64: string, mediaType: PickedPlate["mediaType"], photoUri: string) => {
+  const analyse = async () => {
+    if (!photos.length) return;
+    const photoUri = photos[0].uri;
+    setError(null);
     setStage({ name: "analyzing", photoUri });
     try {
-      const analysis = await analyzePlate(base64, mediaType, language ?? "en", person);
+      const analysis = await analyzePlate(photos, language ?? "en", person);
       // Only real meals go in the library.
-      const stored = analysis.is_food ? await saveMeal(userId, personKey, photoUri, analysis, language ?? "en") : null;
+      const stored = analysis.is_food ? await saveMeal(userId, personKey, photoUri, analysis, language ?? "en", photos.length) : null;
+      setPhotos([]);
       if (stored) setMeals(stored);
       const meal = stored?.[0] ?? null;
       setStage({
@@ -121,7 +128,7 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
     try {
       const picked = await pickPlate(source);
       if (!picked) return;
-      if (picked.base64) await analyse(picked.base64, picked.mediaType, picked.uri);
+      if (picked.base64) setPhotos((prev) => [...prev, { base64: picked.base64!, mediaType: picked.mediaType, uri: picked.uri }]);
       else setToCrop(picked);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("foodPlate.error.failed"));
@@ -153,13 +160,35 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
               </Pressable>
             </View>
           ) : null}
+          {photos.length ? (
+            <PhotoTray
+              uris={photos.map((p) => p.uri)}
+              hint={t("foodPlate.photosHint", { max: MAX_MEAL_PHOTOS })}
+              onRemove={(i) => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+            />
+          ) : null}
           <View className="gap-3">
-            <PrimaryButton fullWidth icon={Camera} loading={busy === "camera"} disabled={busy !== null} onPress={() => start("camera")}>
-              {t("foodPlate.takePicture")}
-            </PrimaryButton>
-            <OutlineButton fullWidth icon={ImageUp} disabled={busy !== null} onPress={() => start("gallery")}>
-              {t("foodPlate.uploadImage")}
-            </OutlineButton>
+            {photos.length ? (
+              <PrimaryButton fullWidth icon={Sparkles} disabled={busy !== null} onPress={() => void analyse()}>
+                {photos.length > 1 ? t("foodPlate.analyseMeal", { count: photos.length }) : t("foodPlate.analyseMealOne")}
+              </PrimaryButton>
+            ) : null}
+            {photos.length < MAX_MEAL_PHOTOS ? (
+              <>
+                {photos.length ? (
+                  <OutlineButton fullWidth icon={Camera} loading={busy === "camera"} disabled={busy !== null} onPress={() => start("camera")}>
+                    {t("foodPlate.addPhotoCamera")}
+                  </OutlineButton>
+                ) : (
+                  <PrimaryButton fullWidth icon={Camera} loading={busy === "camera"} disabled={busy !== null} onPress={() => start("camera")}>
+                    {t("foodPlate.takePicture")}
+                  </PrimaryButton>
+                )}
+                <OutlineButton fullWidth icon={ImageUp} disabled={busy !== null} onPress={() => start("gallery")}>
+                  {photos.length ? t("foodPlate.addPhotoUpload") : t("foodPlate.uploadImage")}
+                </OutlineButton>
+              </>
+            ) : null}
           </View>
           {error ? <ErrorBanner message={error} /> : null}
         </Card>
@@ -255,7 +284,7 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
         onCancel={() => setToCrop(null)}
         onCropped={(base64, previewUri) => {
           setToCrop(null);
-          void analyse(base64, "image/jpeg", previewUri);
+          setPhotos((prev) => [...prev, { base64, mediaType: "image/jpeg", uri: previewUri }]);
         }}
       />
 
@@ -317,7 +346,12 @@ function LibraryMealCard({
         photoUri={meal.photoUri}
         analysis={shown}
         savedAt={meal.savedAt}
-        dateLine={t("foodPlate.uploadedAt", { date: formatLocalDateTime(meal.savedAt) })}
+        dateLine={[
+          t("foodPlate.uploadedAt", { date: formatLocalDateTime(meal.savedAt) }),
+          (meal.photoCount ?? 1) > 1 ? t("foodPlate.photoCount", { count: meal.photoCount ?? 1 }) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         onDelete={onDelete}
       />
     </View>

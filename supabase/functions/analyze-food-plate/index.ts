@@ -16,8 +16,8 @@
 //   supabase functions deploy analyze-food-plate
 //
 // Request  (POST, JSON, signed-in user's JWT in Authorization):
-//   { image_base64: string,
-//     media_type: "image/jpeg"|"image/png"|"image/webp",
+//   { images: [{ image_base64: string, media_type: "image/jpeg"|"image/png"|"image/webp" }]  (1–4 photos of one meal)
+//     — or a single image_base64 + media_type —
 //     language?: "en"|"ta",
 //     person?: { age?: number, gender?: string, height_cm?: number, weight_kg?: number, activity_level?: string } }
 //   or, to translate a saved result into the other language (no image):
@@ -42,6 +42,29 @@ const json = (body: unknown, status = 200) =>
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 // ~5 MB of image once decoded; the app sends a cropped, downsized JPEG far below this.
 const MAX_BASE64_CHARS = 7_000_000;
+
+// One or more images: `images: [{ image_base64, media_type }]` (up to 4
+// photos of one meal, e.g. the plate and side bowls), or the original single `image_base64` + `media_type`.
+type InImage = { data: string; media_type: (typeof MEDIA_TYPES)[number] };
+const MAX_IMAGES = 4;
+// Whole request, all images together.
+const MAX_TOTAL_BASE64_CHARS = 24_000_000;
+function readImages(body: { image_base64?: unknown; media_type?: unknown; images?: unknown }): InImage[] | string {
+  const raw = Array.isArray(body.images) ? body.images : [{ image_base64: body.image_base64, media_type: body.media_type }];
+  if (raw.length === 0 || raw.length > MAX_IMAGES) return `Send between 1 and ${MAX_IMAGES} images.`;
+  const out: InImage[] = [];
+  let total = 0;
+  for (const item of raw) {
+    const data = item && typeof item.image_base64 === "string" ? item.image_base64 : "";
+    const media_type = MEDIA_TYPES.find((m) => m === item?.media_type);
+    if (!data || !media_type) return "Send JPEG, PNG or WEBP images.";
+    if (data.length > MAX_BASE64_CHARS) return "One of the images is too large. Please try a smaller photo.";
+    total += data.length;
+    out.push({ data, media_type });
+  }
+  if (total > MAX_TOTAL_BASE64_CHARS) return "The images are too large together. Please send fewer or smaller photos.";
+  return out;
+}
 
 const PlateAnalysis = z.object({
   is_food: z.boolean().describe("false when the photo does not show food or a meal"),
@@ -156,7 +179,7 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json({ error: "Please sign in to analyse a plate." }, 401);
 
-  let body: { image_base64?: unknown; media_type?: unknown; language?: unknown; person?: unknown; translate?: unknown };
+  let body: { image_base64?: unknown; media_type?: unknown; images?: unknown; language?: unknown; person?: unknown; translate?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -190,10 +213,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  const imageBase64 = typeof body.image_base64 === "string" ? body.image_base64 : "";
-  const mediaType = MEDIA_TYPES.find((m) => m === body.media_type);
-  if (!imageBase64 || !mediaType) return json({ error: "Send a JPEG, PNG or WEBP image." }, 400);
-  if (imageBase64.length > MAX_BASE64_CHARS) return json({ error: "The image is too large. Crop it closer to the plate and try again." }, 413);
+  const images = readImages(body);
+  if (typeof images === "string") return json({ error: images }, 400);
 
   try {
     const response = await anthropic.beta.messages.create({
@@ -210,10 +231,10 @@ Deno.serve(async (req) => {
         {
           role: "user",
           content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
+            ...images.map((img) => ({ type: "image" as const, source: { type: "base64" as const, media_type: img.media_type, data: img.data } })),
             {
               type: "text",
-              text: `For the uploaded image, use the Food Compass Score algorithm as the main calculation algorithm and, based on the age, height, weight and gender below, calculate the meal quality of the food plate in the image. Return: the calorie count of the plate, protein, carbs, fats, the daily needed micronutrients, a meal score out of 100, and recommendations on what is missing.
+              text: `${images.length > 1 ? `The ${images.length} photos above together show one meal (for example the plate and its side bowls). Treat them as one meal: count each food once, even if it appears in more than one photo, and give totals for the whole meal.\n\n` : ""}For the uploaded image, use the Food Compass Score algorithm as the main calculation algorithm and, based on the age, height, weight and gender below, calculate the meal quality of the food plate in the image. Return: the calorie count of the plate, protein, carbs, fats, the daily needed micronutrients, a meal score out of 100, and recommendations on what is missing.
 
 The person:
 ${describePerson(body.person)}

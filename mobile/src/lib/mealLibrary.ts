@@ -12,6 +12,8 @@ export type SavedMeal = {
   /** A small copy of the photo that survives a restart: a data: URL on the web, a file in the app's documents on a phone. */
   photoUri: string;
   analysis: PlateAnalysis;
+  /** How many photos the meal had (only the first is kept as the picture). */
+  photoCount?: number;
   /** The language the AI wrote it in (missing on items saved before this was recorded). */
   language?: Language;
   /** Translations into the other language, made when the app was switched to it. */
@@ -87,6 +89,7 @@ export async function saveMeal(
   photoUri: string,
   analysis: PlateAnalysis,
   language: Language,
+  photoCount = 1,
 ): Promise<SavedMeal[] | null> {
   const savedAt = new Date().toISOString();
   const id = savedAt.replace(/[^0-9]/g, "");
@@ -98,7 +101,7 @@ export async function saveMeal(
   }
   return serial(async () => {
     const existing = await loadMeals(userId, personKey);
-    const next: SavedMeal[] = [{ id, savedAt, photoUri: kept, analysis, language }, ...existing];
+    const next: SavedMeal[] = [{ id, savedAt, photoUri: kept, analysis, language, photoCount }, ...existing];
     const dropped = next.splice(MAX_MEALS);
     if (!(await writeMeals(userId, personKey, next))) return null;
     for (const meal of dropped) void removePhoto(meal.photoUri);
