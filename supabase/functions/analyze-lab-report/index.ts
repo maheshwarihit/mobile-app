@@ -89,9 +89,16 @@ RULES:
 - NEVER give a final diagnosis or prescribe medicines or dosages.
 - If any value is Critical, set urgency "Urgent" and advise seeing a doctor immediately.
 - Do not invent values. If a value is unclear, set its value to "unclear" and its status to "Unclear".
-- Respond in the language requested (default English). Test names, values, units and ranges stay exactly as printed.
 - Always end with the disclaimer: say this is not a diagnosis and the report should be reviewed with a doctor.
 - When status is "unreadable", leave every list empty, use "Other" and "Routine", and still give the disclaimer.`;
+
+// The answer's language, as a firm rule of its own: a one-line request at the
+// end of the message alone is often ignored, since the report, the schema and
+// the instructions are all in English.
+function languageRule(language: "English" | "Tamil"): string {
+  if (language === "English") return "LANGUAGE: Write everything in English.";
+  return `LANGUAGE: Write in Tamil, using Tamil script. This applies to every sentence you write: summary, what_it_measures, possible_causes, health_concerns, diet_lifestyle, doctor_questions, unreadable_reason, retake_tip and disclaimer. Do not write those in English. Only test names, values, units and reference ranges stay exactly as printed on the report. Use simple, everyday Tamil that a family member would understand.`;
+}
 
 type Person = { age?: number; gender?: string };
 
@@ -129,7 +136,7 @@ Deno.serve(async (req) => {
   const mediaType = MEDIA_TYPES.find((m) => m === body.media_type);
   if (!imageBase64 || !mediaType) return json({ error: "Send a JPEG, PNG or WEBP image." }, 400);
   if (imageBase64.length > MAX_BASE64_CHARS) return json({ error: "The image is too large. Please try a smaller photo." }, 413);
-  const language = body.language === "ta" ? "Tamil" : "English";
+  const language: "English" | "Tamil" = body.language === "ta" ? "Tamil" : "English";
 
   try {
     const response = await anthropic.beta.messages.create({
@@ -141,7 +148,7 @@ Deno.serve(async (req) => {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       output_config: { effort: "medium", format: zodOutputFormat(LabReport) },
-      system: SYSTEM,
+      system: `${SYSTEM}\n\n${languageRule(language)}`,
       messages: [
         {
           role: "user",
@@ -154,7 +161,7 @@ Deno.serve(async (req) => {
 The patient:
 ${describePerson(body.person)}
 
-Respond in ${language}.`,
+Write your answer in ${language}${language === "Tamil" ? " (Tamil script)" : ""}.`,
             },
           ],
         },
