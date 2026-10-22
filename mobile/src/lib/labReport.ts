@@ -31,6 +31,9 @@ export type LabReport = {
 export type ReportSource = "camera" | "gallery";
 export type PickedReport = { uri: string; base64: string; mediaType: "image/jpeg" };
 
+/** Most pages one report can have (the reading function accepts up to this many). */
+export const MAX_REPORT_PAGES = 6;
+
 // Long enough edge to keep small print readable, small enough to send quickly.
 const MAX_SIDE = 2000;
 
@@ -51,11 +54,12 @@ async function webJpegBase64(uri: string): Promise<string> {
 }
 
 /**
- * Take or choose a photo of a lab report (whole page, no crop), asking for
- * the camera / photo permission first. Null if cancelled; throws with a
- * readable message if the permission is refused.
+ * Take a photo of a report page, or choose one or more page photos (whole
+ * pages, no crop), asking for the camera / photo permission first. Empty if
+ * cancelled; throws with a readable message if the permission is refused.
+ * `limit` caps how many can be chosen at once.
  */
-export async function pickReport(source: ReportSource): Promise<PickedReport | null> {
+export async function pickReport(source: ReportSource, limit = MAX_REPORT_PAGES): Promise<PickedReport[]> {
   if (source === "camera") {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) throw new Error("Camera access is needed to take a picture. Allow it in your phone's Settings for VAgeWell Care.");
@@ -64,17 +68,23 @@ export async function pickReport(source: ReportSource): Promise<PickedReport | n
     if (!perm.granted) throw new Error("Photo access is needed to choose a picture. Allow it in your phone's Settings for VAgeWell Care.");
   }
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.7, base64: Platform.OS !== "web" };
-  const res = source === "camera" ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
-  if (res.canceled || !res.assets[0]) return null;
-  const a = res.assets[0];
-  const base64 = Platform.OS === "web" ? await webJpegBase64(a.uri) : (a.base64 ?? "");
-  if (!base64) throw new Error("Could not read the picture. Please try again.");
-  return { uri: a.uri, base64, mediaType: "image/jpeg" };
+  const res =
+    source === "camera"
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync({ ...options, allowsMultipleSelection: limit > 1, selectionLimit: limit });
+  if (res.canceled || !res.assets.length) return [];
+  const pages: PickedReport[] = [];
+  for (const a of res.assets.slice(0, limit)) {
+    const base64 = Platform.OS === "web" ? await webJpegBase64(a.uri) : (a.base64 ?? "");
+    if (!base64) throw new Error("Could not read the picture. Please try again.");
+    pages.push({ uri: a.uri, base64, mediaType: "image/jpeg" });
+  }
+  return pages;
 }
 
-/** Send a report photo for AI reading. Throws an Error with a user-readable message on failure. */
+/** Send a report's page photos (in order) for AI reading as one report. Throws an Error with a user-readable message on failure. */
 export async function analyzeReport(
-  base64: string,
+  pages: string[],
   language: string,
   person: { age?: number; gender?: string },
 ): Promise<LabReport> {
@@ -82,7 +92,7 @@ export async function analyzeReport(
   // deployed with an auto-generated name and a function's address never
   // changes, so it is reached at /functions/v1/hyper-function.
   const { data, error } = await supabase.functions.invoke("hyper-function", {
-    body: { image_base64: base64, media_type: "image/jpeg", language, person },
+    body: { images: pages.map((image_base64) => ({ image_base64, media_type: "image/jpeg" })), language, person },
   });
   if (error) {
     // The function's own { error } message, when it sent one.

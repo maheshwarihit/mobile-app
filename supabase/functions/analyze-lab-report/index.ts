@@ -12,8 +12,8 @@
 // Deploy: supabase functions deploy analyze-lab-report
 //
 // Request  (POST, JSON, signed-in user's JWT in Authorization):
-//   { image_base64: string,
-//     media_type: "image/jpeg"|"image/png"|"image/webp",
+//   { images: [{ image_base64: string, media_type: "image/jpeg"|"image/png"|"image/webp" }]  (1–6 pages of one report, in order)
+//     — or a single image_base64 + media_type —
 //     language?: "en"|"ta",
 //     person?: { age?: number, gender?: string } }
 //   or, to translate a saved reading into the other language (no image):
@@ -38,6 +38,29 @@ const json = (body: unknown, status = 200) =>
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 // ~5 MB of image once decoded.
 const MAX_BASE64_CHARS = 7_000_000;
+
+// One or more images: `images: [{ image_base64, media_type }]` (up to 6
+// pages of one report, in order), or the original single `image_base64` + `media_type`.
+type InImage = { data: string; media_type: (typeof MEDIA_TYPES)[number] };
+const MAX_IMAGES = 6;
+// Whole request, all images together.
+const MAX_TOTAL_BASE64_CHARS = 24_000_000;
+function readImages(body: { image_base64?: unknown; media_type?: unknown; images?: unknown }): InImage[] | string {
+  const raw = Array.isArray(body.images) ? body.images : [{ image_base64: body.image_base64, media_type: body.media_type }];
+  if (raw.length === 0 || raw.length > MAX_IMAGES) return `Send between 1 and ${MAX_IMAGES} images.`;
+  const out: InImage[] = [];
+  let total = 0;
+  for (const item of raw) {
+    const data = item && typeof item.image_base64 === "string" ? item.image_base64 : "";
+    const media_type = MEDIA_TYPES.find((m) => m === item?.media_type);
+    if (!data || !media_type) return "Send JPEG, PNG or WEBP images.";
+    if (data.length > MAX_BASE64_CHARS) return "One of the images is too large. Please try a smaller photo.";
+    total += data.length;
+    out.push({ data, media_type });
+  }
+  if (total > MAX_TOTAL_BASE64_CHARS) return "The images are too large together. Please send fewer or smaller photos.";
+  return out;
+}
 
 const TestResult = z.object({
   name: z.string().describe("Test name as on the report, e.g. Haemoglobin"),
@@ -157,7 +180,7 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json({ error: "Please sign in to read a report." }, 401);
 
-  let body: { image_base64?: unknown; media_type?: unknown; language?: unknown; person?: unknown; translate?: unknown };
+  let body: { image_base64?: unknown; media_type?: unknown; images?: unknown; language?: unknown; person?: unknown; translate?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -191,10 +214,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  const imageBase64 = typeof body.image_base64 === "string" ? body.image_base64 : "";
-  const mediaType = MEDIA_TYPES.find((m) => m === body.media_type);
-  if (!imageBase64 || !mediaType) return json({ error: "Send a JPEG, PNG or WEBP image." }, 400);
-  if (imageBase64.length > MAX_BASE64_CHARS) return json({ error: "The image is too large. Please try a smaller photo." }, 413);
+  const images = readImages(body);
+  if (typeof images === "string") return json({ error: images }, 400);
 
   try {
     const response = await anthropic.beta.messages.create({
@@ -211,10 +232,10 @@ Deno.serve(async (req) => {
         {
           role: "user",
           content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
+            ...images.map((img) => ({ type: "image" as const, source: { type: "base64" as const, media_type: img.media_type, data: img.data } })),
             {
               type: "text",
-              text: `Read this lab report.
+              text: `${images.length > 1 ? `Read this lab report. The ${images.length} images above are its pages, in order; treat them as one report, list each test once, and give one summary.` : "Read this lab report."}
 
 The patient:
 ${describePerson(body.person)}

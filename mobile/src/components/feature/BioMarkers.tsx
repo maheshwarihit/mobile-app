@@ -4,9 +4,10 @@ import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, LoadingState, Spinner } from "@/components/ui";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
+import { PhotoTray } from "@/components/feature/PhotoTray";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
-import { pickReport, analyzeReport, translateReport, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
+import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, type PickedReport, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
 import { loadReports, saveReport, deleteReport, addReportTranslation, type SavedReport } from "@/lib/reportLibrary";
 import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import type { Language } from "@/lib/i18n";
@@ -18,7 +19,8 @@ import { BRAND } from "@/theme";
 type Pending = {
   id: string;
   uri: string;
-  base64: string;
+  /** Every page, in order. */
+  pages: string[];
   addedAt: string;
   phase: "analysing" | "error" | "done";
   result?: LabReport;
@@ -73,6 +75,8 @@ export function BioMarkers({
   const [pending, setPending] = useState<Pending[]>([]);
   const [busy, setBusy] = useState<ReportSource | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Pages of the next report gathered so far, waiting for "Read report".
+  const [draft, setDraft] = useState<PickedReport[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -92,11 +96,11 @@ export function BioMarkers({
   const read = async (item: Pending) => {
     update(item.id, { phase: "analysing", error: undefined });
     try {
-      const result = await analyzeReport(item.base64, language ?? "en", person);
+      const result = await analyzeReport(item.pages, language ?? "en", person);
       // A report that could be read goes into the library; an unreadable photo
       // stays here only, with its retake tip.
       if (result.status === "ok") {
-        const next = await saveReport(userId, personKey, item.uri, result, language ?? "en");
+        const next = await saveReport(userId, personKey, item.uri, result, language ?? "en", item.pages.length);
         if (next) {
           setSaved(next);
           dropPending(item.id);
@@ -113,18 +117,29 @@ export function BioMarkers({
     setError(null);
     setBusy(source);
     try {
-      const picked = await pickReport(source);
-      if (!picked) return;
-      const now = new Date().toISOString();
-      const item: Pending = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, uri: picked.uri, base64: picked.base64, addedAt: now, phase: "analysing" };
-      setPending((prev) => [item, ...prev]);
-      setBusy(null);
-      void read(item);
+      const picked = await pickReport(source, MAX_REPORT_PAGES - draft.length);
+      if (picked.length) setDraft((prev) => [...prev, ...picked].slice(0, MAX_REPORT_PAGES));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("bioMarkers.error.failed"));
     } finally {
       setBusy(null);
     }
+  };
+
+  // Send the gathered pages as one report.
+  const readDraft = () => {
+    if (!draft.length) return;
+    const now = new Date().toISOString();
+    const item: Pending = {
+      id: `${now}-${Math.random().toString(36).slice(2, 7)}`,
+      uri: draft[0].uri,
+      pages: draft.map((p) => p.base64),
+      addedAt: now,
+      phase: "analysing",
+    };
+    setDraft([]);
+    setPending((prev) => [item, ...prev]);
+    void read(item);
   };
 
   const removeSaved = async (id: string) => setSaved(await deleteReport(userId, personKey, id));
@@ -143,13 +158,35 @@ export function BioMarkers({
             <Text className="text-sm text-gray-500">{t("bioMarkers.addHint")}</Text>
           </View>
         </View>
+        {draft.length ? (
+          <PhotoTray
+            uris={draft.map((p) => p.uri)}
+            hint={t("bioMarkers.pagesHint", { max: MAX_REPORT_PAGES })}
+            onRemove={(i) => setDraft((prev) => prev.filter((_, j) => j !== i))}
+          />
+        ) : null}
         <View className="gap-3">
-          <PrimaryButton fullWidth icon={Camera} loading={busy === "camera"} disabled={busy !== null} onPress={() => add("camera")}>
-            {t("bioMarkers.takePicture")}
-          </PrimaryButton>
-          <OutlineButton fullWidth icon={ImageUp} disabled={busy !== null} onPress={() => add("gallery")}>
-            {t("bioMarkers.uploadImage")}
-          </OutlineButton>
+          {draft.length ? (
+            <PrimaryButton fullWidth icon={FlaskConical} disabled={busy !== null} onPress={readDraft}>
+              {draft.length > 1 ? t("bioMarkers.readReport", { count: draft.length }) : t("bioMarkers.readReportOne")}
+            </PrimaryButton>
+          ) : null}
+          {draft.length < MAX_REPORT_PAGES ? (
+            <>
+              {draft.length ? (
+                <OutlineButton fullWidth icon={Camera} loading={busy === "camera"} disabled={busy !== null} onPress={() => add("camera")}>
+                  {t("bioMarkers.addPageCamera")}
+                </OutlineButton>
+              ) : (
+                <PrimaryButton fullWidth icon={Camera} loading={busy === "camera"} disabled={busy !== null} onPress={() => add("camera")}>
+                  {t("bioMarkers.takePicture")}
+                </PrimaryButton>
+              )}
+              <OutlineButton fullWidth icon={ImageUp} disabled={busy !== null} onPress={() => add("gallery")}>
+                {draft.length ? t("bioMarkers.addPageUpload") : t("bioMarkers.uploadImage")}
+              </OutlineButton>
+            </>
+          ) : null}
         </View>
         {error ? <ErrorBanner message={error} /> : null}
       </Card>
@@ -171,7 +208,7 @@ export function BioMarkers({
           </Card>
         ) : r.result ? (
           <View key={r.id} className="gap-2">
-            <ReportResult uri={r.uri} addedAt={r.addedAt} result={r.result} />
+            <ReportResult uri={r.uri} addedAt={r.addedAt} pages={r.pages.length} result={r.result} />
             <View className="items-end">
               <RemoveLink onPress={() => dropPending(r.id)} />
             </View>
@@ -246,7 +283,7 @@ function SavableReport({
         </View>
       ) : null}
       <View ref={cardRef} collapsable={false}>
-        <ReportResult uri={report.photoUri} addedAt={report.savedAt} result={shown} />
+        <ReportResult uri={report.photoUri} addedAt={report.savedAt} pages={report.pages} result={shown} />
       </View>
       <View className="flex-row items-center justify-between">
         <Pressable onPress={() => void download()} disabled={saving} hitSlop={8} accessibilityRole="button" className="flex-row items-center gap-1 active:opacity-70">
@@ -259,7 +296,19 @@ function SavableReport({
   );
 }
 
-function ReportHeader({ uri, addedAt, title, badge }: { uri: string; addedAt: string; title?: string; badge?: React.ReactNode }) {
+function ReportHeader({
+  uri,
+  addedAt,
+  pages = 1,
+  title,
+  badge,
+}: {
+  uri: string;
+  addedAt: string;
+  pages?: number;
+  title?: string;
+  badge?: React.ReactNode;
+}) {
   const { t } = useLanguage();
   return (
     <View className="flex-row items-center gap-3">
@@ -268,7 +317,10 @@ function ReportHeader({ uri, addedAt, title, badge }: { uri: string; addedAt: st
       </View>
       <View className="flex-1 gap-0.5">
         {title ? <Text className="text-base font-bold text-gray-900">{title}</Text> : null}
-        <Text className="text-xs text-gray-500">{t("bioMarkers.addedAt", { date: formatLocalDateTime(addedAt) })}</Text>
+        <Text className="text-xs text-gray-500">
+          {t("bioMarkers.addedAt", { date: formatLocalDateTime(addedAt) })}
+          {pages > 1 ? ` · ${t("bioMarkers.pageCount", { count: pages })}` : ""}
+        </Text>
       </View>
       {badge}
     </View>
@@ -312,13 +364,13 @@ function Bullets({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function ReportResult({ uri, addedAt, result }: { uri: string; addedAt: string; result: LabReport }) {
+function ReportResult({ uri, addedAt, pages, result }: { uri: string; addedAt: string; pages?: number; result: LabReport }) {
   const { t } = useLanguage();
 
   if (result.status === "unreadable") {
     return (
       <Card className="gap-3 p-4">
-        <ReportHeader uri={uri} addedAt={addedAt} title={t("bioMarkers.unreadableTitle")} />
+        <ReportHeader uri={uri} addedAt={addedAt} pages={pages} title={t("bioMarkers.unreadableTitle")} />
         {result.unreadable_reason ? <Text className="text-sm text-gray-700">{result.unreadable_reason}</Text> : null}
         {result.retake_tip ? (
           <View className="rounded-xl bg-amber-50 p-3">
@@ -334,7 +386,7 @@ function ReportResult({ uri, addedAt, result }: { uri: string; addedAt: string; 
 
   return (
     <Card className="gap-4 p-4">
-      <ReportHeader uri={uri} addedAt={addedAt} title={title} badge={<Pill fg={urgency.fg} bg={urgency.bg} label={t(urgency.key)} />} />
+      <ReportHeader uri={uri} addedAt={addedAt} pages={pages} title={title} badge={<Pill fg={urgency.fg} bg={urgency.bg} label={t(urgency.key)} />} />
 
       {result.urgency === "Urgent" ? (
         <View className="flex-row items-start gap-2 rounded-xl p-3" style={{ backgroundColor: "#FDE8E7" }}>

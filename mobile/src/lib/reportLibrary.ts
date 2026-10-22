@@ -12,6 +12,8 @@ export type SavedReport = {
   /** A small copy of the report photo that survives a restart: a data: URL on the web, a file in the app's documents on a phone. */
   photoUri: string;
   result: LabReport;
+  /** How many pages the report had (only the first is kept as the picture). */
+  pages?: number;
   /** The language the AI wrote it in (missing on items saved before this was recorded). */
   language?: Language;
   /** Translations into the other language, made when the app was switched to it. */
@@ -91,6 +93,7 @@ export async function saveReport(
   photoUri: string,
   result: LabReport,
   language: Language,
+  pages = 1,
 ): Promise<SavedReport[] | null> {
   const savedAt = new Date().toISOString();
   const id = savedAt.replace(/[^0-9]/g, "");
@@ -102,7 +105,7 @@ export async function saveReport(
   }
   return serial(async () => {
     const existing = await loadReports(userId, personKey);
-    const next: SavedReport[] = [{ id, savedAt, photoUri: kept, result, language }, ...existing];
+    const next: SavedReport[] = [{ id, savedAt, photoUri: kept, result, language, pages }, ...existing];
     const dropped = next.splice(MAX_REPORTS);
     if (!(await writeReports(userId, personKey, next))) return null;
     for (const r of dropped) void removePhoto(r.photoUri);
