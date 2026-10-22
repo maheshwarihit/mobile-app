@@ -87,7 +87,15 @@ export async function analyzePlate(
   person: PlatePerson,
 ): Promise<PlateAnalysis> {
   const { data, error } = await supabase.functions.invoke("analyze-food-plate", {
-    body: { images: photos.map((p) => ({ image_base64: p.base64, media_type: p.mediaType })), language, person },
+    body: {
+      images: photos.map((p) => ({ image_base64: p.base64, media_type: p.mediaType })),
+      // The first photo again in the original single-image fields, so a
+      // function deployed before multi-photo support still works.
+      image_base64: photos[0]?.base64,
+      media_type: photos[0]?.mediaType,
+      language,
+      person,
+    },
   });
   if (error) {
     // The function's own { error } message, when it sent one.

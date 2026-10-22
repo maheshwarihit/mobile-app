@@ -92,7 +92,15 @@ export async function analyzeReport(
   // deployed with an auto-generated name and a function's address never
   // changes, so it is reached at /functions/v1/hyper-function.
   const { data, error } = await supabase.functions.invoke("hyper-function", {
-    body: { images: pages.map((image_base64) => ({ image_base64, media_type: "image/jpeg" })), language, person },
+    body: {
+      images: pages.map((image_base64) => ({ image_base64, media_type: "image/jpeg" })),
+      // The first page again in the original single-image fields, so a
+      // function deployed before multi-page support still works.
+      image_base64: pages[0],
+      media_type: "image/jpeg",
+      language,
+      person,
+    },
   });
   if (error) {
     // The function's own { error } message, when it sent one.
