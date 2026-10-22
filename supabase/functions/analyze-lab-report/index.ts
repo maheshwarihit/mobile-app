@@ -16,6 +16,8 @@
 //     media_type: "image/jpeg"|"image/png"|"image/webp",
 //     language?: "en"|"ta",
 //     person?: { age?: number, gender?: string } }
+//   or, to translate a saved reading into the other language (no image):
+//   { translate: LabReport, language: "en"|"ta" }
 // Response 200: LabReport (see schema below)
 // Response 4xx/5xx: { error: string }
 
@@ -100,6 +102,35 @@ function languageRule(language: "English" | "Tamil"): string {
   return `LANGUAGE: Write in Tamil, using Tamil script. This applies to every sentence you write: summary, what_it_measures, possible_causes, health_concerns, diet_lifestyle, doctor_questions, unreadable_reason, retake_tip and disclaimer. Do not write those in English. Only test names, values, units and reference ranges stay exactly as printed on the report. Use simple, everyday Tamil that a family member would understand.`;
 }
 
+// Only the explanatory text is translated; test names, values, units, ranges
+// and every status word are copied from the original so nothing can drift.
+function translateSystem(language: "English" | "Tamil"): string {
+  return `You translate a lab report reading for VAgeWell Care into ${language}${language === "Tamil" ? " (Tamil script)" : ""}. You are given the reading as JSON. Return the same JSON with these fields translated: unreadable_reason, retake_tip, summary, abnormal_explanations[].what_it_measures, abnormal_explanations[].possible_causes, health_concerns, diet_lifestyle, doctor_questions and disclaimer. Keep every other field exactly as given. Keep the meaning, use simple everyday language, and keep every list the same length and order.`;
+}
+
+type LabReportT = z.infer<typeof LabReport>;
+function mergeTranslation(orig: LabReportT, tr: LabReportT): LabReportT {
+  const explanations =
+    tr.abnormal_explanations.length === orig.abnormal_explanations.length
+      ? orig.abnormal_explanations.map((e, i) => ({
+          ...e,
+          what_it_measures: tr.abnormal_explanations[i].what_it_measures,
+          possible_causes: tr.abnormal_explanations[i].possible_causes,
+        }))
+      : orig.abnormal_explanations;
+  return {
+    ...orig,
+    unreadable_reason: tr.unreadable_reason,
+    retake_tip: tr.retake_tip,
+    summary: tr.summary,
+    abnormal_explanations: explanations,
+    health_concerns: tr.health_concerns,
+    diet_lifestyle: tr.diet_lifestyle,
+    doctor_questions: tr.doctor_questions,
+    disclaimer: tr.disclaimer,
+  };
+}
+
 type Person = { age?: number; gender?: string };
 
 // Only plain, bounded values reach the prompt.
@@ -126,17 +157,44 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json({ error: "Please sign in to read a report." }, 401);
 
-  let body: { image_base64?: unknown; media_type?: unknown; language?: unknown; person?: unknown };
+  let body: { image_base64?: unknown; media_type?: unknown; language?: unknown; person?: unknown; translate?: unknown };
   try {
     body = await req.json();
   } catch {
     return json({ error: "Invalid request." }, 400);
   }
+  const language: "English" | "Tamil" = body.language === "ta" ? "Tamil" : "English";
+
+  // Translate a saved reading (text only, no image).
+  if (body.translate !== undefined) {
+    const original = LabReport.safeParse(body.translate);
+    if (!original.success) return json({ error: "Invalid request." }, 400);
+    try {
+      const response = await anthropic.beta.messages.create({
+        model: "claude-opus-5-5",
+        max_tokens: 16000,
+        thinking: { type: "adaptive" },
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low", format: zodOutputFormat(LabReport) },
+        system: translateSystem(language),
+        messages: [{ role: "user", content: JSON.stringify(original.data) }],
+      });
+      const text = response.content.find((b) => b.type === "text");
+      if (response.stop_reason !== "end_turn" || !text || text.type !== "text") return json({ error: "Could not translate. Please try again." }, 502);
+      const translated = LabReport.safeParse(JSON.parse(text.text));
+      if (!translated.success) return json({ error: "Could not translate. Please try again." }, 502);
+      return json(mergeTranslation(original.data, translated.data));
+    } catch (error) {
+      console.error("analyze-lab-report translate error:", error);
+      return json({ error: "Could not translate. Please try again." }, 502);
+    }
+  }
+
   const imageBase64 = typeof body.image_base64 === "string" ? body.image_base64 : "";
   const mediaType = MEDIA_TYPES.find((m) => m === body.media_type);
   if (!imageBase64 || !mediaType) return json({ error: "Send a JPEG, PNG or WEBP image." }, 400);
   if (imageBase64.length > MAX_BASE64_CHARS) return json({ error: "The image is too large. Please try a smaller photo." }, 413);
-  const language: "English" | "Tamil" = body.language === "ta" ? "Tamil" : "English";
 
   try {
     const response = await anthropic.beta.messages.create({

@@ -20,6 +20,8 @@
 //     media_type: "image/jpeg"|"image/png"|"image/webp",
 //     language?: "en"|"ta",
 //     person?: { age?: number, gender?: string, height_cm?: number, weight_kg?: number, activity_level?: string } }
+//   or, to translate a saved result into the other language (no image):
+//   { translate: PlateAnalysis, language: "en"|"ta" }
 // Response 200: PlateAnalysis (see schema below)
 // Response 4xx/5xx: { error: string }
 
@@ -88,6 +90,26 @@ function languageRule(language: "English" | "Tamil"): string {
   return `LANGUAGE: Write in Tamil, using Tamil script. This applies to dish_summary, items, micronutrient names, missing and recommendations. Do not write those in English. Numbers and units (kcal, g, mg) stay as they are. Use simple, everyday Tamil.`;
 }
 
+// Only the words are translated; every number is copied from the original.
+function translateSystem(language: "English" | "Tamil"): string {
+  return `You translate a meal analysis for VAgeWell Care into ${language}${language === "Tamil" ? " (Tamil script)" : ""}. You are given it as JSON. Return the same JSON with these fields translated: dish_summary, items, micronutrients[].name, missing and recommendations. Keep every number and unit exactly as given, keep the meaning, use simple everyday language, and keep every list the same length and order. Keep each recommendation a short phrase.`;
+}
+
+type PlateAnalysisT = z.infer<typeof PlateAnalysis>;
+function mergeTranslation(orig: PlateAnalysisT, tr: PlateAnalysisT): PlateAnalysisT {
+  return {
+    ...orig,
+    dish_summary: tr.dish_summary,
+    items: tr.items,
+    micronutrients:
+      tr.micronutrients.length === orig.micronutrients.length
+        ? orig.micronutrients.map((m, i) => ({ ...m, name: tr.micronutrients[i].name }))
+        : orig.micronutrients,
+    missing: tr.missing,
+    recommendations: tr.recommendations,
+  };
+}
+
 type Person = { age?: number; gender?: string; height_cm?: number; weight_kg?: number; activity_level?: string };
 
 // Only plain, bounded values reach the prompt.
@@ -134,17 +156,44 @@ Deno.serve(async (req) => {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json({ error: "Please sign in to analyse a plate." }, 401);
 
-  let body: { image_base64?: unknown; media_type?: unknown; language?: unknown; person?: unknown };
+  let body: { image_base64?: unknown; media_type?: unknown; language?: unknown; person?: unknown; translate?: unknown };
   try {
     body = await req.json();
   } catch {
     return json({ error: "Invalid request." }, 400);
   }
+  const language: "English" | "Tamil" = body.language === "ta" ? "Tamil" : "English";
+
+  // Translate a saved result (text only, no image).
+  if (body.translate !== undefined) {
+    const original = PlateAnalysis.safeParse(body.translate);
+    if (!original.success) return json({ error: "Invalid request." }, 400);
+    try {
+      const response = await anthropic.beta.messages.create({
+        model: "claude-opus-5-5",
+        max_tokens: 16000,
+        thinking: { type: "adaptive" },
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low", format: zodOutputFormat(PlateAnalysis) },
+        system: translateSystem(language),
+        messages: [{ role: "user", content: JSON.stringify(original.data) }],
+      });
+      const text = response.content.find((b) => b.type === "text");
+      if (response.stop_reason !== "end_turn" || !text || text.type !== "text") return json({ error: "Could not translate. Please try again." }, 502);
+      const translated = PlateAnalysis.safeParse(JSON.parse(text.text));
+      if (!translated.success) return json({ error: "Could not translate. Please try again." }, 502);
+      return json(mergeTranslation(original.data, translated.data));
+    } catch (error) {
+      console.error("analyze-food-plate translate error:", error);
+      return json({ error: "Could not translate. Please try again." }, 502);
+    }
+  }
+
   const imageBase64 = typeof body.image_base64 === "string" ? body.image_base64 : "";
   const mediaType = MEDIA_TYPES.find((m) => m === body.media_type);
   if (!imageBase64 || !mediaType) return json({ error: "Send a JPEG, PNG or WEBP image." }, 400);
   if (imageBase64.length > MAX_BASE64_CHARS) return json({ error: "The image is too large. Crop it closer to the plate and try again." }, 413);
-  const language: "English" | "Tamil" = body.language === "ta" ? "Tamil" : "English";
 
   try {
     const response = await anthropic.beta.messages.create({
