@@ -78,7 +78,10 @@ export async function analyzeReport(
   language: string,
   person: { age?: number; gender?: string },
 ): Promise<LabReport> {
-  const { data, error } = await supabase.functions.invoke("analyze-lab-report", {
+  // The function is named "analyze-lab-report" in Supabase, but it was first
+  // deployed with an auto-generated name and a function's address never
+  // changes, so it is reached at /functions/v1/hyper-function.
+  const { data, error } = await supabase.functions.invoke("hyper-function", {
     body: { image_base64: base64, media_type: "image/jpeg", language, person },
   });
   if (error) {
