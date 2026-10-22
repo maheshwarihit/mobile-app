@@ -80,6 +80,14 @@ How to estimate:
 
 If the photo does not show food, set is_food to false, explain briefly in dish_summary, and use 0 and empty lists for everything else.`;
 
+// The answer's language, as a firm rule of its own: a one-line request at the
+// end of the message alone is often ignored, since the schema and the
+// instructions are all in English.
+function languageRule(language: "English" | "Tamil"): string {
+  if (language === "English") return "LANGUAGE: Write everything in English.";
+  return `LANGUAGE: Write in Tamil, using Tamil script. This applies to dish_summary, items, micronutrient names, missing and recommendations. Do not write those in English. Numbers and units (kcal, g, mg) stay as they are. Use simple, everyday Tamil.`;
+}
+
 type Person = { age?: number; gender?: string; height_cm?: number; weight_kg?: number; activity_level?: string };
 
 // Only plain, bounded values reach the prompt.
@@ -136,7 +144,7 @@ Deno.serve(async (req) => {
   const mediaType = MEDIA_TYPES.find((m) => m === body.media_type);
   if (!imageBase64 || !mediaType) return json({ error: "Send a JPEG, PNG or WEBP image." }, 400);
   if (imageBase64.length > MAX_BASE64_CHARS) return json({ error: "The image is too large. Crop it closer to the plate and try again." }, 413);
-  const language = body.language === "ta" ? "Tamil" : "English";
+  const language: "English" | "Tamil" = body.language === "ta" ? "Tamil" : "English";
 
   try {
     const response = await anthropic.beta.messages.create({
@@ -148,7 +156,7 @@ Deno.serve(async (req) => {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       output_config: { effort: "medium", format: zodOutputFormat(PlateAnalysis) },
-      system: SYSTEM,
+      system: `${SYSTEM}\n\n${languageRule(language)}`,
       messages: [
         {
           role: "user",
@@ -161,7 +169,7 @@ Deno.serve(async (req) => {
 The person:
 ${describePerson(body.person)}
 
-Write dish_summary, items, micronutrient names, missing and recommendations in ${language}.`,
+Write dish_summary, items, micronutrient names, missing and recommendations in ${language}${language === "Tamil" ? " (Tamil script)" : ""}.`,
             },
           ],
         },
