@@ -177,14 +177,11 @@ export function BioMarkers({
         ) : null,
       )}
 
-      {saved.length ? (
-        <View>
-          <Text className="text-base font-bold text-gray-900">{t("bioMarkers.libraryTitle")}</Text>
-          <Text className="text-sm text-gray-500">{t("bioMarkers.libraryHint")}</Text>
-        </View>
-      ) : pending.length === 0 ? (
-        <Text className="text-center text-sm text-gray-400">{t("bioMarkers.empty")}</Text>
-      ) : null}
+      {/* Always shown, so it is clear where read reports are kept. */}
+      <View>
+        <Text className="text-base font-bold text-gray-900">{t("bioMarkers.libraryTitle")}</Text>
+        <Text className="text-sm text-gray-500">{t(saved.length ? "bioMarkers.libraryHint" : "bioMarkers.empty")}</Text>
+      </View>
 
       {saved.map((r) => (
         <SavableReport key={r.id} report={r} onRemove={() => void removeSaved(r.id)} />
