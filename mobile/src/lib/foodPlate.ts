@@ -101,3 +101,20 @@ export async function analyzePlate(
   }
   return data as PlateAnalysis;
 }
+
+/** Translate a stored meal result's words into `language` (no image is sent). */
+export async function translatePlate(analysis: PlateAnalysis, language: string): Promise<PlateAnalysis> {
+  const { data, error } = await supabase.functions.invoke("analyze-food-plate", { body: { translate: analysis, language } });
+  if (error) {
+    let message: string | null = null;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      const body = ctx ? await ctx.json() : null;
+      if (body && typeof body.error === "string") message = body.error;
+    } catch {
+      // not JSON
+    }
+    throw new Error(message ?? "Could not translate.");
+  }
+  return data as PlateAnalysis;
+}

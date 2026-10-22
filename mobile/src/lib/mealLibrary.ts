@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import type { Language } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 import type { PlateAnalysis } from "@/lib/foodPlate";
@@ -11,7 +12,20 @@ export type SavedMeal = {
   /** A small copy of the photo that survives a restart: a data: URL on the web, a file in the app's documents on a phone. */
   photoUri: string;
   analysis: PlateAnalysis;
+  /** The language the AI wrote it in (missing on items saved before this was recorded). */
+  language?: Language;
+  /** Translations into the other language, made when the app was switched to it. */
+  translations?: Partial<Record<Language, PlateAnalysis>>;
 };
+
+// Writes go one after another, so translations finishing together can't
+// overwrite each other's read-modify-write.
+let queue: Promise<unknown> = Promise.resolve();
+function serial<R>(task: () => Promise<R>): Promise<R> {
+  const run = queue.then(task, task);
+  queue = run.catch(() => undefined);
+  return run;
+}
 
 // Kept on the device, per signed-in account and per person (self or a
 // dependent's id) — same approach as BMI results and Body Metrics.
@@ -72,6 +86,7 @@ export async function saveMeal(
   personKey: string,
   photoUri: string,
   analysis: PlateAnalysis,
+  language: Language,
 ): Promise<SavedMeal[] | null> {
   const savedAt = new Date().toISOString();
   const id = savedAt.replace(/[^0-9]/g, "");
@@ -81,12 +96,30 @@ export async function saveMeal(
   } catch {
     // Keep the meal even if its photo couldn't be copied; the picture may not show later.
   }
-  const existing = await loadMeals(userId, personKey);
-  const next = [{ id, savedAt, photoUri: kept, analysis }, ...existing];
-  const dropped = next.splice(MAX_MEALS);
-  if (!(await writeMeals(userId, personKey, next))) return null;
-  for (const meal of dropped) void removePhoto(meal.photoUri);
-  return next;
+  return serial(async () => {
+    const existing = await loadMeals(userId, personKey);
+    const next: SavedMeal[] = [{ id, savedAt, photoUri: kept, analysis, language }, ...existing];
+    const dropped = next.splice(MAX_MEALS);
+    if (!(await writeMeals(userId, personKey, next))) return null;
+    for (const meal of dropped) void removePhoto(meal.photoUri);
+    return next;
+  });
+}
+
+/** Store a translation of one meal's result. Returns the updated list. */
+export function addMealTranslation(
+  userId: string | null,
+  personKey: string,
+  id: string,
+  language: Language,
+  translated: PlateAnalysis,
+): Promise<SavedMeal[]> {
+  return serial(async () => {
+    const existing = await loadMeals(userId, personKey);
+    const next = existing.map((m) => (m.id === id ? { ...m, translations: { ...m.translations, [language]: translated } } : m));
+    await writeMeals(userId, personKey, next);
+    return next;
+  });
 }
 
 async function removePhoto(photoUri: string) {
@@ -99,11 +132,13 @@ async function removePhoto(photoUri: string) {
 }
 
 /** Remove one meal. Returns the updated list. */
-export async function deleteMeal(userId: string | null, personKey: string, id: string): Promise<SavedMeal[]> {
-  const existing = await loadMeals(userId, personKey);
-  const gone = existing.find((m) => m.id === id);
-  const next = existing.filter((m) => m.id !== id);
-  await writeMeals(userId, personKey, next);
-  if (gone) void removePhoto(gone.photoUri);
-  return next;
+export function deleteMeal(userId: string | null, personKey: string, id: string): Promise<SavedMeal[]> {
+  return serial(async () => {
+    const existing = await loadMeals(userId, personKey);
+    const gone = existing.find((m) => m.id === id);
+    const next = existing.filter((m) => m.id !== id);
+    await writeMeals(userId, personKey, next);
+    if (gone) void removePhoto(gone.photoUri);
+    return next;
+  });
 }

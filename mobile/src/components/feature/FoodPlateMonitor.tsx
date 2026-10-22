@@ -7,8 +7,9 @@ import { PlateCropModal } from "@/components/feature/PlateCropModal";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
-import { pickPlate, analyzePlate, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
-import { loadMeals, saveMeal, deleteMeal, type SavedMeal } from "@/lib/mealLibrary";
+import { pickPlate, analyzePlate, translatePlate, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
+import { loadMeals, saveMeal, deleteMeal, addMealTranslation, type SavedMeal } from "@/lib/mealLibrary";
+import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import { loadBodyMetrics } from "@/lib/bodyMetricsStorage";
 import { saveViewImage } from "@/lib/saveViewImage";
 import { toast } from "@/lib/toast";
@@ -97,7 +98,7 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
     try {
       const analysis = await analyzePlate(base64, mediaType, language ?? "en", person);
       // Only real meals go in the library.
-      const stored = analysis.is_food ? await saveMeal(userId, personKey, photoUri, analysis) : null;
+      const stored = analysis.is_food ? await saveMeal(userId, personKey, photoUri, analysis, language ?? "en") : null;
       if (stored) setMeals(stored);
       const meal = stored?.[0] ?? null;
       setStage({
@@ -236,13 +237,11 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
           </View>
           {/* Each stored meal as its full result card, newest first. */}
           {meals.map((m) => (
-            <SavablePlateCard
+            <LibraryMealCard
               key={m.id}
-              photoUri={m.photoUri}
-              analysis={m.analysis}
-              savedAt={m.savedAt}
-              dateLine={t("foodPlate.uploadedAt", { date: formatLocalDateTime(m.savedAt) })}
+              meal={m}
               onDelete={() => setConfirmDelete(m.id)}
+              onTranslated={(lang, translated) => void addMealTranslation(userId, personKey, m.id, lang, translated).then(setMeals)}
             />
           ))}
           <OutlineButton fullWidth icon={ArrowLeft} onPress={() => setStage({ name: "start" })}>
@@ -283,6 +282,48 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
  * A result card with "Download image" (and optionally "Delete") under it. The
  * download is a picture of exactly what the card shows.
  */
+/**
+ * A Meal library entry, shown in the app's current language: a result made in
+ * the other language is translated once and the translation stored.
+ */
+function LibraryMealCard({
+  meal,
+  onDelete,
+  onTranslated,
+}: {
+  meal: SavedMeal;
+  onDelete: () => void;
+  onTranslated: (language: "en" | "ta", translated: PlateAnalysis) => void;
+}) {
+  const { t, language } = useLanguage();
+  const current = language ?? "en";
+  const { shown, translating, failed } = useTranslatedResult({
+    original: meal.analysis,
+    originalLanguage: meal.language ?? detectLanguage(meal.analysis.dish_summary, ...meal.analysis.recommendations),
+    stored: meal.translations?.[current],
+    language: current,
+    translate: () => translatePlate(meal.analysis, current),
+    onTranslated: (translated) => onTranslated(current, translated),
+  });
+  return (
+    <View className="gap-2">
+      {translating || failed ? (
+        <View className="flex-row items-center gap-2">
+          {translating ? <Spinner /> : null}
+          <Text className="text-xs text-gray-500">{t(translating ? "common.translating" : "common.translateFailed")}</Text>
+        </View>
+      ) : null}
+      <SavablePlateCard
+        photoUri={meal.photoUri}
+        analysis={shown}
+        savedAt={meal.savedAt}
+        dateLine={t("foodPlate.uploadedAt", { date: formatLocalDateTime(meal.savedAt) })}
+        onDelete={onDelete}
+      />
+    </View>
+  );
+}
+
 function SavablePlateCard({
   photoUri,
   analysis,

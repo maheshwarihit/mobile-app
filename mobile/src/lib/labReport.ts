@@ -98,3 +98,21 @@ export async function analyzeReport(
   }
   return data as LabReport;
 }
+
+/** Translate a stored reading's explanations into `language` (no image is sent). */
+export async function translateReport(report: LabReport, language: string): Promise<LabReport> {
+  // Same function as analyzeReport (see the note there about its address).
+  const { data, error } = await supabase.functions.invoke("hyper-function", { body: { translate: report, language } });
+  if (error) {
+    let message: string | null = null;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      const body = ctx ? await ctx.json() : null;
+      if (body && typeof body.error === "string") message = body.error;
+    } catch {
+      // not JSON
+    }
+    throw new Error(message ?? "Could not translate.");
+  }
+  return data as LabReport;
+}

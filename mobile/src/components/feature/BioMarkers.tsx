@@ -6,8 +6,10 @@ import { Card, PrimaryButton, OutlineButton, ErrorBanner, LoadingState, Spinner 
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
-import { pickReport, analyzeReport, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
-import { loadReports, saveReport, deleteReport, type SavedReport } from "@/lib/reportLibrary";
+import { pickReport, analyzeReport, translateReport, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
+import { loadReports, saveReport, deleteReport, addReportTranslation, type SavedReport } from "@/lib/reportLibrary";
+import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
+import type { Language } from "@/lib/i18n";
 import { saveViewImage } from "@/lib/saveViewImage";
 import { toast } from "@/lib/toast";
 import { BRAND } from "@/theme";
@@ -94,7 +96,7 @@ export function BioMarkers({
       // A report that could be read goes into the library; an unreadable photo
       // stays here only, with its retake tip.
       if (result.status === "ok") {
-        const next = await saveReport(userId, personKey, item.uri, result);
+        const next = await saveReport(userId, personKey, item.uri, result, language ?? "en");
         if (next) {
           setSaved(next);
           dropPending(item.id);
@@ -184,7 +186,12 @@ export function BioMarkers({
       </View>
 
       {saved.map((r) => (
-        <SavableReport key={r.id} report={r} onRemove={() => void removeSaved(r.id)} />
+        <SavableReport
+          key={r.id}
+          report={r}
+          onRemove={() => void removeSaved(r.id)}
+          onTranslated={(lang, translated) => void addReportTranslation(userId, personKey, r.id, lang, translated).then(setSaved)}
+        />
       ))}
 
       <OutlineButton fullWidth icon={LogOut} onPress={onExit}>
@@ -195,8 +202,27 @@ export function BioMarkers({
 }
 
 /** A stored report's result card with "Download image" and "Remove" under it. The download is a picture of exactly what the card shows. */
-function SavableReport({ report, onRemove }: { report: SavedReport; onRemove: () => void }) {
-  const { t } = useLanguage();
+function SavableReport({
+  report,
+  onRemove,
+  onTranslated,
+}: {
+  report: SavedReport;
+  onRemove: () => void;
+  onTranslated: (language: Language, translated: LabReport) => void;
+}) {
+  const { t, language } = useLanguage();
+  const current = language ?? "en";
+  // Shown in the app's current language; a reading made in the other one is
+  // translated once and the translation stored.
+  const { shown, translating, failed } = useTranslatedResult({
+    original: report.result,
+    originalLanguage: report.language ?? detectLanguage(report.result.summary, report.result.unreadable_reason),
+    stored: report.translations?.[current],
+    language: current,
+    translate: () => translateReport(report.result, current),
+    onTranslated: (translated) => onTranslated(current, translated),
+  });
   const cardRef = useRef<View>(null);
   const [saving, setSaving] = useState(false);
 
@@ -213,8 +239,14 @@ function SavableReport({ report, onRemove }: { report: SavedReport; onRemove: ()
   return (
     <View className="gap-2">
       {/* collapsable={false}: Android must keep this wrapper as a real view to capture it. */}
+      {translating || failed ? (
+        <View className="flex-row items-center gap-2">
+          {translating ? <Spinner /> : null}
+          <Text className="text-xs text-gray-500">{t(translating ? "common.translating" : "common.translateFailed")}</Text>
+        </View>
+      ) : null}
       <View ref={cardRef} collapsable={false}>
-        <ReportResult uri={report.photoUri} addedAt={report.savedAt} result={report.result} />
+        <ReportResult uri={report.photoUri} addedAt={report.savedAt} result={shown} />
       </View>
       <View className="flex-row items-center justify-between">
         <Pressable onPress={() => void download()} disabled={saving} hitSlop={8} accessibilityRole="button" className="flex-row items-center gap-1 active:opacity-70">

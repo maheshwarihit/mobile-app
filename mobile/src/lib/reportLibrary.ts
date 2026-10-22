@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import type { Language } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 import type { LabReport } from "@/lib/labReport";
@@ -11,7 +12,20 @@ export type SavedReport = {
   /** A small copy of the report photo that survives a restart: a data: URL on the web, a file in the app's documents on a phone. */
   photoUri: string;
   result: LabReport;
+  /** The language the AI wrote it in (missing on items saved before this was recorded). */
+  language?: Language;
+  /** Translations into the other language, made when the app was switched to it. */
+  translations?: Partial<Record<Language, LabReport>>;
 };
+
+// Writes go one after another, so translations finishing together can't
+// overwrite each other's read-modify-write.
+let queue: Promise<unknown> = Promise.resolve();
+function serial<R>(task: () => Promise<R>): Promise<R> {
+  const run = queue.then(task, task);
+  queue = run.catch(() => undefined);
+  return run;
+}
 
 // Kept on the device, per signed-in account and per person (self or a
 // dependent's id) — same approach as the Meal library (mealLibrary.ts).
@@ -76,6 +90,7 @@ export async function saveReport(
   personKey: string,
   photoUri: string,
   result: LabReport,
+  language: Language,
 ): Promise<SavedReport[] | null> {
   const savedAt = new Date().toISOString();
   const id = savedAt.replace(/[^0-9]/g, "");
@@ -85,20 +100,40 @@ export async function saveReport(
   } catch {
     // Keep the report even if its photo couldn't be copied; the picture may not show later.
   }
-  const existing = await loadReports(userId, personKey);
-  const next = [{ id, savedAt, photoUri: kept, result }, ...existing];
-  const dropped = next.splice(MAX_REPORTS);
-  if (!(await writeReports(userId, personKey, next))) return null;
-  for (const r of dropped) void removePhoto(r.photoUri);
-  return next;
+  return serial(async () => {
+    const existing = await loadReports(userId, personKey);
+    const next: SavedReport[] = [{ id, savedAt, photoUri: kept, result, language }, ...existing];
+    const dropped = next.splice(MAX_REPORTS);
+    if (!(await writeReports(userId, personKey, next))) return null;
+    for (const r of dropped) void removePhoto(r.photoUri);
+    return next;
+  });
+}
+
+/** Store a translation of one report. Returns the updated list. */
+export function addReportTranslation(
+  userId: string | null,
+  personKey: string,
+  id: string,
+  language: Language,
+  translated: LabReport,
+): Promise<SavedReport[]> {
+  return serial(async () => {
+    const existing = await loadReports(userId, personKey);
+    const next = existing.map((r) => (r.id === id ? { ...r, translations: { ...r.translations, [language]: translated } } : r));
+    await writeReports(userId, personKey, next);
+    return next;
+  });
 }
 
 /** Remove one report. Returns the updated list. */
-export async function deleteReport(userId: string | null, personKey: string, id: string): Promise<SavedReport[]> {
-  const existing = await loadReports(userId, personKey);
-  const gone = existing.find((r) => r.id === id);
-  const next = existing.filter((r) => r.id !== id);
-  await writeReports(userId, personKey, next);
-  if (gone) void removePhoto(gone.photoUri);
-  return next;
+export function deleteReport(userId: string | null, personKey: string, id: string): Promise<SavedReport[]> {
+  return serial(async () => {
+    const existing = await loadReports(userId, personKey);
+    const gone = existing.find((r) => r.id === id);
+    const next = existing.filter((r) => r.id !== id);
+    await writeReports(userId, personKey, next);
+    if (gone) void removePhoto(gone.photoUri);
+    return next;
+  });
 }
