@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Image, Pressable, Animated } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import { Camera, ImageUp, ArrowLeft, BookOpen, Trash2, ChevronRight, LogOut, Download } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, WarningBanner, Spinner, ConfirmModal, LoadingState } from "@/components/ui";
 import { PlateCropModal } from "@/components/feature/PlateCropModal";
+import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickPlate, analyzePlate, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
@@ -180,7 +181,9 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
         </>
       ) : null}
 
-      {stage.name === "analyzing" ? <AnalyzingCard photoUri={stage.photoUri} /> : null}
+      {stage.name === "analyzing" ? (
+        <AnalysisProgress photoUri={stage.photoUri} steps={ANALYSIS_STEPS} expectedMs={20000} />
+      ) : null}
 
       {stage.name === "result" ? (
         <>
@@ -429,92 +432,3 @@ const ANALYSIS_STEPS: TranslationKey[] = [
   "foodPlate.step.nutrients",
   "foodPlate.step.score",
 ];
-const STEP_MS = 4000;
-// The bar creeps towards (never reaches) the end, since the real time varies.
-const PROGRESS_MS = 20000;
-
-/**
- * While the photo is being analysed: the photo with a scan line sweeping over
- * it, the current step with the steps done so far ticked, and a progress bar.
- */
-function AnalyzingCard({ photoUri }: { photoUri: string }) {
-  const { t } = useLanguage();
-  const [photoHeight, setPhotoHeight] = useState(0);
-  const [step, setStep] = useState(0);
-  const scan = useRef(new Animated.Value(0)).current;
-  const progress = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const sweep = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scan, { toValue: 1, duration: 1600, useNativeDriver: false }),
-        Animated.timing(scan, { toValue: 0, duration: 1600, useNativeDriver: false }),
-      ]),
-    );
-    sweep.start();
-    Animated.timing(progress, { toValue: 0.92, duration: PROGRESS_MS, useNativeDriver: false }).start();
-    const timer = setInterval(() => setStep((s) => Math.min(s + 1, ANALYSIS_STEPS.length - 1)), STEP_MS);
-    return () => {
-      sweep.stop();
-      progress.stopAnimation();
-      clearInterval(timer);
-    };
-  }, [scan, progress]);
-
-  return (
-    <Card className="gap-4 overflow-hidden p-4">
-      <View onLayout={(e) => setPhotoHeight(e.nativeEvent.layout.height)} className="overflow-hidden rounded-xl">
-        <Image source={{ uri: photoUri }} resizeMode="cover" style={{ width: "100%", aspectRatio: 1 }} />
-        {/* A soft tint and a bright line sweeping up and down over the photo. */}
-        <View pointerEvents="none" className="absolute inset-0" style={{ backgroundColor: "rgba(28,124,190,0.12)" }} />
-        {photoHeight > 0 ? (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              height: 3,
-              backgroundColor: BRAND,
-              shadowColor: BRAND,
-              shadowOpacity: 0.9,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: 0 },
-              transform: [{ translateY: scan.interpolate({ inputRange: [0, 1], outputRange: [0, photoHeight - 3] }) }],
-            }}
-          />
-        ) : null}
-      </View>
-
-      <View className="gap-2">
-        {ANALYSIS_STEPS.map((key, i) => (
-          <View key={key} className="flex-row items-center gap-2">
-            {i < step ? (
-              <View style={{ backgroundColor: ACCENT_GREEN }} className="h-5 w-5 items-center justify-center rounded-full">
-                <Text className="text-[11px] font-bold text-white">✓</Text>
-              </View>
-            ) : i === step ? (
-              <Spinner />
-            ) : (
-              <View className="h-5 w-5 rounded-full border-2 border-gray-200" />
-            )}
-            <Text className={`text-sm ${i === step ? "font-semibold text-gray-900" : i < step ? "text-gray-600" : "text-gray-400"}`}>
-              {t(key)}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      <View className="h-2 overflow-hidden rounded-full bg-gray-100">
-        <Animated.View
-          style={{
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: BRAND,
-            width: progress.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
-          }}
-        />
-      </View>
-    </Card>
-  );
-}
