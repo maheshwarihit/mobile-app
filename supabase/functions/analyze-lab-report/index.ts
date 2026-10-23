@@ -35,7 +35,8 @@ const corsHeaders = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+// Report pages can be photos or PDF files (a PDF is read as a document).
+const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
 // ~5 MB of image once decoded.
 const MAX_BASE64_CHARS = 7_000_000;
 
@@ -53,7 +54,7 @@ function readImages(body: { image_base64?: unknown; media_type?: unknown; images
   for (const item of raw) {
     const data = item && typeof item.image_base64 === "string" ? item.image_base64 : "";
     const media_type = MEDIA_TYPES.find((m) => m === item?.media_type);
-    if (!data || !media_type) return "Send JPEG, PNG or WEBP images.";
+    if (!data || !media_type) return "Send PDF, JPEG, PNG or WEBP files.";
     if (data.length > MAX_BASE64_CHARS) return "One of the images is too large. Please try a smaller photo.";
     total += data.length;
     out.push({ data, media_type });
@@ -232,10 +233,14 @@ Deno.serve(async (req) => {
         {
           role: "user",
           content: [
-            ...images.map((img) => ({ type: "image" as const, source: { type: "base64" as const, media_type: img.media_type, data: img.data } })),
+            ...images.map((img) =>
+              img.media_type === "application/pdf"
+                ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: img.data } }
+                : { type: "image" as const, source: { type: "base64" as const, media_type: img.media_type, data: img.data } },
+            ),
             {
               type: "text",
-              text: `${images.length > 1 ? `Read this lab report. The ${images.length} images above are its pages, in order; treat them as one report, list each test once, and give one summary.` : "Read this lab report."}
+              text: `${images.length > 1 ? `Read this lab report. The ${images.length} files above (photos and/or PDFs) are its pages, in order; treat them as one report, list each test once, and give one summary.` : "Read this lab report."}
 
 The patient:
 ${describePerson(body.person)}
