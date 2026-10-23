@@ -7,6 +7,7 @@ import { PlateCropModal } from "@/components/feature/PlateCropModal";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
 import { PhotoTray } from "@/components/feature/PhotoTray";
 import { LibraryCalendar, dayKey, latestDay, dayHeading } from "@/components/feature/LibraryCalendar";
+import { LibraryEntry, libraryFileName } from "@/components/feature/LibraryEntry";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickPlate, analyzePlate, translatePlate, MAX_MEAL_PHOTOS, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
@@ -354,27 +355,33 @@ function LibraryMealCard({
     translate: () => translatePlate(meal.analysis, current),
     onTranslated: (translated) => onTranslated(current, translated),
   });
+  const photos = meal.photoCount ?? 1;
+  const dateLine = [t("foodPlate.uploadedAt", { date: formatLocalDateTime(meal.savedAt) }), photos > 1 ? t("foodPlate.photoCount", { count: photos }) : null]
+    .filter(Boolean)
+    .join(" · ");
+  const subtitle = [
+    formatLocalDateTime(meal.savedAt),
+    `${Math.round(shown.calories_kcal)} kcal`,
+    `${t("foodPlate.scoreTitle")} ${Math.round(shown.score)}`,
+  ].join(" · ");
+
   return (
-    <View className="gap-2">
-      {translating || failed ? (
-        <View className="flex-row items-center gap-2">
-          {translating ? <Spinner /> : null}
-          <Text className="text-xs text-gray-500">{t(translating ? "common.translating" : "common.translateFailed")}</Text>
-        </View>
-      ) : null}
-      <SavablePlateCard
-        photoUri={meal.photoUri}
-        analysis={shown}
-        savedAt={meal.savedAt}
-        dateLine={[
-          t("foodPlate.uploadedAt", { date: formatLocalDateTime(meal.savedAt) }),
-          (meal.photoCount ?? 1) > 1 ? t("foodPlate.photoCount", { count: meal.photoCount ?? 1 }) : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-        onDelete={onDelete}
-      />
-    </View>
+    <LibraryEntry
+      thumbUri={meal.photoUri}
+      title={shown.dish_summary}
+      subtitle={subtitle}
+      note={
+        translating || failed ? (
+          <View className="flex-row items-center gap-2">
+            {translating ? <Spinner /> : null}
+            <Text className="text-xs text-gray-500">{t(translating ? "common.translating" : "common.translateFailed")}</Text>
+          </View>
+        ) : null
+      }
+      fileName={libraryFileName("meal", meal.savedAt)}
+      renderCard={() => <PlateCard photoUri={meal.photoUri} analysis={shown} dateLine={dateLine} />}
+      onDelete={onDelete}
+    />
   );
 }
 

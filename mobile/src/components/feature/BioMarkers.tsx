@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert, Download } from "lucide-react-native";
+import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert, Download, BookOpen, ArrowLeft } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, LoadingState, Spinner } from "@/components/ui";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
 import { PhotoTray } from "@/components/feature/PhotoTray";
 import { LibraryCalendar, dayKey, latestDay, dayHeading } from "@/components/feature/LibraryCalendar";
+import { LibraryEntry, libraryFileName } from "@/components/feature/LibraryEntry";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, type PickedReport, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
@@ -76,6 +77,8 @@ export function BioMarkers({
   const [pending, setPending] = useState<Pending[]>([]);
   const [busy, setBusy] = useState<ReportSource | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The Report library page is open.
+  const [libraryOpen, setLibraryOpen] = useState(false);
   // The Report library day being shown (null: the latest day with a report).
   const [libDay, setLibDay] = useState<string | null>(null);
   // Pages of the next report gathered so far, waiting for "Read report".
@@ -104,11 +107,7 @@ export function BioMarkers({
       // stays here only, with its retake tip.
       if (result.status === "ok") {
         const next = await saveReport(userId, personKey, item.uri, result, language ?? "en", item.pages.length);
-        if (next) {
-          setSaved(next);
-          dropPending(item.id);
-          return;
-        }
+        if (next) setSaved(next);
       }
       update(item.id, { phase: "done", result });
     } catch (e) {
@@ -151,6 +150,37 @@ export function BioMarkers({
 
   // The chosen day while it still has reports, otherwise the latest day.
   const activeDay = libDay && saved.some((r) => dayKey(r.savedAt) === libDay) ? libDay : latestDay(saved);
+
+  if (libraryOpen) {
+    return (
+      <View className="gap-4">
+        <View>
+          <Text className="text-base font-bold text-gray-900">{t("bioMarkers.libraryTitle")}</Text>
+          <Text className="text-sm text-gray-500">{t(saved.length ? "bioMarkers.libraryHint" : "bioMarkers.empty")}</Text>
+        </View>
+        {/* The library as a calendar: tap a date to see that day's reports. */}
+        {activeDay ? (
+          <>
+            <LibraryCalendar items={saved} selectedDay={activeDay} onSelectDay={setLibDay} />
+            <Text className="text-sm font-bold text-gray-900">{dayHeading(activeDay, language)}</Text>
+            {saved
+              .filter((r) => dayKey(r.savedAt) === activeDay)
+              .map((r) => (
+                <LibraryReportEntry
+                  key={r.id}
+                  report={r}
+                  onRemove={() => void removeSaved(r.id)}
+                  onTranslated={(lang, translated) => void addReportTranslation(userId, personKey, r.id, lang, translated).then(setSaved)}
+                />
+              ))}
+          </>
+        ) : null}
+        <OutlineButton fullWidth icon={ArrowLeft} onPress={() => setLibraryOpen(false)}>
+          {t("common.back")}
+        </OutlineButton>
+      </View>
+    );
+  }
 
   return (
     <View className="gap-4">
@@ -215,36 +245,22 @@ export function BioMarkers({
         ) : r.result ? (
           <View key={r.id} className="gap-2">
             <ReportResult uri={r.uri} addedAt={r.addedAt} pages={r.pages.length} result={r.result} />
-            <View className="items-end">
-              <RemoveLink onPress={() => dropPending(r.id)} />
-            </View>
+            {/* Already kept in the Report library; this only clears it from here. */}
+            <Pressable onPress={() => dropPending(r.id)} hitSlop={8} className="self-end active:opacity-70">
+              <Text className="text-sm font-semibold text-purple-700">{t("common.done")}</Text>
+            </Pressable>
           </View>
         ) : null,
       )}
 
-      {/* Always shown, so it is clear where read reports are kept. */}
-      <View>
-        <Text className="text-base font-bold text-gray-900">{t("bioMarkers.libraryTitle")}</Text>
-        <Text className="text-sm text-gray-500">{t(saved.length ? "bioMarkers.libraryHint" : "bioMarkers.empty")}</Text>
-      </View>
-
-      {/* The library as a calendar: tap a date to see that day's reports. */}
-      {activeDay ? (
-        <>
-          <LibraryCalendar items={saved} selectedDay={activeDay} onSelectDay={setLibDay} />
-          <Text className="text-sm font-bold text-gray-900">{dayHeading(activeDay, language)}</Text>
-          {saved
-            .filter((r) => dayKey(r.savedAt) === activeDay)
-            .map((r) => (
-              <SavableReport
-                key={r.id}
-                report={r}
-                onRemove={() => void removeSaved(r.id)}
-                onTranslated={(lang, translated) => void addReportTranslation(userId, personKey, r.id, lang, translated).then(setSaved)}
-              />
-            ))}
-        </>
-      ) : null}
+      {/* Same as the Food Plate Monitor: the library behind a button, or a note while it is empty. */}
+      {saved.length ? (
+        <OutlineButton fullWidth icon={BookOpen} onPress={() => setLibraryOpen(true)}>
+          {t("bioMarkers.libraryCount", { count: saved.length })}
+        </OutlineButton>
+      ) : (
+        <Text className="text-center text-sm text-gray-400">{t("bioMarkers.empty")}</Text>
+      )}
 
       <OutlineButton fullWidth icon={LogOut} onPress={onExit}>
         {t("bioMarkers.exit")}
@@ -253,8 +269,8 @@ export function BioMarkers({
   );
 }
 
-/** A stored report's result card with "Download image" and "Remove" under it. The download is a picture of exactly what the card shows. */
-function SavableReport({
+/** A Report library entry: a compact row with View / Download / Delete, shown in the app's current language (a reading made in the other language is translated once and the translation stored). */
+function LibraryReportEntry({
   report,
   onRemove,
   onTranslated,
@@ -265,8 +281,6 @@ function SavableReport({
 }) {
   const { t, language } = useLanguage();
   const current = language ?? "en";
-  // Shown in the app's current language; a reading made in the other one is
-  // translated once and the translation stored.
   const { shown, translating, failed } = useTranslatedResult({
     original: report.result,
     originalLanguage: report.language ?? detectLanguage(report.result.summary, report.result.unreadable_reason),
@@ -275,39 +289,32 @@ function SavableReport({
     translate: () => translateReport(report.result, current),
     onTranslated: (translated) => onTranslated(current, translated),
   });
-  const cardRef = useRef<View>(null);
-  const [saving, setSaving] = useState(false);
-
-  const download = async () => {
-    setSaving(true);
-    const d = new Date(report.savedAt);
-    const two = (n: number) => String(n).padStart(2, "0");
-    const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
-    const ok = await saveViewImage(cardRef, `vagewell-report-${stamp}.png`);
-    setSaving(false);
-    if (!ok) toast.error(t("bioMarkers.downloadFailed"));
-  };
+  const title = [t(TYPE_KEY[shown.report_type]), ...shown.report_panels].join(" · ");
+  const subtitle = [
+    formatLocalDateTime(report.savedAt),
+    (report.pages ?? 1) > 1 ? t("bioMarkers.pageCount", { count: report.pages ?? 1 }) : null,
+    t(URGENCY_STYLE[shown.urgency].key),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <View className="gap-2">
-      {/* collapsable={false}: Android must keep this wrapper as a real view to capture it. */}
-      {translating || failed ? (
-        <View className="flex-row items-center gap-2">
-          {translating ? <Spinner /> : null}
-          <Text className="text-xs text-gray-500">{t(translating ? "common.translating" : "common.translateFailed")}</Text>
-        </View>
-      ) : null}
-      <View ref={cardRef} collapsable={false}>
-        <ReportResult uri={report.photoUri} addedAt={report.savedAt} pages={report.pages} result={shown} />
-      </View>
-      <View className="flex-row items-center justify-between">
-        <Pressable onPress={() => void download()} disabled={saving} hitSlop={8} accessibilityRole="button" className="flex-row items-center gap-1 active:opacity-70">
-          {saving ? <Spinner /> : <Download size={14} color={BRAND} />}
-          <Text className="text-sm font-semibold text-purple-700">{t("bioMarkers.download")}</Text>
-        </Pressable>
-        <RemoveLink onPress={onRemove} />
-      </View>
-    </View>
+    <LibraryEntry
+      thumbUri={report.photoUri}
+      title={title}
+      subtitle={subtitle}
+      note={
+        translating || failed ? (
+          <View className="flex-row items-center gap-2">
+            {translating ? <Spinner /> : null}
+            <Text className="text-xs text-gray-500">{t(translating ? "common.translating" : "common.translateFailed")}</Text>
+          </View>
+        ) : null
+      }
+      fileName={libraryFileName("report", report.savedAt)}
+      renderCard={() => <ReportResult uri={report.photoUri} addedAt={report.savedAt} pages={report.pages} result={shown} />}
+      onDelete={onRemove}
+    />
   );
 }
 
