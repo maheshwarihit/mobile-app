@@ -9,7 +9,7 @@ import { LibraryCalendar, dayKey, latestDay, dayHeading } from "@/components/fea
 import { LibraryEntry, libraryFileName } from "@/components/feature/LibraryEntry";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
-import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, type PickedReport, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
+import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, type PickedReport, type ReportMediaType, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
 import { loadReports, saveReport, deleteReport, addReportTranslation, type SavedReport } from "@/lib/reportLibrary";
 import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import type { Language } from "@/lib/i18n";
@@ -21,8 +21,8 @@ import { BRAND } from "@/theme";
 type Pending = {
   id: string;
   uri: string;
-  /** Every page, in order. */
-  pages: string[];
+  /** Every page (photo or PDF), in order. */
+  pages: { base64: string; mediaType: ReportMediaType }[];
   addedAt: string;
   phase: "analysing" | "error" | "done";
   result?: LabReport;
@@ -135,7 +135,7 @@ export function BioMarkers({
     const item: Pending = {
       id: `${now}-${Math.random().toString(36).slice(2, 7)}`,
       uri: draft[0].uri,
-      pages: draft.map((p) => p.base64),
+      pages: draft.map((p) => ({ base64: p.base64, mediaType: p.mediaType })),
       addedAt: now,
       phase: "analysing",
     };
