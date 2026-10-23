@@ -40,8 +40,8 @@ const MODULES: { id: ModuleId; icon: LucideIcon; labelKey: TranslationKey; ready
   { id: "bmi", icon: Scale, labelKey: "nutrition.module.bmi", ready: true },
   { id: "foodPlate", icon: Utensils, labelKey: "nutrition.module.foodPlate", ready: true },
   { id: "bioMarkers", icon: FlaskConical, labelKey: "nutrition.module.bioMarkers", ready: true },
-  { id: "foodSupplements", icon: PillIcon, labelKey: "nutrition.module.foodSupplements", ready: false },
   { id: "selfAssessment", icon: ClipboardCheck, labelKey: "nutrition.module.selfAssessment", ready: true },
+  { id: "foodSupplements", icon: PillIcon, labelKey: "nutrition.module.foodSupplements", ready: false },
 ];
 
 // SCREEN_ID: NUTRITION_MODULES — what the Nutrition service card opens instead
