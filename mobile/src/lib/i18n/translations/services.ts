@@ -22,7 +22,8 @@ export const en = {
     "• Individualized diet planning & support\n" +
     "• Ryles tube feeding guidance\n" +
     "• Dietitian consultation",
-  "services.catalog.physio.name": "Physio Therapy",
+  // Shown as "Exercise"; the service is still stored as "Physio Therapy" (bookings, prices).
+  "services.catalog.physio.name": "Exercise",
   "services.catalog.physio.description":
     "Exercise completion, mobility scores.\n" +
     "• Mobility training\n" +
@@ -70,7 +71,7 @@ export const ta: Record<keyof typeof en, string> = {
     "• தனிநபர் உணவுத் திட்டமிடல் & ஆதரவு\n" +
     "• ரைல்ஸ் டியூப் உணவளிப்பு வழிகாட்டுதல்\n" +
     "• ஊட்டச்சத்து நிபுணர் ஆலோசனை",
-  "services.catalog.physio.name": "பிசியோதெரபி",
+  "services.catalog.physio.name": "உடற்பயிற்சி",
   "services.catalog.physio.description":
     "பயிற்சி நிறைவு, இயக்கத்திறன் மதிப்பெண்கள்.\n" +
     "• இயக்கத்திறன் பயிற்சி\n" +
