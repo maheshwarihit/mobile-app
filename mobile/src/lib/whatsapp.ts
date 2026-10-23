@@ -1,4 +1,5 @@
 import { formatDate, localPhone, type BookingWithNames } from "@vagewell/shared";
+import { englishServiceName } from "@/lib/serviceI18n";
 
 /**
  * Mirror of `web/src/lib/whatsapp.ts` — shared by the ApproveAssign sheet
@@ -10,7 +11,7 @@ import { formatDate, localPhone, type BookingWithNames } from "@vagewell/shared"
 export function assignmentMessage(booking: BookingWithNames): string {
   const lines = [
     "New assignment — VAgeWell Care",
-    `Service: ${booking.service_name}`,
+    `Service: ${englishServiceName(booking.service_name)}`,
     `Client: ${booking.subject_name ?? "—"} (${localPhone(booking.subject_phone) || "—"})`,
     `Date: ${formatDate(booking.start_date)} at ${booking.time_slot}`,
   ];
