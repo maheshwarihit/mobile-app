@@ -29,6 +29,8 @@ export type LabReport = {
   doctor_questions: string[];
   urgency: LabUrgency;
   disclaimer: string;
+  /** Set when the report seems to belong to someone else (name, age or gender differ); missing on older readings. */
+  person_mismatch?: string;
 };
 
 export type ReportSource = "camera" | "gallery";
