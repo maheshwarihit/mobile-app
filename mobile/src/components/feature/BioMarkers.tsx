@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert, Download, BookOpen, ArrowLeft } from "lucide-react-native";
+import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert, Download, BookOpen, ArrowLeft, UserX } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, LoadingState, Spinner } from "@/components/ui";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
@@ -409,6 +409,16 @@ function ReportResult({ uri, addedAt, pages, result }: { uri: string; addedAt: s
   return (
     <Card className="gap-4 p-4">
       <ReportHeader uri={uri} addedAt={addedAt} pages={pages} title={title} badge={<Pill fg={urgency.fg} bg={urgency.bg} label={t(urgency.key)} />} />
+
+      {/* Shown first and in bold: the report may belong to someone else. */}
+      {result.person_mismatch ? (
+        <View className="flex-row items-start gap-2 rounded-xl border p-3" style={{ backgroundColor: "#FFF4E5", borderColor: "#F5B041" }}>
+          <UserX size={18} color="#9A5B00" />
+          <Text className="flex-1 text-sm font-bold" style={{ color: "#7A4A06" }}>
+            {result.person_mismatch}
+          </Text>
+        </View>
+      ) : null}
 
       {result.urgency === "Urgent" ? (
         <View className="flex-row items-start gap-2 rounded-xl p-3" style={{ backgroundColor: "#FDE8E7" }}>

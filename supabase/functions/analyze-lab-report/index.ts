@@ -96,7 +96,12 @@ const LabReport = z.object({
   doctor_questions: z.array(z.string()).describe("Questions to ask the doctor, at most 4, short"),
   urgency: z.enum(["Routine", "Consult Soon", "Urgent"]),
   disclaimer: z.string(),
+  person_mismatch: z
+    .string()
+    .describe("One short sentence when the name, age or gender on the report clearly does not match the patient details given; otherwise empty"),
 });
+// Readings saved before person_mismatch existed are still accepted for translation.
+const SavedLabReport = LabReport.extend({ person_mismatch: z.string().optional().default("") });
 
 const SYSTEM = `You read medical lab reports for VAgeWell Care, a home-care app used mostly by families in India, often for older adults.
 
@@ -116,7 +121,8 @@ RULES:
 - If any value is Critical, set urgency "Urgent" and advise seeing a doctor immediately.
 - Do not invent values. If a value is unclear, set its value to "unclear" and its status to "Unclear".
 - Always end with the disclaimer: say this is not a diagnosis and the report should be reviewed with a doctor.
-- When status is "unreadable", leave every list empty, use "Other" and "Routine", and still give the disclaimer.`;
+- When status is "unreadable", leave every list empty, use "Other" and "Routine", and still give the disclaimer.
+- If the name, age or gender printed on the report clearly does not match the patient details given, say so in person_mismatch in one short sentence (for example: "This report is for Baby DEVESH, a 2-year-old boy, not a 38-year-old woman."), and do not repeat it in the summary. Otherwise leave person_mismatch empty.`;
 
 // The answer's language, as a firm rule of its own: a one-line request at the
 // end of the message alone is often ignored, since the report, the schema and
@@ -129,7 +135,7 @@ function languageRule(language: "English" | "Tamil"): string {
 // Only the explanatory text is translated; test names, values, units, ranges
 // and every status word are copied from the original so nothing can drift.
 function translateSystem(language: "English" | "Tamil"): string {
-  return `You translate a lab report reading for VAgeWell Care into ${language}${language === "Tamil" ? " (Tamil script)" : ""}. You are given the reading as JSON. Return the same JSON with these fields translated: unreadable_reason, retake_tip, summary, abnormal_explanations[].what_it_measures, abnormal_explanations[].possible_causes, health_concerns, diet_lifestyle, doctor_questions and disclaimer. Keep every other field exactly as given. Keep the meaning, use simple everyday language, and keep every list the same length and order.`;
+  return `You translate a lab report reading for VAgeWell Care into ${language}${language === "Tamil" ? " (Tamil script)" : ""}. You are given the reading as JSON. Return the same JSON with these fields translated: unreadable_reason, retake_tip, summary, abnormal_explanations[].what_it_measures, abnormal_explanations[].possible_causes, health_concerns, diet_lifestyle, doctor_questions, disclaimer and person_mismatch. Keep every other field exactly as given. Keep the meaning, use simple everyday language, and keep every list the same length and order.`;
 }
 
 type LabReportT = z.infer<typeof LabReport>;
@@ -152,6 +158,7 @@ function mergeTranslation(orig: LabReportT, tr: LabReportT): LabReportT {
     diet_lifestyle: tr.diet_lifestyle,
     doctor_questions: tr.doctor_questions,
     disclaimer: tr.disclaimer,
+    person_mismatch: orig.person_mismatch ? tr.person_mismatch : "",
   };
 }
 
@@ -191,7 +198,7 @@ Deno.serve(async (req) => {
 
   // Translate a saved reading (text only, no image).
   if (body.translate !== undefined) {
-    const original = LabReport.safeParse(body.translate);
+    const original = SavedLabReport.safeParse(body.translate);
     if (!original.success) return json({ error: "Invalid request." }, 400);
     try {
       const response = await anthropic.beta.messages.create({
