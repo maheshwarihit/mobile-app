@@ -30,7 +30,8 @@ export function LibraryEntry({
   fileName: string;
   /** The full result card shown by View and captured by Download. */
   renderCard: () => ReactNode;
-  onDelete: () => void;
+  /** Omit for read-only lists (e.g. the care team's view). */
+  onDelete?: () => void;
 }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -71,12 +72,16 @@ export function LibraryEntry({
             {saving ? <Spinner /> : <Download size={15} color={BRAND} />}
             <Text className="text-sm font-semibold text-purple-700">{t("common.download")}</Text>
           </Pressable>
-          <Pressable onPress={onDelete} hitSlop={8} accessibilityRole="button" className="flex-row items-center gap-1 active:opacity-70">
-            <Trash2 size={15} color={DANGER} />
-            <Text className="text-sm font-semibold" style={{ color: DANGER }}>
-              {t("common.delete")}
-            </Text>
-          </Pressable>
+          {onDelete ? (
+            <Pressable onPress={onDelete} hitSlop={8} accessibilityRole="button" className="flex-row items-center gap-1 active:opacity-70">
+              <Trash2 size={15} color={DANGER} />
+              <Text className="text-sm font-semibold" style={{ color: DANGER }}>
+                {t("common.delete")}
+              </Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
         </View>
       </Card>
       {open ? (

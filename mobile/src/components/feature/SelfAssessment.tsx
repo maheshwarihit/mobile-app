@@ -19,6 +19,7 @@ import {
   type Band,
 } from "@/lib/selfAssessmentScore";
 import { loadSelfAssessment, saveSelfAssessment, clearSelfAssessment } from "@/lib/selfAssessmentStorage";
+import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
 import { BRAND } from "@/theme";
 
 const ICONS: Record<SectionId, LucideIcon> = {
@@ -77,6 +78,7 @@ export function SelfAssessment({ personKey, onExit }: Props) {
     void loadSelfAssessment(userId, personKey).then((stored) => {
       if (!active) return;
       if (stored) {
+        void syncOnce(userId, personKey, "self_assessment", [{ clientId: `self_assessment:${personKey}`, data: stored }]);
         setSaved(stored.answers);
         setSavedAt(stored.savedAt);
       }
@@ -114,6 +116,7 @@ export function SelfAssessment({ personKey, onExit }: Props) {
       }
       setSaved(answers);
       setSavedAt(at);
+      void syncNutrition(userId, personKey, "self_assessment", `self_assessment:${personKey}`, { answers, savedAt: at });
     }
     // No "saved" popup: the section's tile turning into its coloured score is the confirmation.
     if (target) setDraft(answers[target] ? [...answers[target]!] : blankSection());
@@ -123,6 +126,7 @@ export function SelfAssessment({ personKey, onExit }: Props) {
   const reset = async () => {
     setConfirmReset(false);
     await clearSelfAssessment(userId, personKey);
+    void unsyncNutrition(userId, `self_assessment:${personKey}`);
     setSaved({});
     setSavedAt("");
   };
