@@ -32,6 +32,7 @@ import { loadRescheduledIds } from "@/lib/rescheduledBookings";
 import { translateServiceName } from "@/lib/serviceI18n";
 import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
+import { deleteMyAccount } from "@/lib/deleteAccount";
 import { useLanguage, type Language } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import {
@@ -72,6 +73,22 @@ export function ProfileScreen() {
   const { t, language, setLanguage } = useLanguage();
   const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }));
   const { profile, user, loading, signOut, refreshProfile } = useAuth();
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const deleteAccount = async () => {
+    if (!user) return;
+    setDeletingAccount(true);
+    try {
+      await deleteMyAccount(user.id);
+      setDeleteAccountOpen(false);
+      toast.success(t("profile.deleteAccount.done"));
+      await signOut();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("profile.deleteAccount.failed"));
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
   const { data: dependents, isLoading: depsLoading } = useFamilyMembers();
   const del = useDeleteDependent();
   const updateProfile = useUpdateProfile();
@@ -495,7 +512,29 @@ export function ProfileScreen() {
         <OutlineButton icon={LogOut} fullWidth onPress={signOut}>
           {t("profile.signOut")}
         </OutlineButton>
+
+        {/* Required by Google Play: people can delete the account they created. */}
+        <Pressable
+          onPress={() => setDeleteAccountOpen(true)}
+          accessibilityRole="button"
+          className="mt-4 flex-row items-center justify-center gap-1.5 self-center py-2 active:opacity-70"
+        >
+          <Trash2 size={14} color="#dc2626" />
+          <Text className="text-sm font-semibold text-red-600">{t("profile.deleteAccount.action")}</Text>
+        </Pressable>
       </ScrollView>
+
+      <ConfirmModal
+        open={deleteAccountOpen}
+        title={t("profile.deleteAccount.title")}
+        onClose={() => (deletingAccount ? undefined : setDeleteAccountOpen(false))}
+        onConfirm={() => void deleteAccount()}
+        confirmLabel={deletingAccount ? t("profile.deleteAccount.deleting") : t("profile.deleteAccount.confirm")}
+        cancelLabel={t("common.cancel")}
+        confirmDanger
+      >
+        <Text className="text-sm text-gray-600">{t("profile.deleteAccount.body")}</Text>
+      </ConfirmModal>
 
       <DependentModal
         open={depModalOpen}
