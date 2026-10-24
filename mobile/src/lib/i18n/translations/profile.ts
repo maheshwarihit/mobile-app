@@ -1,4 +1,11 @@
 export const en = {
+  "profile.deleteAccount.action": "Delete my account",
+  "profile.deleteAccount.title": "Delete your account?",
+  "profile.deleteAccount.body": "This permanently deletes your account, your profile, your family members, your bookings and the photos and reports stored with them. It cannot be undone.",
+  "profile.deleteAccount.confirm": "Delete permanently",
+  "profile.deleteAccount.deleting": "Deleting…",
+  "profile.deleteAccount.done": "Your account has been deleted.",
+  "profile.deleteAccount.failed": "Your account could not be deleted right now. Please try again.",
   "profile.loading": "Loading profile…",
   "profile.title": "Profile",
   "profile.subtitle": "Your details, dependents, and health record.",
@@ -70,6 +77,13 @@ export const en = {
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
+  "profile.deleteAccount.action": "என் கணக்கை நீக்கு",
+  "profile.deleteAccount.title": "உங்கள் கணக்கை நீக்கவா?",
+  "profile.deleteAccount.body": "இது உங்கள் கணக்கு, சுயவிவரம், குடும்ப உறுப்பினர்கள், முன்பதிவுகள் மற்றும் அவற்றுடன் சேமிக்கப்பட்ட படங்கள், அறிக்கைகள் அனைத்தையும் நிரந்தரமாக நீக்கும். இதைத் திரும்பப் பெற முடியாது.",
+  "profile.deleteAccount.confirm": "நிரந்தரமாக நீக்கு",
+  "profile.deleteAccount.deleting": "நீக்குகிறது…",
+  "profile.deleteAccount.done": "உங்கள் கணக்கு நீக்கப்பட்டது.",
+  "profile.deleteAccount.failed": "இப்போது உங்கள் கணக்கை நீக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
   "profile.loading": "சுயவிவரம் ஏற்றப்படுகிறது…",
   "profile.title": "சுயவிவரம்",
   "profile.subtitle": "உங்கள் விவரங்கள், சார்ந்தோர், மற்றும் ஆரோக்கியப் பதிவு.",

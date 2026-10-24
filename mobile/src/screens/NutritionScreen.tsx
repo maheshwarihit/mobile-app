@@ -227,6 +227,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 </Pressable>
               ))}
             </View>
+            {/* Google Play health-app policy: AI health information must say it is not medical advice. */}
+            <Text className="mt-4 text-center text-xs text-gray-400">{t("nutrition.aiNote")}</Text>
           </>
         )}
       </ScrollView>

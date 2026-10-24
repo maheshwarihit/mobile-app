@@ -17,6 +17,7 @@ export const en = {
   "nutrition.forPerson": "For {name}",
   "nutrition.changeDependent": "Change",
   "nutrition.exit": "Exit",
+  "nutrition.aiNote": "AI results (Food Plate Monitor, Bio Markers) are estimates to help you, not medical advice. Please consult your doctor.",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -38,4 +39,5 @@ export const ta: Record<keyof typeof en, string> = {
   "nutrition.forPerson": "{name} அவர்களுக்காக",
   "nutrition.changeDependent": "மாற்று",
   "nutrition.exit": "வெளியேறு",
+  "nutrition.aiNote": "AI முடிவுகள் (உணவுத் தட்டு கண்காணிப்பு, உயிர் குறிப்பான்கள்) உங்களுக்கு உதவும் மதிப்பீடுகள், மருத்துவ ஆலோசனை அல்ல. உங்கள் மருத்துவரை அணுகவும்.",
 };

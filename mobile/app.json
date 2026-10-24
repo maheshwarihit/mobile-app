@@ -24,9 +24,9 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.RECORD_AUDIO"
-      ]
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
     },
     "plugins": [
       "expo-secure-store",
@@ -35,7 +35,8 @@
         "expo-image-picker",
         {
           "photosPermission": "VAgeWell needs access to your photos so you can upload a meal photo, a lab report or a payment screenshot.",
-          "cameraPermission": "VAgeWell needs camera access so you can take a photo of your meal or a lab report, and so Care Givers can take a visit photo."
+          "cameraPermission": "VAgeWell needs camera access so you can take a photo of your meal or a lab report, and so Care Givers can take a visit photo.",
+          "microphonePermission": false
         }
       ],
       [

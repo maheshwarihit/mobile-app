@@ -9,7 +9,8 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://ccvpwfzqgrrhxrmzlkca.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdnB3ZnpxZ3JyaHhybXpsa2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDc1ODcsImV4cCI6MjEwMDE4MzU4N30.iO8cmBEEDtvXN-3TRxH660rB3U2u2Kfef8r5OWnCBM4"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdnB3ZnpxZ3JyaHhybXpsa2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDc1ODcsImV4cCI6MjEwMDE4MzU4N30.iO8cmBEEDtvXN-3TRxH660rB3U2u2Kfef8r5OWnCBM4",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "95658949372-3bg8gb4d31o4lpsvcl97g9e46u7sabqq.apps.googleusercontent.com"
       }
     },
     "preview": {
@@ -19,14 +20,16 @@
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://ccvpwfzqgrrhxrmzlkca.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdnB3ZnpxZ3JyaHhybXpsa2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDc1ODcsImV4cCI6MjEwMDE4MzU4N30.iO8cmBEEDtvXN-3TRxH660rB3U2u2Kfef8r5OWnCBM4"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdnB3ZnpxZ3JyaHhybXpsa2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDc1ODcsImV4cCI6MjEwMDE4MzU4N30.iO8cmBEEDtvXN-3TRxH660rB3U2u2Kfef8r5OWnCBM4",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "95658949372-3bg8gb4d31o4lpsvcl97g9e46u7sabqq.apps.googleusercontent.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://ccvpwfzqgrrhxrmzlkca.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdnB3ZnpxZ3JyaHhybXpsa2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDc1ODcsImV4cCI6MjEwMDE4MzU4N30.iO8cmBEEDtvXN-3TRxH660rB3U2u2Kfef8r5OWnCBM4"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdnB3ZnpxZ3JyaHhybXpsa2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDc1ODcsImV4cCI6MjEwMDE4MzU4N30.iO8cmBEEDtvXN-3TRxH660rB3U2u2Kfef8r5OWnCBM4",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "95658949372-3bg8gb4d31o4lpsvcl97g9e46u7sabqq.apps.googleusercontent.com"
       }
     }
   },
