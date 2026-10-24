@@ -71,10 +71,25 @@ export function SmallPrimaryButton({ children, onPress, icon: Icon }: BaseProps)
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center gap-1.5 self-start rounded-lg bg-purple-600 px-3 py-1.5 active:bg-purple-700"
+      // Same-colour border so it is exactly as tall as SmallDangerButton beside it.
+      className="flex-row items-center gap-1.5 self-start rounded-lg border border-purple-600 bg-purple-600 px-3 py-1.5 active:bg-purple-700"
     >
       {Icon && <Icon size={14} color="#fff" />}
       <Text className="text-xs font-semibold text-white">{children}</Text>
+    </Pressable>
+  );
+}
+
+/** Compact inline danger action — same size as SmallPrimaryButton, for sitting beside it. */
+export function SmallDangerButton({ children, onPress, disabled, icon: Icon }: BaseProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      className={`flex-row items-center gap-1.5 self-start rounded-lg border border-red-200 bg-white px-3 py-1.5 active:bg-red-50 ${disabled ? "opacity-60" : ""}`}
+    >
+      {Icon && <Icon size={14} color="#dc2626" />}
+      <Text className="text-xs font-semibold text-red-600">{children}</Text>
     </Pressable>
   );
 }
