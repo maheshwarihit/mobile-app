@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { toast } from "@/lib/toast";
-import { CalendarClock, Upload, AlertTriangle, RotateCcw } from "lucide-react-native";
-import { Pill, DangerButton, SmallPrimaryButton, ConfirmModal, Card } from "@/components/ui";
+import { CalendarClock, Upload, AlertTriangle, RotateCcw, X } from "lucide-react-native";
+import { Pill, SmallDangerButton, SmallPrimaryButton, ConfirmModal, Card } from "@/components/ui";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
 import { translateServiceName } from "@/lib/serviceI18n";
 import { useLanguage } from "@/lib/i18n";
@@ -119,7 +119,9 @@ export function PatientBookingCard({
               {t("bookingCard.reschedule")}
             </SmallPrimaryButton>
           ) : null}
-          <DangerButton onPress={() => setConfirmOpen(true)}>{t("bookingCard.cancel")}</DangerButton>
+          <SmallDangerButton icon={X} onPress={() => setConfirmOpen(true)}>
+            {t("bookingCard.cancel")}
+          </SmallDangerButton>
         </View>
       ) : null}
 
