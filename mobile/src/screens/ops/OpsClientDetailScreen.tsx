@@ -44,6 +44,7 @@ import {
   Avatar,
 } from "@/components/ui";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
+import { NutritionSection } from "@/components/ops/NutritionSection";
 import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { AddressFields } from "@/components/feature/AddressFields";
@@ -340,6 +341,9 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
             </View>
           )}
         </SectionCard>
+
+        {/* The patient's Nutrition modules (Body Metrics, self-assessment, meals, lab reports). */}
+        <NutritionSection accountId={accountId} familyMemberId={focusedDependent?.id ?? null} />
       </ScrollView>
 
       {profile ? (

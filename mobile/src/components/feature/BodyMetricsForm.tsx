@@ -7,6 +7,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { genderLabel } from "@/lib/enumI18n";
 import { loadBodyMetrics, saveBodyMetrics, type BodyMetrics } from "@/lib/bodyMetricsStorage";
+import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
 import { toast } from "@/lib/toast";
 import { BRAND } from "@/theme";
 
@@ -87,6 +88,8 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
       if (saved) {
         fillFrom(saved);
         setSaved(saved);
+        // Shared with the care team (saved before syncing existed: uploaded once).
+        void syncOnce(userId, personKey, "body_metrics", [{ clientId: `body_metrics:${personKey}`, data: saved }]);
       }
       setLoaded(true);
     });
@@ -140,6 +143,7 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
     if (ok) {
       setSaved(next);
       setEditing(false);
+      void syncNutrition(userId, personKey, "body_metrics", `body_metrics:${personKey}`, next);
       toast.success(t("bodyMetrics.saved"));
       onSaved?.();
     } else {

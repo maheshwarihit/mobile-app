@@ -14,6 +14,7 @@ import { pickPlate, analyzePlate, translatePlate, MAX_MEAL_PHOTOS, type PlateAna
 import { loadMeals, saveMeal, deleteMeal, addMealTranslation, type SavedMeal } from "@/lib/mealLibrary";
 import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import { loadBodyMetrics } from "@/lib/bodyMetricsStorage";
+import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
 import { saveViewImage } from "@/lib/saveViewImage";
 import { toast } from "@/lib/toast";
 import { BRAND, ACCENT_GREEN, WARN, DANGER } from "@/theme";
@@ -88,6 +89,18 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
     void Promise.all([loadMeals(userId, personKey), loadBodyMetrics(userId, personKey)]).then(([savedMeals, metrics]) => {
       if (!active) return;
       setMeals(savedMeals);
+      // Shared with the care team (meals saved before syncing existed: uploaded once).
+      void syncOnce(
+        userId,
+        personKey,
+        "meal",
+        savedMeals.map((m) => ({
+          clientId: `meal:${m.id}`,
+          data: { analysis: m.analysis, savedAt: m.savedAt, photoCount: m.photoCount ?? 1, language: m.language },
+          photoUri: m.photoUri,
+          createdAt: m.savedAt,
+        })),
+      );
       const num = (v: string | undefined) => (v && Number(v) > 0 ? Number(v) : undefined);
       setPerson({
         age: num(metrics?.age) ?? (defaultAge ?? undefined),
@@ -113,7 +126,11 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
       // Only real meals go in the library.
       const stored = analysis.is_food ? await saveMeal(userId, personKey, photoUri, analysis, language ?? "en", photos.length) : null;
       setPhotos([]);
-      if (stored) setMeals(stored);
+      if (stored) {
+        setMeals(stored);
+        const m = stored[0];
+        void syncNutrition(userId, personKey, "meal", `meal:${m.id}`, { analysis: m.analysis, savedAt: m.savedAt, photoCount: m.photoCount ?? 1, language: m.language }, m.photoUri, m.savedAt);
+      }
       const meal = stored?.[0] ?? null;
       setStage({
         name: "result",
@@ -147,6 +164,7 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
 
   const removeMeal = async (id: string) => {
     const next = await deleteMeal(userId, personKey, id);
+    void unsyncNutrition(userId, `meal:${id}`);
     setMeals(next);
     setStage(next.length ? { name: "library" } : { name: "start" });
   };
@@ -447,7 +465,7 @@ function SavablePlateCard({
  * The plate result in one card, laid out as: photo | Calories, Carbs, Protein, Fat;
  * Score | Micronutrients; Suggestions.
  */
-function PlateCard({ photoUri, analysis, dateLine }: { photoUri: string; analysis: PlateAnalysis; dateLine?: string }) {
+export function PlateCard({ photoUri, analysis, dateLine }: { photoUri: string; analysis: PlateAnalysis; dateLine?: string }) {
   const { t } = useLanguage();
   const score = Math.max(0, Math.min(100, Math.round(analysis.score)));
   const meta = scoreMeta(score);

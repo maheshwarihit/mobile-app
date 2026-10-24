@@ -9,8 +9,9 @@ import { LibraryCalendar, dayKey, latestDay, dayHeading } from "@/components/fea
 import { LibraryEntry, libraryFileName } from "@/components/feature/LibraryEntry";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
-import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, type PickedReport, type ReportMediaType, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
+import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, PDF_THUMB_URI, type PickedReport, type ReportMediaType, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
 import { loadReports, saveReport, deleteReport, addReportTranslation, type SavedReport } from "@/lib/reportLibrary";
+import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
 import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import type { Language } from "@/lib/i18n";
 import { saveViewImage } from "@/lib/saveViewImage";
@@ -28,6 +29,16 @@ type Pending = {
   result?: LabReport;
   error?: string;
 };
+
+/** A saved report as it is shared with the care team (a PDF has no photo of its own). */
+function reportSyncItem(r: SavedReport) {
+  return {
+    clientId: `lab_report:${r.id}`,
+    data: { result: r.result, savedAt: r.savedAt, pages: r.pages ?? 1, language: r.language },
+    photoUri: r.photoUri && r.photoUri !== PDF_THUMB_URI ? r.photoUri : null,
+    createdAt: r.savedAt,
+  };
+}
 
 const STEPS: TranslationKey[] = ["bioMarkers.step.read", "bioMarkers.step.find", "bioMarkers.step.compare", "bioMarkers.step.summary"];
 // A full report usually takes longer to read than a plate photo.
@@ -90,6 +101,8 @@ export function BioMarkers({
       if (!active) return;
       setSaved(list);
       setLoaded(true);
+      // Shared with the care team (reports saved before syncing existed: uploaded once).
+      void syncOnce(userId, personKey, "lab_report", list.map(reportSyncItem));
     });
     return () => {
       active = false;
@@ -107,7 +120,11 @@ export function BioMarkers({
       // stays here only, with its retake tip.
       if (result.status === "ok") {
         const next = await saveReport(userId, personKey, item.uri, result, language ?? "en", item.pages.length);
-        if (next) setSaved(next);
+        if (next) {
+          setSaved(next);
+          const r = reportSyncItem(next[0]);
+          void syncNutrition(userId, personKey, "lab_report", r.clientId, r.data, r.photoUri, r.createdAt);
+        }
       }
       update(item.id, { phase: "done", result });
     } catch (e) {
@@ -144,7 +161,10 @@ export function BioMarkers({
     void read(item);
   };
 
-  const removeSaved = async (id: string) => setSaved(await deleteReport(userId, personKey, id));
+  const removeSaved = async (id: string) => {
+    setSaved(await deleteReport(userId, personKey, id));
+    void unsyncNutrition(userId, `lab_report:${id}`);
+  };
 
   if (!loaded) return <LoadingState message={t("common.loading")} />;
 
@@ -386,7 +406,12 @@ function Bullets({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function ReportResult({ uri, addedAt, pages, result }: { uri: string; addedAt: string; pages?: number; result: LabReport }) {
+/** "Blood test · CBC · Lipid" — a reading's report type and panels. */
+export function reportTitle(t: (k: TranslationKey) => string, result: LabReport): string {
+  return [t(TYPE_KEY[result.report_type]), ...result.report_panels].join(" · ");
+}
+
+export function ReportResult({ uri, addedAt, pages, result }: { uri: string; addedAt: string; pages?: number; result: LabReport }) {
   const { t } = useLanguage();
 
   if (result.status === "unreadable") {

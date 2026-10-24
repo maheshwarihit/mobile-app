@@ -10,6 +10,7 @@ import * as foodPlate from "./foodPlate";
 import * as bioMarkers from "./bioMarkers";
 import * as selfAssessment from "./selfAssessment";
 import * as phone from "./phone";
+import * as opsNutrition from "./opsNutrition";
 import * as home from "./home";
 import * as services from "./services";
 import * as appointment from "./appointment";
@@ -59,6 +60,7 @@ export const en = {
   ...bioMarkers.en,
   ...selfAssessment.en,
   ...phone.en,
+  ...opsNutrition.en,
   ...home.en,
   ...services.en,
   ...appointment.en,
@@ -103,6 +105,7 @@ export const ta: Record<keyof typeof en, string> = {
   ...bioMarkers.ta,
   ...selfAssessment.ta,
   ...phone.ta,
+  ...opsNutrition.ta,
   ...home.ta,
   ...services.ta,
   ...appointment.ta,

@@ -5,8 +5,8 @@
 // stored files — profile photo, payment screenshots, lab reports and visit
 // photos of their bookings — clears references to them from other people's
 // records, and then deletes the login itself. Deleting the login cascades in
-// the database to their profile, family members, bookings, booking requests
-// and clinical records (see migrations 0001, 0009, 0010).
+// the database to their profile, family members, bookings, booking requests,
+// clinical records and nutrition records (see migrations 0001, 0009, 0010, 0047).
 //
 // Staff accounts (admin, Care Giver) are not deleted here: they are linked to
 // other people's visits and records and are removed by the admin.
@@ -69,6 +69,9 @@ Deno.serve(async (req) => {
       ["visit-photos", visitFiles],
       ["profile-photos", profile?.avatar_path ? [profile.avatar_path] : []],
     ];
+    // Nutrition pictures live in a folder named after the account.
+    const { data: nutritionFiles } = await admin.storage.from("nutrition-photos").list(uid, { limit: 1000 });
+    removals.push(["nutrition-photos", (nutritionFiles ?? []).map((f) => `${uid}/${f.name}`)]);
     for (const [bucket, paths] of removals) {
       if (paths.length) {
         const { error } = await admin.storage.from(bucket).remove(paths);
