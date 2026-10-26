@@ -7,6 +7,7 @@ export const en = {
   "ops.nutrition.reports": "Lab reports ({count})",
   "ops.nutrition.overall": "Overall {score}/100 · {band}",
   "ops.nutrition.updated": "Updated {date}",
+  "ops.nutrition.history": "Earlier",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -18,4 +19,5 @@ export const ta: Record<keyof typeof en, string> = {
   "ops.nutrition.reports": "ஆய்வக அறிக்கைகள் ({count})",
   "ops.nutrition.overall": "மொத்தம் {score}/100 · {band}",
   "ops.nutrition.updated": "புதுப்பிக்கப்பட்டது {date}",
+  "ops.nutrition.history": "முந்தையவை",
 };

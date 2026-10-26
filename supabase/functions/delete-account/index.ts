@@ -69,6 +69,14 @@ Deno.serve(async (req) => {
       ["visit-photos", visitFiles],
       ["profile-photos", profile?.avatar_path ? [profile.avatar_path] : []],
     ];
+    // Original lab report files: <account>/<report id>/page-N.ext
+    const { data: reportFolders } = await admin.storage.from("lab-report-files").list(uid, { limit: 1000 });
+    const reportFiles: string[] = [];
+    for (const folder of reportFolders ?? []) {
+      const { data: pages } = await admin.storage.from("lab-report-files").list(`${uid}/${folder.name}`, { limit: 100 });
+      for (const p of pages ?? []) reportFiles.push(`${uid}/${folder.name}/${p.name}`);
+    }
+    removals.push(["lab-report-files", reportFiles]);
     // Nutrition pictures live in a folder named after the account.
     const { data: nutritionFiles } = await admin.storage.from("nutrition-photos").list(uid, { limit: 1000 });
     removals.push(["nutrition-photos", (nutritionFiles ?? []).map((f) => `${uid}/${f.name}`)]);

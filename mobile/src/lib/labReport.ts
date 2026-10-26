@@ -2,6 +2,8 @@ import { Platform } from "react-native";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import { pickReportFiles } from "@/lib/reportFile";
+import { openUrl } from "@/lib/signedUrl";
+import { decode } from "base64-arraybuffer";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
 
@@ -176,4 +178,47 @@ export async function translateReport(report: LabReport, language: string): Prom
     throw new Error(message ?? "Could not translate.");
   }
   return data as LabReport;
+}
+
+// ── The original files (every page / PDF), kept privately (migration 0049) ──
+export const LAB_FILE_BUCKET = "lab-report-files";
+export type ReportFile = { path: string; mediaType: ReportMediaType };
+
+const extOf = (m: ReportMediaType) => (m === "application/pdf" ? "pdf" : m === "image/png" ? "png" : m === "image/webp" ? "webp" : "jpg");
+
+/** Upload a report's pages under <account>/<report id>/. Returns the files that were stored (best-effort). */
+export async function uploadReportFiles(
+  userId: string,
+  reportId: string,
+  pages: { base64: string; mediaType: ReportMediaType }[],
+): Promise<ReportFile[]> {
+  const stored: ReportFile[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    const p = pages[i];
+    const path = `${userId}/${reportId}/page-${i + 1}.${extOf(p.mediaType)}`;
+    try {
+      const { error } = await supabase.storage.from(LAB_FILE_BUCKET).upload(path, decode(p.base64), { contentType: p.mediaType, upsert: true });
+      if (!error) stored.push({ path, mediaType: p.mediaType });
+    } catch {
+      // keep going with the other pages
+    }
+  }
+  return stored;
+}
+
+export async function removeReportFiles(files: ReportFile[] | undefined): Promise<void> {
+  if (!files?.length) return;
+  try {
+    await supabase.storage.from(LAB_FILE_BUCKET).remove(files.map((f) => f.path));
+  } catch {
+    // best-effort
+  }
+}
+
+/** Open one original page / PDF (a short-lived private link). */
+export async function openReportFile(path: string): Promise<boolean> {
+  const { data } = await supabase.storage.from(LAB_FILE_BUCKET).createSignedUrl(path, 600);
+  if (!data?.signedUrl) return false;
+  openUrl(data.signedUrl);
+  return true;
 }

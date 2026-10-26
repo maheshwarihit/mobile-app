@@ -75,7 +75,9 @@ export function paymentStatusMeta(status: string): PillColors {
   return PAYMENT_STATUS_META[status as PaymentStatus] ?? UNKNOWN_META(status);
 }
 
-export function bookingStatusMeta(status: string): PillColors {
+/** Pass the booking's rescheduled_at so a rescheduled (released) booking reads "Rescheduled", not "Cancelled". */
+export function bookingStatusMeta(status: string, rescheduledAt?: string | null): PillColors {
+  if (status === "cancelled" && rescheduledAt) return { label: "Rescheduled", bg: "bg-amber-100", text: "text-amber-700" };
   return BOOKING_STATUS_META[status as BookingStatus] ?? UNKNOWN_META(status);
 }
 

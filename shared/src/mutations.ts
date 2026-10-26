@@ -51,10 +51,16 @@ export function useRescheduleBooking() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await getSupabase()
+      const sb = getSupabase();
+      // Recorded on the booking so everyone sees "Rescheduled" (migration 0049);
+      // before that migration has run, release it the old way.
+      let { error } = await sb
         .from("bookings")
-        .update({ booking_status: "cancelled" })
+        .update({ booking_status: "cancelled", rescheduled_at: new Date().toISOString() })
         .eq("id", id);
+      if (error && /rescheduled_at/.test(error.message ?? "")) {
+        ({ error } = await sb.from("bookings").update({ booking_status: "cancelled" }).eq("id", id));
+      }
       if (error) throw error;
     },
     onSuccess: () => {

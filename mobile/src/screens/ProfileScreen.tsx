@@ -517,7 +517,7 @@ export function ProfileScreen() {
             ) : (
               <View className="gap-2">
                 {checkupHistory.map((b) => (
-                  <CheckupRow key={b.id} booking={b} rescheduled={rescheduledIds.has(b.id)} />
+                  <CheckupRow key={b.id} booking={b} rescheduled={rescheduledIds.has(b.id) || !!b.rescheduled_at} />
                 ))}
               </View>
             )}

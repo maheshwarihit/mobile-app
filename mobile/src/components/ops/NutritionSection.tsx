@@ -10,14 +10,14 @@ import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { loadNutritionRecords, nutritionPhotoUrls, type NutritionRecord } from "@/lib/nutritionSync";
 import { computeBmi, bmiCategory } from "@/lib/bmi";
 import { SECTIONS, sectionScore, overallScore, bandFor, type SectionId, type SectionAnswers } from "@/lib/selfAssessmentScore";
-import { PDF_THUMB_URI, type LabReport } from "@/lib/labReport";
+import { PDF_THUMB_URI, type LabReport, type ReportFile } from "@/lib/labReport";
 import type { PlateAnalysis } from "@/lib/foodPlate";
 import type { BodyMetrics } from "@/lib/bodyMetricsStorage";
 
 const key = (k: string) => k as TranslationKey;
 
 type MealData = { analysis: PlateAnalysis; savedAt: string; photoCount?: number };
-type ReportData = { result: LabReport; savedAt: string; pages?: number };
+type ReportData = { result: LabReport; savedAt: string; pages?: number; files?: ReportFile[] };
 type AssessmentData = { answers: Partial<Record<SectionId, SectionAnswers>>; savedAt: string };
 
 /**
@@ -50,8 +50,11 @@ export function NutritionSection({ accountId, familyMemberId }: { accountId: str
     };
   }, [accountId, familyMemberId]);
 
-  const body = records?.find((r) => r.kind === "body_metrics");
-  const assessment = records?.find((r) => r.kind === "self_assessment");
+  // Each save is kept with its date (history); the current copy repeats the newest, so dedupe by date.
+  const bodies = byDate(records?.filter((r) => r.kind === "body_metrics") ?? []);
+  const assessments = byDate(records?.filter((r) => r.kind === "self_assessment") ?? []);
+  const body = bodies[0];
+  const assessment = assessments[0];
   const meals = records?.filter((r) => r.kind === "meal") ?? [];
   const reports = records?.filter((r) => r.kind === "lab_report") ?? [];
   const empty = records && !body && !assessment && !meals.length && !reports.length;
@@ -66,8 +69,8 @@ export function NutritionSection({ accountId, familyMemberId }: { accountId: str
         <Text className="text-sm text-gray-500">{t("ops.nutrition.empty")}</Text>
       ) : (
         <View className="gap-5">
-          {body ? <BodyMetricsBlock record={body} /> : null}
-          {assessment ? <AssessmentBlock record={assessment} /> : null}
+          {body ? <BodyMetricsBlock record={body} history={bodies.slice(1)} /> : null}
+          {assessment ? <AssessmentBlock record={assessment} history={assessments.slice(1)} /> : null}
 
           {meals.length ? (
             <View className="gap-2">
@@ -104,7 +107,7 @@ export function NutritionSection({ accountId, familyMemberId }: { accountId: str
                     title={reportTitle(t, d.result)}
                     subtitle={formatLocalDateTime(d.savedAt)}
                     fileName={libraryFileName("report", d.savedAt)}
-                    renderCard={() => <ReportResult uri={photo} addedAt={d.savedAt} pages={d.pages} result={d.result} />}
+                    renderCard={() => <ReportResult uri={photo} addedAt={d.savedAt} pages={d.pages} result={d.result} files={d.files} />}
                   />
                 );
               })}
@@ -125,7 +128,36 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BodyMetricsBlock({ record }: { record: NutritionRecord }) {
+/** One record per saved date (newest first), using the date the person saved it. */
+function byDate(list: NutritionRecord[]): NutritionRecord[] {
+  const seen = new Set<string>();
+  const out: NutritionRecord[] = [];
+  const when = (r: NutritionRecord) => (r.data as { savedAt?: string })?.savedAt ?? r.created_at;
+  for (const r of [...list].sort((a, b) => when(b).localeCompare(when(a)))) {
+    const k = when(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+
+function History({ lines }: { lines: string[] }) {
+  const { t } = useLanguage();
+  if (!lines.length) return null;
+  return (
+    <View className="mt-1 gap-1 rounded-lg bg-gray-50 p-2.5">
+      <Text className="text-xs font-semibold text-gray-600">{t("ops.nutrition.history")}</Text>
+      {lines.slice(0, 10).map((l) => (
+        <Text key={l} className="text-xs text-gray-600">
+          {l}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function BodyMetricsBlock({ record, history }: { record: NutritionRecord; history: NutritionRecord[] }) {
   const { t } = useLanguage();
   const m = record.data as BodyMetrics;
   const h = Number(m.heightCm);
@@ -143,11 +175,19 @@ function BodyMetricsBlock({ record }: { record: NutritionRecord }) {
       <Row label={t("bodyMetrics.conditions")} value={list(m.medicalConditions, "bodyMetrics.condition")} />
       <Row label={t("bodyMetrics.history")} value={list(m.pastHistory, "bodyMetrics.history")} />
       {m.savedAt ? <Text className="text-xs text-gray-400">{t("ops.nutrition.updated", { date: formatLocalDateTime(m.savedAt) })}</Text> : null}
+      <History
+        lines={history.map((r) => {
+          const o = r.data as BodyMetrics;
+          const hh = Number(o.heightCm);
+          const ww = Number(o.weightKg);
+          return `${formatLocalDateTime(o.savedAt)} — ${o.heightCm || "—"} cm, ${o.weightKg || "—"} kg${hh > 0 && ww > 0 ? `, BMI ${computeBmi(hh, ww).toFixed(1)}` : ""}`;
+        })}
+      />
     </View>
   );
 }
 
-function AssessmentBlock({ record }: { record: NutritionRecord }) {
+function AssessmentBlock({ record, history }: { record: NutritionRecord; history: NutritionRecord[] }) {
   const { t } = useLanguage();
   const d = record.data as AssessmentData;
   const overall = overallScore(d.answers);
@@ -172,6 +212,12 @@ function AssessmentBlock({ record }: { record: NutritionRecord }) {
         })}
       </View>
       {d.savedAt ? <Text className="text-xs text-gray-400">{t("ops.nutrition.updated", { date: formatLocalDateTime(d.savedAt) })}</Text> : null}
+      <History
+        lines={history
+          .map((r) => r.data as AssessmentData)
+          .filter((o) => overallScore(o.answers) !== null)
+          .map((o) => `${formatLocalDateTime(o.savedAt)} — ${t("ops.nutrition.overall", { score: overallScore(o.answers) ?? 0, band: t(key(`selfAssessment.band.${bandFor(overallScore(o.answers) ?? 0)}`)) })}`)}
+      />
     </View>
   );
 }

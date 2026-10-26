@@ -308,7 +308,7 @@ export function OpsClientDetailScreen({ route, navigation }: ClientsStackScreenP
           ) : (
             <View className="gap-3">
               {subjectBookings.map((b) => {
-                const status = bookingStatusMeta(b.booking_status);
+                const status = bookingStatusMeta(b.booking_status, b.rescheduled_at);
                 return (
                   <View key={b.id} className="flex-row items-start justify-between gap-3">
                     <View className="flex-1">

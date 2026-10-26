@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert, Download, BookOpen, ArrowLeft, UserX } from "lucide-react-native";
+import { Camera, ImageUp, FlaskConical, Trash2, LogOut, RotateCcw, TriangleAlert, Download, BookOpen, ArrowLeft, UserX, FileText } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, LoadingState, Spinner } from "@/components/ui";
 import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
@@ -9,8 +9,8 @@ import { LibraryCalendar, dayKey, latestDay, dayHeading } from "@/components/fea
 import { LibraryEntry, libraryFileName } from "@/components/feature/LibraryEntry";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
-import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, PDF_THUMB_URI, type PickedReport, type ReportMediaType, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
-import { loadReports, saveReport, deleteReport, addReportTranslation, type SavedReport } from "@/lib/reportLibrary";
+import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, PDF_THUMB_URI, uploadReportFiles, removeReportFiles, openReportFile, type ReportFile, type PickedReport, type ReportMediaType, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
+import { loadReports, saveReport, deleteReport, addReportTranslation, setReportFiles, type SavedReport } from "@/lib/reportLibrary";
 import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
 import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import type { Language } from "@/lib/i18n";
@@ -34,7 +34,7 @@ type Pending = {
 function reportSyncItem(r: SavedReport) {
   return {
     clientId: `lab_report:${r.id}`,
-    data: { result: r.result, savedAt: r.savedAt, pages: r.pages ?? 1, language: r.language },
+    data: { result: r.result, savedAt: r.savedAt, pages: r.pages ?? 1, language: r.language, files: r.files ?? [] },
     photoUri: r.photoUri && r.photoUri !== PDF_THUMB_URI ? r.photoUri : null,
     createdAt: r.savedAt,
   };
@@ -122,8 +122,21 @@ export function BioMarkers({
         const next = await saveReport(userId, personKey, item.uri, result, language ?? "en", item.pages.length);
         if (next) {
           setSaved(next);
-          const r = reportSyncItem(next[0]);
-          void syncNutrition(userId, personKey, "lab_report", r.clientId, r.data, r.photoUri, r.createdAt);
+          const saved = next[0];
+          // Keep the original pages privately, then share the reading (with them) with the care team.
+          void (async () => {
+            let entry = saved;
+            if (userId) {
+              const files = await uploadReportFiles(userId, saved.id, item.pages);
+              if (files.length) {
+                const withFiles = await setReportFiles(userId, personKey, saved.id, files);
+                setSaved(withFiles);
+                entry = withFiles.find((r) => r.id === saved.id) ?? saved;
+              }
+            }
+            const r = reportSyncItem(entry);
+            await syncNutrition(userId, personKey, "lab_report", r.clientId, r.data, r.photoUri, r.createdAt);
+          })();
         }
       }
       update(item.id, { phase: "done", result });
@@ -162,6 +175,7 @@ export function BioMarkers({
   };
 
   const removeSaved = async (id: string) => {
+    void removeReportFiles(saved.find((r) => r.id === id)?.files);
     setSaved(await deleteReport(userId, personKey, id));
     void unsyncNutrition(userId, `lab_report:${id}`);
   };
@@ -332,7 +346,7 @@ function LibraryReportEntry({
         ) : null
       }
       fileName={libraryFileName("report", report.savedAt)}
-      renderCard={() => <ReportResult uri={report.photoUri} addedAt={report.savedAt} pages={report.pages} result={shown} />}
+      renderCard={() => <ReportResult uri={report.photoUri} addedAt={report.savedAt} pages={report.pages} result={shown} files={report.files} />}
       onDelete={onRemove}
     />
   );
@@ -411,7 +425,20 @@ export function reportTitle(t: (k: TranslationKey) => string, result: LabReport)
   return [t(TYPE_KEY[result.report_type]), ...result.report_panels].join(" · ");
 }
 
-export function ReportResult({ uri, addedAt, pages, result }: { uri: string; addedAt: string; pages?: number; result: LabReport }) {
+export function ReportResult({
+  uri,
+  addedAt,
+  pages,
+  result,
+  files,
+}: {
+  uri: string;
+  addedAt: string;
+  pages?: number;
+  result: LabReport;
+  /** The original pages / PDFs, when stored: shown as links to open them. */
+  files?: ReportFile[];
+}) {
   const { t } = useLanguage();
 
   if (result.status === "unreadable") {
@@ -503,6 +530,27 @@ export function ReportResult({ uri, addedAt, pages, result }: { uri: string; add
 
       <Bullets title={t("bioMarkers.concernsTitle")} items={result.health_concerns} />
       <Bullets title={t("bioMarkers.dietTitle")} items={result.diet_lifestyle} />
+
+      {files?.length ? (
+        <View className="gap-2">
+          <Text className="text-sm font-bold text-gray-900">{t("bioMarkers.originals")}</Text>
+          <View className="flex-row flex-wrap gap-2">
+            {files.map((f, i) => (
+              <Pressable
+                key={f.path}
+                onPress={() => void openReportFile(f.path)}
+                accessibilityRole="link"
+                className="flex-row items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 active:opacity-70"
+              >
+                <FileText size={13} color={BRAND} />
+                <Text className="text-xs font-semibold text-purple-700">
+                  {f.mediaType === "application/pdf" ? t("bioMarkers.originalPdf", { n: i + 1 }) : t("bioMarkers.originalPage", { n: i + 1 })}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : null}
     </Card>
   );
 }

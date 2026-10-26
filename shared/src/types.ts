@@ -111,6 +111,8 @@ export interface Booking {
   assigned_to: string | null; // FK -> profiles.id (staff or leaf_node), set on assignment
   admin_note: string | null; // admin-entered patient details/needs, folded into the assignment WhatsApp message
   booking_status: BookingStatus;
+  /** Set when the patient rescheduled (the old booking is released as cancelled) — migration 0049. */
+  rescheduled_at?: string | null;
   created_at: string;
   updated_at: string;
 }

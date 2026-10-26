@@ -41,7 +41,7 @@ export function PatientBookingCard({
   const [rescheduleConfirmOpen, setRescheduleConfirmOpen] = useState(false);
 
   const pay = paymentStatusMeta(booking.payment_status);
-  const status = bookingStatusMeta(booking.booking_status);
+  const status = bookingStatusMeta(booking.booking_status, booking.rescheduled_at);
   const wasRejected =
     booking.payment_status === "pending" && booking.payment_method === "online" && !!booking.payment_note;
 

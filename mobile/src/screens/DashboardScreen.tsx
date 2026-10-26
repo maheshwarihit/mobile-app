@@ -181,7 +181,7 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
  */
 function LastCompletedCheckup({ booking, subjectName }: { booking: Booking; subjectName: string }) {
   const { t } = useLanguage();
-  const status = bookingStatusMeta(booking.booking_status);
+  const status = bookingStatusMeta(booking.booking_status, booking.rescheduled_at);
   return (
     <View className="mt-5">
       <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">

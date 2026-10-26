@@ -114,7 +114,7 @@ function VisitCard({
 }) {
   const { t } = useLanguage();
   const { user, role } = useAuth();
-  const status = bookingStatusMeta(booking.booking_status);
+  const status = bookingStatusMeta(booking.booking_status, booking.rescheduled_at);
   const start = useStartVisit();
   const complete = useCompleteVisit();
   const uploadVisitPhoto = useUploadVisitPhoto();

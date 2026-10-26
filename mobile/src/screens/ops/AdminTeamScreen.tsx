@@ -227,7 +227,7 @@ function TeamMemberDetail({
           )
         }
         renderItem={({ item: b }) => {
-          const status = bookingStatusMeta(b.booking_status);
+          const status = bookingStatusMeta(b.booking_status, b.rescheduled_at);
           return (
             <Card className="p-4">
               <View className="flex-row items-start justify-between gap-3">

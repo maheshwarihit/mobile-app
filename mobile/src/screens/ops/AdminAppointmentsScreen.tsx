@@ -207,7 +207,7 @@ function AdminBookingCard({
 }) {
   const { t } = useLanguage();
   const pay = paymentStatusMeta(booking.payment_status);
-  const status = bookingStatusMeta(booking.booking_status);
+  const status = bookingStatusMeta(booking.booking_status, booking.rescheduled_at);
   const isCancelled = booking.booking_status === "cancelled";
   const isRequested = booking.booking_status === "requested";
   const waHref = booking.assigned_to_phone ? waLink(booking.assigned_to_phone, assignmentMessage(booking)) : null;

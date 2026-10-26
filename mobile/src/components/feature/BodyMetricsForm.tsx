@@ -146,7 +146,9 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
     if (ok) {
       setSaved(next);
       setEditing(false);
+      // The current values, plus a dated copy so the care team can see changes over time.
       void syncNutrition(userId, personKey, "body_metrics", `body_metrics:${personKey}`, next);
+      void syncNutrition(userId, personKey, "body_metrics", `body_metrics:${personKey}:${next.savedAt}`, next, null, next.savedAt);
       toast.success(t("bodyMetrics.saved"));
       onSaved?.();
     } else {

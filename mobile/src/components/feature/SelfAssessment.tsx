@@ -117,6 +117,10 @@ export function SelfAssessment({ personKey, onExit }: Props) {
       setSaved(answers);
       setSavedAt(at);
       void syncNutrition(userId, personKey, "self_assessment", `self_assessment:${personKey}`, { answers, savedAt: at });
+      // Each completed assessment is also kept as a dated copy (history for the care team).
+      if (overallScore(answers) !== null) {
+        void syncNutrition(userId, personKey, "self_assessment", `self_assessment:${personKey}:${at}`, { answers, savedAt: at }, null, at);
+      }
     }
     // No "saved" popup: the section's tile turning into its coloured score is the confirmation.
     if (target) setDraft(answers[target] ? [...answers[target]!] : blankSection());

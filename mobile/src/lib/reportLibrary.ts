@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 import type { Language } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
-import type { LabReport } from "@/lib/labReport";
+import type { LabReport, ReportFile } from "@/lib/labReport";
 
 /** One read lab report kept in the Report library. */
 export type SavedReport = {
@@ -14,6 +14,8 @@ export type SavedReport = {
   result: LabReport;
   /** How many pages the report had (only the first is kept as the picture). */
   pages?: number;
+  /** The original pages / PDFs, kept privately on the server (migration 0049). */
+  files?: ReportFile[];
   /** The language the AI wrote it in (missing on items saved before this was recorded). */
   language?: Language;
   /** Translations into the other language, made when the app was switched to it. */
@@ -124,6 +126,16 @@ export function addReportTranslation(
   return serial(async () => {
     const existing = await loadReports(userId, personKey);
     const next = existing.map((r) => (r.id === id ? { ...r, translations: { ...r.translations, [language]: translated } } : r));
+    await writeReports(userId, personKey, next);
+    return next;
+  });
+}
+
+/** Record where a report's original files were stored. Returns the updated list. */
+export function setReportFiles(userId: string | null, personKey: string, id: string, files: ReportFile[]): Promise<SavedReport[]> {
+  return serial(async () => {
+    const existing = await loadReports(userId, personKey);
+    const next = existing.map((r) => (r.id === id ? { ...r, files } : r));
     await writeReports(userId, personKey, next);
     return next;
   });
