@@ -21,6 +21,15 @@ const requiredAge = optionalAge.refine((v) => v !== null, "Select the age");
 // Gender and date of birth are compulsory alongside age.
 const requiredGender = z.enum(asTuple(GENDERS), { errorMap: () => ({ message: "Select a gender" }) });
 const requiredDob = z.string().min(1, "Select the date of birth");
+// Height and weight are compulsory on every profile (they feed BMI and Nutrition).
+const requiredHeight = z.coerce
+  .number({ invalid_type_error: "Enter the height in cm" })
+  .min(50, "Enter the height in cm (50–250)")
+  .max(250, "Enter the height in cm (50–250)");
+const requiredWeight = z.coerce
+  .number({ invalid_type_error: "Enter the weight in kg" })
+  .min(2, "Enter the weight in kg (2–400)")
+  .max(400, "Enter the weight in kg (2–400)");
 
 // Catches a mistyped age: it must equal the age the date of birth gives today.
 // Reported on the Age field so the person sees what it should be.
@@ -57,6 +66,8 @@ export const dependentSchema = z.object({
     .min(1, "Enter a contact number")
     .refine((v) => normalizePhone(v) !== null, "Enter a valid mobile number"),
   gender: requiredGender,
+  height_cm: requiredHeight,
+  weight_kg: requiredWeight,
 }).superRefine(ageMatchesDob);
 export type DependentInput = z.infer<typeof dependentSchema>;
 
@@ -67,6 +78,8 @@ export const profileSchema = z.object({
   age: requiredAge,
   date_of_birth: requiredDob,
   gender: requiredGender,
+  height_cm: requiredHeight,
+  weight_kg: requiredWeight,
   address: z.string().trim().max(500).optional().default(""),
 }).superRefine(ageMatchesDob);
 export type ProfileInput = z.infer<typeof profileSchema>;

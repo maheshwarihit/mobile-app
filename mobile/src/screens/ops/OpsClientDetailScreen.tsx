@@ -48,6 +48,7 @@ import { NutritionSection } from "@/components/ops/NutritionSection";
 import { CardAction } from "@/screens/ops/AdminAppointmentsScreen";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { AddressFields } from "@/components/feature/AddressFields";
+import { HeightWeightFields } from "@/components/feature/HeightWeightFields";
 import { withAgeFromDob } from "@/lib/ageFromDob";
 import { useSignedUrl, openUrl } from "@/lib/signedUrl";
 import { useAuth } from "@/providers/AuthProvider";
@@ -386,7 +387,7 @@ function EditProfileModal({
   const { t } = useLanguage();
   const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }));
   const updateProfile = useUpdateProfile();
-  const [form, setForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", address: "" });
+  const [form, setForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", height_cm: "", weight_kg: "", address: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -407,6 +408,8 @@ function EditProfileModal({
           age: profile.age?.toString() ?? "",
           date_of_birth: profile.date_of_birth ?? "",
           gender: profile.gender ?? "male",
+          height_cm: profile.height_cm?.toString() ?? "",
+          weight_kg: profile.weight_kg?.toString() ?? "",
           address: profile.address ?? "",
         })
       );
@@ -437,6 +440,8 @@ function EditProfileModal({
         age: parsed.data.age,
         date_of_birth: parsed.data.date_of_birth || null,
         gender: parsed.data.gender || null,
+        height_cm: parsed.data.height_cm,
+        weight_kg: parsed.data.weight_kg,
         address: address || null,
       },
       {
@@ -465,6 +470,14 @@ function EditProfileModal({
                 <AgeField label={t("ops.clientDetail.editModal.age")} value={form.age} onChange={set("age")} placeholder={t("ops.clientDetail.age")} error={errors.age} required submitLabel={t("common.submit")} />
                 <BirthDateField label={t("ops.clientDetail.editModal.dob")} value={form.date_of_birth} onChange={setDob} error={errors.date_of_birth} required submitLabel={t("common.submit")} />
                 <ChoiceChips label={t("ops.clientDetail.editModal.gender")} value={form.gender} onChange={set("gender")} options={GENDER_OPTIONS} error={errors.gender} required />
+                <HeightWeightFields
+                  height={form.height_cm}
+                  weight={form.weight_kg}
+                  onHeight={set("height_cm")}
+                  onWeight={set("weight_kg")}
+                  heightError={errors.height_cm}
+                  weightError={errors.weight_kg}
+                />
                 <AddressFields label={t("ops.clientDetail.editModal.address")} value={form.address} onChange={set("address")} error={errors.address} />
               </View>
               <View className="mt-6 flex-row justify-end gap-2">

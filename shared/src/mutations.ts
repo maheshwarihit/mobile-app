@@ -254,6 +254,8 @@ export function useSaveDependent() {
       full_name: string;
       age: number | null;
       date_of_birth: string | null;
+      height_cm?: number | null;
+      weight_kg?: number | null;
       relationship: string;
       contact_phone: string | null;
       gender: string | null;
@@ -262,12 +264,14 @@ export function useSaveDependent() {
       if (payload.id) {
         const { id, account_id: _a, ...rest } = payload;
         void _a;
-        const { error } = await sb.from("family_members").update(rest).eq("id", id);
+        let { error } = await sb.from("family_members").update(rest).eq("id", id);
+        if (isMissingHeightWeightColumn(error)) ({ error } = await sb.from("family_members").update(withoutHeightWeight(rest)).eq("id", id));
         if (error) throw error;
       } else {
         const { id: _i, ...rest } = payload;
         void _i;
-        const { error } = await sb.from("family_members").insert(rest);
+        let { error } = await sb.from("family_members").insert(rest);
+        if (isMissingHeightWeightColumn(error)) ({ error } = await sb.from("family_members").insert(withoutHeightWeight(rest)));
         if (error) throw error;
       }
     },
@@ -295,6 +299,18 @@ export function useDeleteDependent() {
 }
 
 // ── Profile bio ──────────────────────────────────────────────────
+// Until migration 0048 has been run the height_cm / weight_kg columns don't
+// exist; saving the rest of the form then still works instead of failing.
+function isMissingHeightWeightColumn(error: { message?: string } | null): boolean {
+  return !!error && /height_cm|weight_kg/.test(error.message ?? "");
+}
+function withoutHeightWeight<T extends { height_cm?: unknown; weight_kg?: unknown }>(row: T) {
+  const { height_cm: _h, weight_kg: _w, ...rest } = row;
+  void _h;
+  void _w;
+  return rest;
+}
+
 export function useUpdateProfile() {
   const invalidate = useInvalidate();
   return useMutation({
@@ -303,13 +319,16 @@ export function useUpdateProfile() {
       full_name: string;
       age: number | null;
       date_of_birth: string | null;
+      height_cm?: number | null;
+      weight_kg?: number | null;
       gender: string | null;
       address?: string | null;
       emp_id?: string | null;
       display_name?: string | null;
     }) => {
       const { id, ...rest } = payload;
-      const { error } = await getSupabase().from("profiles").update(rest).eq("id", id);
+      let { error } = await getSupabase().from("profiles").update(rest).eq("id", id);
+      if (isMissingHeightWeightColumn(error)) ({ error } = await getSupabase().from("profiles").update(withoutHeightWeight(rest)).eq("id", id));
       if (error) throw error;
     },
     onSuccess: () => {

@@ -25,6 +25,7 @@ import {
 import { useAuth } from "@/providers/AuthProvider";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { AddressFields } from "@/components/feature/AddressFields";
+import { HeightWeightFields } from "@/components/feature/HeightWeightFields";
 import { withAgeFromDob } from "@/lib/ageFromDob";
 import { supabase } from "@/lib/supabase";
 import { pickImageAsset, assetToProofSource } from "@/lib/upload";
@@ -102,7 +103,7 @@ export function ProfileScreen() {
   const [deleteDep, setDeleteDep] = useState<FamilyMember | null>(null);
 
   const [editingBio, setEditingBio] = useState(false);
-  const [bioForm, setBioForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", address: "" });
+  const [bioForm, setBioForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", height_cm: "", weight_kg: "", address: "" });
   const [bioErrors, setBioErrors] = useState<Record<string, string>>({});
   const setBio = (k: keyof typeof bioForm) => (v: string) => setBioForm((f) => ({ ...f, [k]: v }));
   // Picking a date of birth fills in the matching age (and clears any old
@@ -120,6 +121,8 @@ export function ProfileScreen() {
         age: profile?.age?.toString() ?? "",
         date_of_birth: profile?.date_of_birth ?? "",
         gender: profile?.gender ?? "male",
+        height_cm: profile?.height_cm?.toString() ?? "",
+        weight_kg: profile?.weight_kg?.toString() ?? "",
         address: profile?.address ?? "",
       })
     );
@@ -156,6 +159,8 @@ export function ProfileScreen() {
         age: parsed.data.age,
         date_of_birth: parsed.data.date_of_birth || null,
         gender: parsed.data.gender || null,
+        height_cm: parsed.data.height_cm,
+        weight_kg: parsed.data.weight_kg,
         address: address || null,
       },
       {
@@ -338,6 +343,14 @@ export function ProfileScreen() {
               <AgeField label={t("profile.age")} value={bioForm.age} onChange={setBio("age")} placeholder={t("profile.row.age")} error={bioErrors.age} required submitLabel={t("common.submit")} />
               <BirthDateField label={t("profile.dob")} value={bioForm.date_of_birth} onChange={setBioDob} error={bioErrors.date_of_birth} required submitLabel={t("common.submit")} />
               <ChoiceChips label={t("profile.gender")} value={bioForm.gender} onChange={setBio("gender")} options={GENDER_OPTIONS} error={bioErrors.gender} required />
+              <HeightWeightFields
+                height={bioForm.height_cm}
+                weight={bioForm.weight_kg}
+                onHeight={setBio("height_cm")}
+                onWeight={setBio("weight_kg")}
+                heightError={bioErrors.height_cm}
+                weightError={bioErrors.weight_kg}
+              />
               <AddressFields label={t("profile.address")} value={bioForm.address} onChange={setBio("address")} error={bioErrors.address} />
               <View className="flex-row gap-3">
                 <View className="flex-1">
@@ -360,6 +373,8 @@ export function ProfileScreen() {
                 <Row label={t("profile.row.age")} value={profile?.age?.toString() ?? "—"} />
                 <Row label={t("profile.row.dob")} value={profile?.date_of_birth ? formatDateDMY(profile.date_of_birth) : "—"} />
                 <Row label={t("profile.row.gender")} value={profile?.gender ? genderLabel(t, profile.gender) : "—"} />
+                <Row label={t("common.heightCm")} value={profile?.height_cm != null ? String(profile.height_cm) : "—"} />
+                <Row label={t("common.weightKg")} value={profile?.weight_kg != null ? String(profile.weight_kg) : "—"} />
                 {/* Stacked, not a right-aligned Row: an address runs to several lines. */}
                 <View className="gap-1">
                   <Text className="text-sm text-gray-500">{t("profile.row.address")}</Text>

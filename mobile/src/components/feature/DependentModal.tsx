@@ -6,6 +6,7 @@ import { useLanguage } from "@/lib/i18n";
 import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
 import { withAgeFromDob } from "@/lib/ageFromDob";
+import { HeightWeightFields } from "@/components/feature/HeightWeightFields";
 import {
   useSaveDependent,
   dependentSchema,
@@ -16,7 +17,7 @@ import {
   type FamilyMember,
 } from "@vagewell/shared";
 
-const EMPTY = { full_name: "", age: "", date_of_birth: "", relationship: RELATIONSHIPS[0] as string, contact_phone: "", gender: "" };
+const EMPTY = { full_name: "", age: "", date_of_birth: "", relationship: RELATIONSHIPS[0] as string, contact_phone: "", gender: "", height_cm: "", weight_kg: "" };
 
 export function DependentModal({
   open,
@@ -50,6 +51,8 @@ export function DependentModal({
               relationship: dependent.relationship,
               contact_phone: dependent.contact_phone ?? "",
               gender: dependent.gender ?? "",
+              height_cm: dependent.height_cm?.toString() ?? "",
+              weight_kg: dependent.weight_kg?.toString() ?? "",
             })
           : EMPTY
       );
@@ -89,6 +92,8 @@ export function DependentModal({
         relationship: parsed.data.relationship,
         contact_phone: form.contact_phone ? normalizePhone(form.contact_phone) : null,
         gender: parsed.data.gender,
+        height_cm: parsed.data.height_cm,
+        weight_kg: parsed.data.weight_kg,
       },
       { onSuccess: onClose }
     );
@@ -132,6 +137,14 @@ export function DependentModal({
                   required
                 />
                 <PhoneField label={t("modal.dependent.contactNumber")} value={form.contact_phone} onChangeText={set("contact_phone")} error={errors.contact_phone} required />
+                <HeightWeightFields
+                  height={form.height_cm}
+                  weight={form.weight_kg}
+                  onHeight={set("height_cm")}
+                  onWeight={set("weight_kg")}
+                  heightError={errors.height_cm}
+                  weightError={errors.weight_kg}
+                />
               </View>
 
               <View className="mt-6 flex-row justify-end gap-2">

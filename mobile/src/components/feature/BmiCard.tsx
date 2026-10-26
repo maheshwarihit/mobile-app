@@ -30,7 +30,16 @@ const SEGMENTS: { category: BmiCategory; color: string; upTo: string; labelKey: 
  * screen's Self / Dependents pick) — only their result shows, the form is
  * locked to them, and there's no "check another person".
  */
-export function BmiCard({ personName }: { personName?: string } = {}) {
+export function BmiCard({
+  personName,
+  heightCm,
+  weightKg,
+}: {
+  personName?: string;
+  /** From the person's profile: when both are given the BMI is shown straight from them, with no separate entry. */
+  heightCm?: number | null;
+  weightKg?: number | null;
+} = {}) {
   const { t } = useLanguage();
   const { profile } = useAuth();
   const userId = profile?.id ?? null;
@@ -60,6 +69,15 @@ export function BmiCard({ personName }: { personName?: string } = {}) {
   useEffect(() => {
     if (loaded) void saveBmiResults(userId, results);
   }, [results, loaded, userId]);
+
+  if (personName && heightCm && weightKg) {
+    return (
+      <Card className="mb-6 gap-3 p-5">
+        <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} />
+        <Text className="text-xs text-gray-500">{t("bmi.fromProfile", { height: heightCm, weight: weightKg })}</Text>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -197,7 +215,7 @@ function BmiForm({
   );
 }
 
-function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck: () => void; onNext?: () => void }) {
+function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck?: () => void; onNext?: () => void }) {
   const { t } = useLanguage();
   const category = bmiCategory(result.bmi);
   const meta = SEGMENTS.find((s) => s.category === category)!;
@@ -261,10 +279,12 @@ function BmiResult({ result, onRecheck, onNext }: { result: Result; onRecheck: (
 
       <Text className="text-sm text-gray-700">{t(ADVICE_KEYS[category])}</Text>
 
-      <View className="flex-row flex-wrap gap-3">
-        <OutlineButton onPress={onRecheck}>{t("bmi.result.recheck")}</OutlineButton>
-        {onNext ? <OutlineButton onPress={onNext}>{t("bmi.result.checkAnother")}</OutlineButton> : null}
-      </View>
+      {onRecheck || onNext ? (
+        <View className="flex-row flex-wrap gap-3">
+          {onRecheck ? <OutlineButton onPress={onRecheck}>{t("bmi.result.recheck")}</OutlineButton> : null}
+          {onNext ? <OutlineButton onPress={onNext}>{t("bmi.result.checkAnother")}</OutlineButton> : null}
+        </View>
+      ) : null}
     </View>
   );
 }

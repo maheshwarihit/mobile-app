@@ -41,6 +41,9 @@ type Props = {
   personKey: string;
   defaultAge: number | null;
   defaultGender: string | null;
+  /** From the person's profile. */
+  defaultHeight?: number | null;
+  defaultWeight?: number | null;
   /** Open straight on the form instead of the summary (e.g. sent here from another module to fill it in). */
   startEditing?: boolean;
   /** Called after a successful Save. */
@@ -48,7 +51,7 @@ type Props = {
 };
 
 /** Nutrition → Body Metrics: one person's measurements, activity level and medical background. */
-export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEditing = false, onSaved }: Props) {
+export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEditing = false, onSaved, defaultHeight, defaultWeight }: Props) {
   const { t } = useLanguage();
   const { profile } = useAuth();
   const userId = profile?.id ?? null;
@@ -56,8 +59,8 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
   const [loaded, setLoaded] = useState(false);
   const [age, setAge] = useState(defaultAge != null ? String(defaultAge) : "");
   const [gender, setGender] = useState(defaultGender ?? "");
-  const [heightCm, setHeightCm] = useState("");
-  const [weightKg, setWeightKg] = useState("");
+  const [heightCm, setHeightCm] = useState(defaultHeight ? String(defaultHeight) : "");
+  const [weightKg, setWeightKg] = useState(defaultWeight ? String(defaultWeight) : "");
   const [activityLevel, setActivityLevel] = useState("");
   const [conditions, setConditions] = useState<string[]>([""]);
   const [history, setHistory] = useState<string[]>([""]);
@@ -70,8 +73,8 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
   const blank: BodyMetrics = {
     age: defaultAge != null ? String(defaultAge) : "",
     gender: defaultGender ?? "",
-    heightCm: "",
-    weightKg: "",
+    heightCm: defaultHeight ? String(defaultHeight) : "",
+    weightKg: defaultWeight ? String(defaultWeight) : "",
     activityLevel: "",
     medicalConditions: [],
     pastHistory: [],

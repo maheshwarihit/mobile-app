@@ -40,6 +40,8 @@ export interface Profile {
   age: number | null;
   gender: Gender | null;
   date_of_birth: string | null; // YYYY-MM-DD
+  height_cm: number | null; // migration 0048
+  weight_kg: number | null;
   address: string | null;
   avatar_path: string | null; // storage path in PROFILE_PHOTO_BUCKET (public bucket)
   payment_qr_path: string | null; // storage path in CARE_GIVER_PAYMENT_QR_BUCKET (public bucket) — a leaf_node's own UPI QR, shown on their own Profile
@@ -64,6 +66,8 @@ export interface FamilyMember {
   full_name: string;
   age: number | null;
   date_of_birth: string | null;
+  height_cm: number | null; // migration 0048
+  weight_kg: number | null;
   gender: Gender | null;
   relationship: Relationship;
   contact_phone: string | null;

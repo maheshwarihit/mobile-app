@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useFamilyMembers } from "@vagewell/shared";
-import { PageHeader, Card, LoadingState, OutlineButton } from "@/components/ui";
+import { PageHeader, Card, LoadingState, OutlineButton, PrimaryButton } from "@/components/ui";
 import { BmiCard } from "@/components/feature/BmiCard";
 import { BodyMetricsForm } from "@/components/feature/BodyMetricsForm";
 import { FoodPlateMonitor } from "@/components/feature/FoodPlateMonitor";
@@ -64,6 +64,11 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
   const dependent = dependents?.find((d) => d.id === dependentId) ?? null;
   const personName = subject === "self" ? (profile?.full_name ?? "") : (dependent?.full_name ?? "");
   const active = MODULES.find((m) => m.id === activeId) ?? null;
+  // Height and weight come from the profile (required there); Nutrition waits until they are filled in.
+  const personHeight = subject === "self" ? (profile?.height_cm ?? null) : (dependent?.height_cm ?? null);
+  const personWeight = subject === "self" ? (profile?.weight_kg ?? null) : (dependent?.weight_kg ?? null);
+  const needsHeightWeight = !personHeight || !personWeight;
+  const [editingDependent, setEditingDependent] = useState(false);
 
   const switchSubject = (next: Subject) => {
     setSubject(next);
@@ -93,7 +98,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
           />
           {active.id === "bmi" ? (
             <View className="gap-4">
-              <BmiCard key={personName} personName={personName || undefined} />
+              <BmiCard key={personName} personName={personName || undefined} heightCm={personHeight} weightKg={personWeight} />
               <OutlineButton fullWidth icon={LogOut} onPress={() => setActiveId(null)}>
                 {t("nutrition.exit")}
               </OutlineButton>
@@ -104,6 +109,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               personKey={dependent?.id ?? "self"}
               defaultAge={subject === "self" ? (profile?.age ?? null) : (dependent?.age ?? null)}
               defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
+              defaultHeight={personHeight}
+              defaultWeight={personWeight}
               startEditing={returnTo !== null}
               onSaved={returnTo ? back : undefined}
             />
@@ -113,6 +120,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               personKey={dependent?.id ?? "self"}
               defaultAge={subject === "self" ? (profile?.age ?? null) : (dependent?.age ?? null)}
               defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
+              defaultHeight={personHeight}
+              defaultWeight={personWeight}
               onExit={() => setActiveId(null)}
               onOpenBodyMetrics={() => {
                 setReturnTo("foodPlate");
@@ -211,7 +220,19 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 </Pressable>
               </View>
             ) : null}
-            <View className="gap-3">
+            {needsHeightWeight ? (
+              <Card className="mb-3 gap-3 p-5">
+                <Text className="text-base font-bold text-gray-900">{t("nutrition.needHeightWeight.title")}</Text>
+                <Text className="text-sm text-gray-600">{t("nutrition.needHeightWeight.body", { name: personName })}</Text>
+                <PrimaryButton
+                  fullWidth
+                  onPress={() => (subject === "self" ? navigation.navigate("ProfileTab") : setEditingDependent(true))}
+                >
+                  {t("nutrition.needHeightWeight.action")}
+                </PrimaryButton>
+              </Card>
+            ) : null}
+            <View className="gap-3" style={needsHeightWeight ? { opacity: 0.45 } : undefined} pointerEvents={needsHeightWeight ? "none" : "auto"}>
               {MODULES.map((m) => (
                 <Pressable
                   key={m.id}
@@ -236,6 +257,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
       {/* Same form as Profile → Dependents, so a family member can be added
           without leaving this screen; the list refreshes when it is saved. */}
       <DependentModal open={addOpen} dependent={null} accountId={user?.id ?? ""} onClose={() => setAddOpen(false)} />
+      {/* A family member without height / weight: fill them in right here. */}
+      <DependentModal open={editingDependent} dependent={dependent} accountId={user?.id ?? ""} onClose={() => setEditingDependent(false)} />
     </SafeAreaView>
   );
 }

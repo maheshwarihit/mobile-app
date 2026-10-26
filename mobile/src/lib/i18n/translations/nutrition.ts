@@ -17,6 +17,9 @@ export const en = {
   "nutrition.forPerson": "For {name}",
   "nutrition.changeDependent": "Change",
   "nutrition.exit": "Exit",
+  "nutrition.needHeightWeight.title": "Height and weight needed",
+  "nutrition.needHeightWeight.body": "Add {name}'s height and weight to the profile first. BMI, Body Metrics and the Food Plate Monitor use them.",
+  "nutrition.needHeightWeight.action": "Add height and weight",
   "nutrition.aiNote": "AI results (Food Plate Monitor, Bio Markers) are estimates to help you, not medical advice. Please consult your doctor.",
 } as const;
 
@@ -39,5 +42,8 @@ export const ta: Record<keyof typeof en, string> = {
   "nutrition.forPerson": "{name} அவர்களுக்காக",
   "nutrition.changeDependent": "மாற்று",
   "nutrition.exit": "வெளியேறு",
+  "nutrition.needHeightWeight.title": "உயரமும் எடையும் தேவை",
+  "nutrition.needHeightWeight.body": "முதலில் {name} அவர்களின் உயரத்தையும் எடையையும் சுயவிவரத்தில் சேர்க்கவும். BMI, உடல் அளவீடுகள், உணவுத் தட்டு கண்காணிப்பு ஆகியவை அவற்றைப் பயன்படுத்துகின்றன.",
+  "nutrition.needHeightWeight.action": "உயரம், எடையைச் சேர்",
   "nutrition.aiNote": "AI முடிவுகள் (உணவுத் தட்டு கண்காணிப்பு, உயிர் குறிப்பான்கள்) உங்களுக்கு உதவும் மதிப்பீடுகள், மருத்துவ ஆலோசனை அல்ல. உங்கள் மருத்துவரை அணுகவும்.",
 };

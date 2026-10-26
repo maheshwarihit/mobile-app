@@ -39,6 +39,9 @@ function scoreMeta(score: number): { color: string; labelKey: TranslationKey } {
 }
 
 type Props = {
+  /** From the person's profile, used when Body Metrics has no height / weight. */
+  defaultHeight?: number | null;
+  defaultWeight?: number | null;
   /** "self" or a dependent's id — the Meal library is kept per person. */
   personKey: string;
   /** Known from the profile / dependent record; Body Metrics overrides them when saved. */
@@ -62,7 +65,7 @@ type Props = {
  * micronutrients against that person's daily needs, and what is missing.
  * Each analysed plate is stored in the Meal library with its date and time.
  */
-export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit, onOpenBodyMetrics }: Props) {
+export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit, onOpenBodyMetrics, defaultHeight, defaultWeight }: Props) {
   const { t, language } = useLanguage();
   const { profile } = useAuth();
   const userId = profile?.id ?? null;
@@ -105,8 +108,8 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
       setPerson({
         age: num(metrics?.age) ?? (defaultAge ?? undefined),
         gender: metrics?.gender || defaultGender || undefined,
-        height_cm: num(metrics?.heightCm),
-        weight_kg: num(metrics?.weightKg),
+        height_cm: num(metrics?.heightCm) ?? (defaultHeight ?? undefined),
+        weight_kg: num(metrics?.weightKg) ?? (defaultWeight ?? undefined),
         activity_level: metrics?.activityLevel || undefined,
       });
       setLoaded(true);
@@ -114,7 +117,7 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
     return () => {
       active = false;
     };
-  }, [userId, personKey, defaultAge, defaultGender]);
+  }, [userId, personKey, defaultAge, defaultGender, defaultHeight, defaultWeight]);
 
   const analyse = async () => {
     if (!photos.length) return;
