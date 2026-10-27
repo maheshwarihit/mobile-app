@@ -27,6 +27,12 @@ const subscribe = (onChange: () => void) => {
 };
 const getTallest = () => tallest;
 
+// The last real card size, so a card mounted again (coming Back to Services)
+// draws at full size straight away instead of starting empty and growing —
+// which made the list jump and the green price banner flash.
+let knownWidth = 0;
+let knownHeight = 0;
+
 type Props = {
   /** Display name (translated). */
   name: string;
@@ -65,8 +71,8 @@ function coverAround(photo: ServicePhoto, w: number, h: number) {
 export function ServiceCard({ name, description, image, onPress }: Props) {
   const { t } = useLanguage();
   const scroller = useRef<ScrollView>(null);
-  const [width, setWidth] = useState(0);
-  const [height, setHeight] = useState(0);
+  const [width, setWidth] = useState(knownWidth);
+  const [height, setHeight] = useState(knownHeight);
   const tallestContent = useSyncExternalStore(subscribe, getTallest, getTallest);
   const minHeight = image ? Math.max(tallestContent, photoMinHeight(width)) : tallestContent;
   const onPhoto = !!image;
@@ -90,8 +96,12 @@ export function ServiceCard({ name, description, image, onPress }: Props) {
     <View
       style={shadow}
       onLayout={(e) => {
-        setWidth(e.nativeEvent.layout.width);
-        setHeight(e.nativeEvent.layout.height);
+        // A hidden screen (Services under an open page, on the web) reports 0×0;
+        // keeping the last real size stops the cards collapsing and the list
+        // jumping (the green price banner flashing up) when it is shown again.
+        const { width: w, height: h } = e.nativeEvent.layout;
+        if (w > 0) setWidth((knownWidth = w));
+        if (h > 0) setHeight((knownHeight = h));
       }}
       className="overflow-hidden rounded-xl border border-gray-100 bg-white"
     >
