@@ -6,6 +6,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage } from "@/lib/i18n";
 import { computeBmi, bmiCategory, bmiScalePercent, type BmiCategory } from "@/lib/bmi";
 import { loadBmiResults, saveBmiResults } from "@/lib/bmiStorage";
+import { HeightWeightConfirm } from "@/components/feature/HeightWeightConfirm";
 import { ACCENT_GREEN, WARN, DANGER } from "@/theme";
 
 type Result = { name: string; bmi: number };
@@ -51,6 +52,8 @@ export function BmiCard({
   const [activeName, setActiveName] = useState<string | null>(null);
   // null = closed; otherwise the name to preselect ("" for a fresh check).
   const [formFor, setFormFor] = useState<string | null>(null);
+  // Profile mode: the person has confirmed their height and weight.
+  const [confirmed, setConfirmed] = useState(false);
   const result = personName
     ? (results.find((r) => r.name === personName) ?? null)
     : (results.find((r) => r.name === activeName) ?? results[results.length - 1] ?? null);
@@ -74,10 +77,17 @@ export function BmiCard({
   }, [results, loaded, userId]);
 
   if (personName && heightCm && weightKg) {
+    // First confirm the profile's height and weight; then the BMI from them.
+    if (!confirmed) {
+      return (
+        <View className="mb-6">
+          <HeightWeightConfirm heightCm={heightCm} weightKg={weightKg} onUpdate={() => onRecheck?.()} onConfirm={() => setConfirmed(true)} />
+        </View>
+      );
+    }
     return (
       <Card className="mb-6 gap-3 p-5">
-        <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} onRecheck={onRecheck} />
-        <Text className="text-xs text-gray-500">{t("bmi.fromProfile", { height: heightCm, weight: weightKg })}</Text>
+        <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} onRecheck={() => setConfirmed(false)} />
       </Card>
     );
   }

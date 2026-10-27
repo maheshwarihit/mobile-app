@@ -118,6 +118,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
               defaultHeight={personHeight}
               defaultWeight={personWeight}
+              onUpdateHeightWeight={() => (subject === "self" ? navigation.navigate("ProfileTab") : setEditingDependent(true))}
               startEditing={returnTo !== null}
               onSaved={returnTo ? back : undefined}
             />

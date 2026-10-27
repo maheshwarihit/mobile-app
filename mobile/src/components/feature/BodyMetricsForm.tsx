@@ -21,6 +21,7 @@ import {
   type BodyMetrics,
 } from "@/lib/bodyMetricsStorage";
 import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
+import { HeightWeightConfirm } from "@/components/feature/HeightWeightConfirm";
 import { toast } from "@/lib/toast";
 import { BRAND } from "@/theme";
 
@@ -67,6 +68,8 @@ type Props = {
   startEditing?: boolean;
   /** Called after a successful Save. */
   onSaved?: () => void;
+  /** Opens the height / weight editor (Profile, or the family member form). */
+  onUpdateHeightWeight?: () => void;
 };
 
 /** Nutrition → Body Metrics: one person's measurements, activity level and medical background. */
@@ -78,6 +81,7 @@ export function BodyMetricsForm({
   onSaved,
   defaultHeight,
   defaultWeight,
+  onUpdateHeightWeight,
 }: Props) {
   const { t } = useLanguage();
   const { profile } = useAuth();
@@ -297,15 +301,12 @@ export function BodyMetricsForm({
         required
       />
       {fromProfile ? (
-        <View className="gap-1 rounded-xl bg-gray-50 p-3">
-          <Text className="text-sm font-semibold text-gray-900">
-            {t("bodyMetrics.height")}: {profileHeight} ·{" "}
-            {t("bodyMetrics.weight")}: {profileWeight}
-          </Text>
-          <Text className="text-xs text-gray-500">
-            {t("bodyMetrics.fromProfile")}
-          </Text>
-        </View>
+        // Height and weight come from the profile: confirm them, or update them there.
+        <HeightWeightConfirm
+          heightCm={profileHeight ?? ""}
+          weightKg={profileWeight ?? ""}
+          onUpdate={() => onUpdateHeightWeight?.()}
+        />
       ) : (
         <View className="flex-row gap-3">
           <View className="flex-1">
