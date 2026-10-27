@@ -26,7 +26,7 @@ export const en = {
   "common.heightCm": "Height (cm)",
   "heightCheck.height": "Your current height is {value} cm",
   "heightCheck.weight": "Your current weight is {value} kg",
-  "heightCheck.body": "Please update your profile if anything has changed.",
+  "heightCheck.body": "Please update your profile if there is any change.",
   "heightCheck.update": "Update",
   "heightCheck.correct": "Yes, correct",
   "common.weightKg": "Weight (kg)",
