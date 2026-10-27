@@ -20,11 +20,15 @@ export interface BookingDraft {
   symptom_brief: string;
 }
 
+/** Where Profile's Save returns to after Nutrition's "Update": the module list or that module. */
+export type NutritionReturn = "list" | "bmi" | "bodyMetrics";
+
 // ── App tabs (signed-in) ─────────────────────────────────────────
 export type ServicesStackParamList = {
   Services: undefined;
   Appointment: { serviceId?: string } | undefined;
-  Nutrition: undefined;
+  /** `module` opens that module straight away (coming back after a profile update). */
+  Nutrition: { module?: NutritionReturn } | undefined;
   /** Lab Report Insights — opened by the Bio Markers (Para-Medical) service card. */
   LabReports: undefined;
   Payment: { draft: BookingDraft };
@@ -33,8 +37,11 @@ export type ServicesStackParamList = {
 export type AppTabsParamList = {
   ServicesTab: NavigatorScreenParams<ServicesStackParamList> | undefined;
   AppointmentsTab: undefined;
-  /** `edit: true` opens the profile straight in its edit form (e.g. "Update" height / weight from Nutrition). */
-  ProfileTab: { edit?: boolean } | undefined;
+  /**
+   * `edit: true` opens the profile straight in its edit form (e.g. "Update" height / weight from Nutrition);
+   * `returnTo` is the Nutrition page Save goes back to (the Services tab resets when left, so it is reopened).
+   */
+  ProfileTab: { edit?: boolean; returnTo?: NutritionReturn } | undefined;
 };
 
 export type ServicesStackScreenProps<T extends keyof ServicesStackParamList> = CompositeScreenProps<

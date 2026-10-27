@@ -44,7 +44,7 @@ const MODULES: { id: ModuleId; icon: LucideIcon; labelKey: TranslationKey; ready
 // SCREEN_ID: NUTRITION_MODULES — what the Nutrition service card opens instead
 // of the appointment form. A Self / Dependents toggle picks whose modules
 // these are; Dependents first lists the family members to choose from.
-export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrition">) {
+export function NutritionScreen({ navigation, route }: ServicesStackScreenProps<"Nutrition">) {
   const { t } = useLanguage();
   const { profile, user } = useAuth();
   const { data: dependents, isLoading: depsLoading } = useFamilyMembers();
@@ -52,7 +52,9 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
   const [subject, setSubject] = useState<Subject>("self");
   const [dependentId, setDependentId] = useState<string | null>(null);
   // null = the module list; otherwise that module is open on its own.
-  const [activeId, setActiveId] = useState<ModuleId | null>(null);
+  // Opened with { module } when coming back from a profile update.
+  const startModule = route.params?.module;
+  const [activeId, setActiveId] = useState<ModuleId | null>(startModule && startModule !== "list" ? startModule : null);
   const [addOpen, setAddOpen] = useState(false);
   // Set when Body Metrics was opened from another module (Food Plate
   // Monitor) to fill in height/weight: Save or Back returns to that module.
@@ -102,7 +104,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 weightKg={personWeight}
                 personKey={dependent?.id ?? "self"}
                 // Recheck = update height / weight where they live (Profile, or the family member's form).
-                onRecheck={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
+                onRecheck={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true, returnTo: "bmi" }) : setEditingDependent(true))}
               />
               <OutlineButton fullWidth icon={LogOut} onPress={() => setActiveId(null)}>
                 {t("nutrition.exit")}
@@ -117,7 +119,9 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
                 defaultHeight={personHeight}
                 defaultWeight={personWeight}
-                onUpdateHeightWeight={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
+                onUpdateHeightWeight={() =>
+                  subject === "self" ? navigation.navigate("ProfileTab", { edit: true, returnTo: "bodyMetrics" }) : setEditingDependent(true)
+                }
                 startEditing={returnTo !== null}
                 onSaved={returnTo ? back : undefined}
               />
@@ -229,7 +233,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 <Text className="text-sm text-gray-600">{t("nutrition.needHeightWeight.body", { name: personName })}</Text>
                 <PrimaryButton
                   fullWidth
-                  onPress={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
+                  onPress={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true, returnTo: "list" }) : setEditingDependent(true))}
                 >
                   {t("nutrition.needHeightWeight.action")}
                 </PrimaryButton>

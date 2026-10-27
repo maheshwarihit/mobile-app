@@ -35,6 +35,7 @@ import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
 import { deleteMyAccount } from "@/lib/deleteAccount";
 import { recordBmiPoint } from "@/lib/bmiHistory";
+import type { AppTabScreenProps, AppTabsParamList, NutritionReturn } from "@/navigation/types";
 import { useLanguage, type Language } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import {
@@ -104,8 +105,8 @@ export function ProfileScreen() {
   const [deleteDep, setDeleteDep] = useState<FamilyMember | null>(null);
 
   const [editingBio, setEditingBio] = useState(false);
-  // Set when Nutrition's "Update" opened the edit form; Save then returns there.
-  const returnAfterSave = useRef(false);
+  // Set when Nutrition's "Update" opened the edit form; Save then returns to that page.
+  const returnAfterSave = useRef<NutritionReturn | null>(null);
   const [bioForm, setBioForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", height_cm: "", weight_kg: "", address: "" });
   const [bioErrors, setBioErrors] = useState<Record<string, string>>({});
   const setBio = (k: keyof typeof bioForm) => (v: string) => setBioForm((f) => ({ ...f, [k]: v }));
@@ -171,9 +172,10 @@ export function ProfileScreen() {
           setEditingBio(false);
           // Opened from Nutrition's "Update": go back to the page they came from
           // (the Services tab keeps Nutrition and the open module as they were).
-          if (returnAfterSave.current) {
-            returnAfterSave.current = false;
-            nav.navigate("ServicesTab" as never);
+          const returnTo = returnAfterSave.current;
+          if (returnTo) {
+            returnAfterSave.current = null;
+            nav.navigate("ServicesTab", { screen: "Nutrition", params: { module: returnTo } });
           }
           // A new point on the BMI Check chart when height or weight changed.
           void recordBmiPoint(profile.id, "self", Number(parsed.data.height_cm), Number(parsed.data.weight_kg));
@@ -243,20 +245,21 @@ export function ProfileScreen() {
       return () => {
         setEditingBio(false);
         setBioErrors({});
-        returnAfterSave.current = false;
+        returnAfterSave.current = null;
       };
     }, [refetchReports, refetchBookings, refetchVitals])
   );
   // Opened with { edit: true } (Nutrition "Update"): go straight to the edit form, once.
   const route = useRoute();
-  const nav = useNavigation();
-  const openEdit = (route.params as { edit?: boolean } | undefined)?.edit;
+  const nav = useNavigation<AppTabScreenProps<"ProfileTab">["navigation"]>();
+  const params = route.params as AppTabsParamList["ProfileTab"];
+  const openEdit = params?.edit;
   useFocusEffect(
     useCallback(() => {
       if (openEdit && profile) {
         startEditBio();
-        returnAfterSave.current = true;
-        nav.setParams({ edit: undefined } as never);
+        returnAfterSave.current = params?.returnTo ?? null;
+        nav.setParams({ edit: undefined, returnTo: undefined });
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [openEdit, profile])
