@@ -16,10 +16,10 @@
 grant update (height_cm, weight_kg) on public.profiles to authenticated;
 
 -- Only if 0049 has added the column (so this file also works on its own).
-do $
+do $$
 begin
   if exists (select 1 from information_schema.columns
              where table_schema = 'public' and table_name = 'bookings' and column_name = 'rescheduled_at') then
     execute 'grant update (rescheduled_at) on public.bookings to authenticated';
   end if;
-end $;
+end $$;
