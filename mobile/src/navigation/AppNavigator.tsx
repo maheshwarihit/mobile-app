@@ -8,6 +8,7 @@ import { ServicesScreen } from "@/screens/ServicesScreen";
 import { AppointmentScreen } from "@/screens/AppointmentScreen";
 import { PaymentScreen } from "@/screens/PaymentScreen";
 import { NutritionScreen } from "@/screens/NutritionScreen";
+import { LabReportsScreen } from "@/screens/LabReportsScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { useLanguage } from "@/lib/i18n";
@@ -21,6 +22,7 @@ function ServicesStackNavigator() {
       <Stack.Screen name="Appointment" component={AppointmentScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="Nutrition" component={NutritionScreen} />
+      <Stack.Screen name="LabReports" component={LabReportsScreen} />
     </Stack.Navigator>
   );
 }

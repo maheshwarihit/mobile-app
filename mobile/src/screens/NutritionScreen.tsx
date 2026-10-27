@@ -274,7 +274,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
   );
 }
 
-function SubjectTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+export function SubjectTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}

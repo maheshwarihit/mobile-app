@@ -25,6 +25,8 @@ export type ServicesStackParamList = {
   Services: undefined;
   Appointment: { serviceId?: string } | undefined;
   Nutrition: undefined;
+  /** Lab Report Insights — opened by the Bio Markers (Para-Medical) service card. */
+  LabReports: undefined;
   Payment: { draft: BookingDraft };
 };
 
