@@ -6,7 +6,7 @@ export const en = {
   "nutrition.module.bodyMetrics": "Body Metrics",
   "nutrition.module.bmi": "BMI Check",
   "nutrition.module.foodPlate": "Meal Scanner",
-  "nutrition.module.bioMarkers": "Lab Report Insights",
+  "nutrition.module.bioMarkers": "Bio Markers",
   "nutrition.module.foodSupplements": "Food & Supplements",
   "nutrition.module.selfAssessment": "General Health Quiz",
   "nutrition.subject.self": "Self",
@@ -20,7 +20,7 @@ export const en = {
   "nutrition.needHeightWeight.title": "Height and weight needed",
   "nutrition.needHeightWeight.body": "Add {name}'s height and weight to the profile first. BMI Check, Body Metrics and the Meal Scanner use them.",
   "nutrition.needHeightWeight.action": "Add height and weight",
-  "nutrition.aiNote": "AI results (Meal Scanner, Lab Report Insights) are estimates to help you, not medical advice. Please consult your doctor.",
+  "nutrition.aiNote": "AI results (Meal Scanner, Bio Markers) are estimates to help you, not medical advice. Please consult your doctor.",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -31,7 +31,7 @@ export const ta: Record<keyof typeof en, string> = {
   "nutrition.module.bodyMetrics": "உடல் அளவீடுகள்",
   "nutrition.module.bmi": "BMI சரிபார்ப்பு",
   "nutrition.module.foodPlate": "உணவு ஸ்கேனர்",
-  "nutrition.module.bioMarkers": "ஆய்வக அறிக்கை விளக்கம்",
+  "nutrition.module.bioMarkers": "உயிர் குறிப்பான்கள்",
   "nutrition.module.foodSupplements": "உணவு & துணை உணவுகள்",
   "nutrition.module.selfAssessment": "பொது உடல்நல வினாடி வினா",
   "nutrition.subject.self": "நான்",
@@ -45,5 +45,5 @@ export const ta: Record<keyof typeof en, string> = {
   "nutrition.needHeightWeight.title": "உயரமும் எடையும் தேவை",
   "nutrition.needHeightWeight.body": "முதலில் {name} அவர்களின் உயரத்தையும் எடையையும் சுயவிவரத்தில் சேர்க்கவும். BMI சரிபார்ப்பு, உடல் அளவீடுகள், உணவு ஸ்கேனர் ஆகியவை அவற்றைப் பயன்படுத்துகின்றன.",
   "nutrition.needHeightWeight.action": "உயரம், எடையைச் சேர்",
-  "nutrition.aiNote": "AI முடிவுகள் (உணவு ஸ்கேனர், ஆய்வக அறிக்கை விளக்கம்) உங்களுக்கு உதவும் மதிப்பீடுகள், மருத்துவ ஆலோசனை அல்ல. உங்கள் மருத்துவரை அணுகவும்.",
+  "nutrition.aiNote": "AI முடிவுகள் (உணவு ஸ்கேனர், உயிர் குறிப்பான்கள்) உங்களுக்கு உதவும் மதிப்பீடுகள், மருத்துவ ஆலோசனை அல்ல. உங்கள் மருத்துவரை அணுகவும்.",
 };

@@ -44,8 +44,8 @@ export function BmiTrendChart({ points }: { points: BmiPoint[] }) {
   const y = (v: number) => PAD.top + (1 - (v - yMin) / (yMax - yMin)) * plotH;
   const last = points.length - 1;
   const shown = picked ?? last;
-  // Date labels: first and last only, so they never collide.
-  const dateTicks = points.length === 1 ? [0] : [0, last];
+  // Date labels: every reading when there are few, otherwise first and last (so they never collide).
+  const dateTicks = points.length <= 3 ? points.map((_, i) => i) : [0, last];
 
   return (
     <Card className="gap-2 p-4">
@@ -106,7 +106,7 @@ export function BmiTrendChart({ points }: { points: BmiPoint[] }) {
                 y={HEIGHT - 8}
                 fontSize={10}
                 fill={INK_MUTED}
-                textAnchor={points.length === 1 ? "middle" : i === 0 ? "start" : "end"}
+                textAnchor={points.length === 1 ? "middle" : i === 0 ? "start" : i === last ? "end" : "middle"}
               >
                 {shortDate(points[i].at)}
               </SvgText>
@@ -127,6 +127,20 @@ export function BmiTrendChart({ points }: { points: BmiPoint[] }) {
           : null}
       </View>
       {points.length === 1 ? <Text className="text-xs text-gray-500">{t("bmi.trend.one")}</Text> : null}
+
+      {/* The full history as a list, newest first. */}
+      <View className="mt-1 gap-1">
+        <Text className="text-xs font-semibold text-gray-600">{t("bmi.trend.history")}</Text>
+        {[...points].reverse().map((p) => (
+          <View key={`row${p.at}`} className="flex-row items-center justify-between border-b border-gray-100 py-1.5">
+            <Text className="text-xs text-gray-600">{shortDate(p.at)}</Text>
+            <Text className="text-xs text-gray-600">
+              {p.heightCm} cm · {p.weightKg} kg
+            </Text>
+            <Text className="text-xs font-bold text-gray-900">BMI {p.bmi.toFixed(1)}</Text>
+          </View>
+        ))}
+      </View>
     </Card>
   );
 }

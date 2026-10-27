@@ -48,7 +48,9 @@ const DESCRIPTION_KEYS: Record<string, TranslationKey> = {
 
 /** The English name shown for a service, for text that is always English (e.g. the WhatsApp message to staff). */
 export function englishServiceName(name: string): string {
-  return name === "Physio Therapy" ? "Exercise" : name;
+  if (name === "Physio Therapy") return "Exercise";
+  if (name === "Para-Medical") return "Bio Markers";
+  return name;
 }
 
 export function translateServiceName(t: (key: TranslationKey) => string, name: string): string {

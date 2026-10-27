@@ -29,7 +29,8 @@ export const en = {
     "• Mobility training\n" +
     "• Post-surgery physio care\n" +
     "• Therapeutic exercise",
-  "services.catalog.paraMedical.name": "Para-Medical",
+  // Shown as "Bio Markers"; the service is still stored as "Para-Medical" (bookings, prices).
+  "services.catalog.paraMedical.name": "Bio Markers",
   "services.catalog.paraMedical.description":
     "Vitals Monitoring and medication compliance.\n" +
     "• Vitals Monitoring (BP, Sugar, O2)\n" +
@@ -77,7 +78,7 @@ export const ta: Record<keyof typeof en, string> = {
     "• இயக்கத்திறன் பயிற்சி\n" +
     "• அறுவை சிகிச்சைக்குப் பின் பிசியோ கவனிப்பு\n" +
     "• சிகிச்சை உடற்பயிற்சி",
-  "services.catalog.paraMedical.name": "பாரா-மெடிக்கல்",
+  "services.catalog.paraMedical.name": "உயிர் குறிப்பான்கள்",
   "services.catalog.paraMedical.description":
     "உயிர்முக்கிய அளவீடுகள் கண்காணிப்பு மற்றும் மருந்து இணக்கம்.\n" +
     "• உயிர்முக்கிய அளவீடுகள் கண்காணிப்பு (இரத்த அழுத்தம், சர்க்கரை, ஆக்ஸிஜன்)\n" +

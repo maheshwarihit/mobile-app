@@ -1,5 +1,6 @@
 export const en = {
   "bmi.trend.title": "BMI over time",
+  "bmi.trend.history": "All readings",
   "bmi.trend.selected": "{date} · BMI {bmi}",
   "bmi.trend.one": "Your BMI history builds up here each time height or weight changes.",
   "bmi.fromProfile": "From the profile: {height} cm, {weight} kg. Tap Recheck to update them.",
@@ -29,6 +30,7 @@ export const en = {
 
 export const ta: Record<keyof typeof en, string> = {
   "bmi.trend.title": "காலப்போக்கில் BMI",
+  "bmi.trend.history": "அனைத்து அளவீடுகள்",
   "bmi.trend.selected": "{date} · BMI {bmi}",
   "bmi.trend.one": "உயரம் அல்லது எடை மாறும் ஒவ்வொரு முறையும் உங்கள் BMI வரலாறு இங்கே சேரும்.",
   "bmi.fromProfile": "சுயவிவரத்திலிருந்து: {height} செ.மீ, {weight} கி.கி. மாற்ற மீண்டும் சரிபார் என்பதைத் தட்டவும்.",
