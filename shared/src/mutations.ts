@@ -58,7 +58,8 @@ export function useRescheduleBooking() {
         .from("bookings")
         .update({ booking_status: "cancelled", rescheduled_at: new Date().toISOString() })
         .eq("id", id);
-      if (error && /rescheduled_at/.test(error.message ?? "")) {
+      // Before migrations 0049 + 0050: unknown column, or not yet updatable (42501).
+      if (error && (/rescheduled_at/.test(error.message ?? "") || error.code === "42501")) {
         ({ error } = await sb.from("bookings").update({ booking_status: "cancelled" }).eq("id", id));
       }
       if (error) throw error;
@@ -305,10 +306,11 @@ export function useDeleteDependent() {
 }
 
 // ── Profile bio ──────────────────────────────────────────────────
-// Until migration 0048 has been run the height_cm / weight_kg columns don't
-// exist; saving the rest of the form then still works instead of failing.
-function isMissingHeightWeightColumn(error: { message?: string } | null): boolean {
-  return !!error && /height_cm|weight_kg/.test(error.message ?? "");
+// Until migrations 0048 + 0050 have been run the height_cm / weight_kg
+// columns are missing or not yet updatable ("permission denied", code 42501);
+// saving the rest of the form then still works instead of failing.
+function isMissingHeightWeightColumn(error: { message?: string; code?: string } | null): boolean {
+  return !!error && (/height_cm|weight_kg/.test(error.message ?? "") || error.code === "42501");
 }
 function withoutHeightWeight<T extends { height_cm?: unknown; weight_kg?: unknown }>(row: T) {
   const { height_cm: _h, weight_kg: _w, ...rest } = row;
