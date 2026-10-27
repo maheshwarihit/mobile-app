@@ -104,7 +104,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 heightCm={personHeight}
                 weightKg={personWeight}
                 // Recheck = update height / weight where they live (Profile, or the family member's form).
-                onRecheck={() => (subject === "self" ? navigation.navigate("ProfileTab") : setEditingDependent(true))}
+                onRecheck={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
               />
               <OutlineButton fullWidth icon={LogOut} onPress={() => setActiveId(null)}>
                 {t("nutrition.exit")}
@@ -118,7 +118,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
               defaultHeight={personHeight}
               defaultWeight={personWeight}
-              onUpdateHeightWeight={() => (subject === "self" ? navigation.navigate("ProfileTab") : setEditingDependent(true))}
+              onUpdateHeightWeight={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
               startEditing={returnTo !== null}
               onSaved={returnTo ? back : undefined}
             />
@@ -236,7 +236,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 <Text className="text-sm text-gray-600">{t("nutrition.needHeightWeight.body", { name: personName })}</Text>
                 <PrimaryButton
                   fullWidth
-                  onPress={() => (subject === "self" ? navigation.navigate("ProfileTab") : setEditingDependent(true))}
+                  onPress={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
                 >
                   {t("nutrition.needHeightWeight.action")}
                 </PrimaryButton>

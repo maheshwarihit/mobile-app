@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, Platform, Image, ActivityIn
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { toast } from "@/lib/toast";
 import { UserCircle, Users, Activity, ClipboardList, Pencil, Trash2, Plus, Lock, LogOut, FileText, Download, Camera, X } from "lucide-react-native";
 import {
@@ -234,6 +234,19 @@ export function ProfileScreen() {
         setBioErrors({});
       };
     }, [refetchReports, refetchBookings, refetchVitals])
+  );
+  // Opened with { edit: true } (Nutrition "Update"): go straight to the edit form, once.
+  const route = useRoute();
+  const nav = useNavigation();
+  const openEdit = (route.params as { edit?: boolean } | undefined)?.edit;
+  useFocusEffect(
+    useCallback(() => {
+      if (openEdit && profile) {
+        startEditBio();
+        nav.setParams({ edit: undefined } as never);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [openEdit, profile])
   );
   const bookingsForSubject = useMemo(
     () => (myBookings ?? []).filter((b) => (subject === "self" ? !b.family_member_id : b.family_member_id === subject)),

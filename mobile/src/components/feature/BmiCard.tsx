@@ -52,8 +52,6 @@ export function BmiCard({
   const [activeName, setActiveName] = useState<string | null>(null);
   // null = closed; otherwise the name to preselect ("" for a fresh check).
   const [formFor, setFormFor] = useState<string | null>(null);
-  // Profile mode: the person has confirmed their height and weight.
-  const [confirmed, setConfirmed] = useState(false);
   const result = personName
     ? (results.find((r) => r.name === personName) ?? null)
     : (results.find((r) => r.name === activeName) ?? results[results.length - 1] ?? null);
@@ -77,18 +75,14 @@ export function BmiCard({
   }, [results, loaded, userId]);
 
   if (personName && heightCm && weightKg) {
-    // First confirm the profile's height and weight; then the BMI from them.
-    if (!confirmed) {
-      return (
-        <View className="mb-6">
-          <HeightWeightConfirm heightCm={heightCm} weightKg={weightKg} onUpdate={() => onRecheck?.()} onConfirm={() => setConfirmed(true)} />
-        </View>
-      );
-    }
+    // The BMI from the profile's height and weight, then those values with "Update" (edits the profile).
     return (
-      <Card className="mb-6 gap-3 p-5">
-        <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} onRecheck={() => setConfirmed(false)} />
-      </Card>
+      <View className="mb-6 gap-4">
+        <Card className="gap-3 p-5">
+          <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} />
+        </Card>
+        <HeightWeightConfirm heightCm={heightCm} weightKg={weightKg} onUpdate={() => onRecheck?.()} />
+      </View>
     );
   }
 

@@ -31,7 +31,8 @@ export type ServicesStackParamList = {
 export type AppTabsParamList = {
   ServicesTab: NavigatorScreenParams<ServicesStackParamList> | undefined;
   AppointmentsTab: undefined;
-  ProfileTab: undefined;
+  /** `edit: true` opens the profile straight in its edit form (e.g. "Update" height / weight from Nutrition). */
+  ProfileTab: { edit?: boolean } | undefined;
 };
 
 export type ServicesStackScreenProps<T extends keyof ServicesStackParamList> = CompositeScreenProps<
