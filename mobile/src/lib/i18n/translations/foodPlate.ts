@@ -1,5 +1,5 @@
 export const en = {
-  "foodPlate.addTitle": "AI Food Plate Monitor",
+  "foodPlate.addTitle": "AI Meal Scanner",
   "foodPlate.addHint": "Take a picture of your meal or upload one, crop it to the plate, and get its meal score and nutrition.",
   "foodPlate.takePicture": "Take picture",
   "foodPlate.uploadImage": "Upload image",
@@ -58,7 +58,7 @@ export const en = {
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
-  "foodPlate.addTitle": "AI உணவுத் தட்டு கண்காணிப்பு",
+  "foodPlate.addTitle": "AI உணவு ஸ்கேனர்",
   "foodPlate.addHint": "உங்கள் உணவின் படத்தை எடுக்கவும் அல்லது பதிவேற்றவும், தட்டுக்கு ஏற்ப வெட்டவும், அதன் உணவு மதிப்பெண்ணையும் ஊட்டச்சத்தையும் பெறவும்.",
   "foodPlate.takePicture": "படம் எடு",
   "foodPlate.uploadImage": "படத்தைப் பதிவேற்று",
