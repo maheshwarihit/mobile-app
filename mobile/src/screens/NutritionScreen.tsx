@@ -5,7 +5,6 @@ import {
   Ruler,
   Scale,
   Utensils,
-  FlaskConical,
   Pill as PillIcon,
   ClipboardCheck,
   Clock,
@@ -21,7 +20,6 @@ import { PageHeader, Card, LoadingState, OutlineButton, PrimaryButton } from "@/
 import { BmiCard } from "@/components/feature/BmiCard";
 import { BodyMetricsForm } from "@/components/feature/BodyMetricsForm";
 import { FoodPlateMonitor } from "@/components/feature/FoodPlateMonitor";
-import { BioMarkers } from "@/components/feature/BioMarkers";
 import { SelfAssessment } from "@/components/feature/SelfAssessment";
 import { DependentModal } from "@/components/feature/DependentModal";
 import { useAuth } from "@/providers/AuthProvider";
@@ -30,7 +28,7 @@ import { relationshipLabel } from "@/lib/enumI18n";
 import { BRAND } from "@/theme";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
-type ModuleId = "bodyMetrics" | "bmi" | "foodPlate" | "bioMarkers" | "foodSupplements" | "selfAssessment";
+type ModuleId = "bodyMetrics" | "bmi" | "foodPlate" | "foodSupplements" | "selfAssessment";
 type Subject = "self" | "dependents";
 
 // `ready: false` modules are listed but not built yet — they open a
@@ -39,7 +37,6 @@ const MODULES: { id: ModuleId; icon: LucideIcon; labelKey: TranslationKey; ready
   { id: "bodyMetrics", icon: Ruler, labelKey: "nutrition.module.bodyMetrics", ready: true },
   { id: "bmi", icon: Scale, labelKey: "nutrition.module.bmi", ready: true },
   { id: "foodPlate", icon: Utensils, labelKey: "nutrition.module.foodPlate", ready: true },
-  { id: "bioMarkers", icon: FlaskConical, labelKey: "nutrition.module.bioMarkers", ready: true },
   { id: "selfAssessment", icon: ClipboardCheck, labelKey: "nutrition.module.selfAssessment", ready: true },
   { id: "foodSupplements", icon: PillIcon, labelKey: "nutrition.module.foodSupplements", ready: false },
 ];
@@ -136,16 +133,6 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 setReturnTo("foodPlate");
                 setActiveId("bodyMetrics");
               }}
-            />
-          ) : active.id === "bioMarkers" ? (
-            <BioMarkers
-              key={dependent?.id ?? "self"}
-              personKey={dependent?.id ?? "self"}
-              person={{
-                age: (subject === "self" ? profile?.age : dependent?.age) ?? undefined,
-                gender: (subject === "self" ? profile?.gender : dependent?.gender) ?? undefined,
-              }}
-              onExit={() => setActiveId(null)}
             />
           ) : active.id === "selfAssessment" ? (
             <SelfAssessment key={dependent?.id ?? "self"} personKey={dependent?.id ?? "self"} onExit={() => setActiveId(null)} />
