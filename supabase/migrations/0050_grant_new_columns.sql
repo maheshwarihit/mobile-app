@@ -10,7 +10,16 @@
 -- family_members has a table-wide grant (0003), so nothing is needed there.
 -- Row-level rules still decide whose rows may be changed.
 --
--- Run once in the Supabase SQL editor, after 0048 and 0049 (safe to re-run).
+-- Run once in the Supabase SQL editor, after 0048 (and again after 0049 if
+-- that is run later). Safe to re-run.
 -- =====================================================================
 grant update (height_cm, weight_kg) on public.profiles to authenticated;
-grant update (rescheduled_at) on public.bookings to authenticated;
+
+-- Only if 0049 has added the column (so this file also works on its own).
+do $
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'bookings' and column_name = 'rescheduled_at') then
+    execute 'grant update (rescheduled_at) on public.bookings to authenticated';
+  end if;
+end $;
