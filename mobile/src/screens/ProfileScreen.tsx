@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, Linking, Platform, Image, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as FileSystem from "expo-file-system/legacy";
@@ -104,6 +104,8 @@ export function ProfileScreen() {
   const [deleteDep, setDeleteDep] = useState<FamilyMember | null>(null);
 
   const [editingBio, setEditingBio] = useState(false);
+  // Set when Nutrition's "Update" opened the edit form; Save then returns there.
+  const returnAfterSave = useRef(false);
   const [bioForm, setBioForm] = useState({ full_name: "", age: "", date_of_birth: "", gender: "male", height_cm: "", weight_kg: "", address: "" });
   const [bioErrors, setBioErrors] = useState<Record<string, string>>({});
   const setBio = (k: keyof typeof bioForm) => (v: string) => setBioForm((f) => ({ ...f, [k]: v }));
@@ -167,6 +169,12 @@ export function ProfileScreen() {
       {
         onSuccess: async () => {
           setEditingBio(false);
+          // Opened from Nutrition's "Update": go back to the page they came from
+          // (the Services tab keeps Nutrition and the open module as they were).
+          if (returnAfterSave.current) {
+            returnAfterSave.current = false;
+            nav.navigate("ServicesTab" as never);
+          }
           // A new point on the BMI Check chart when height or weight changed.
           void recordBmiPoint(profile.id, "self", Number(parsed.data.height_cm), Number(parsed.data.weight_kg));
           await refreshProfile();
@@ -235,6 +243,7 @@ export function ProfileScreen() {
       return () => {
         setEditingBio(false);
         setBioErrors({});
+        returnAfterSave.current = false;
       };
     }, [refetchReports, refetchBookings, refetchVitals])
   );
@@ -246,6 +255,7 @@ export function ProfileScreen() {
     useCallback(() => {
       if (openEdit && profile) {
         startEditBio();
+        returnAfterSave.current = true;
         nav.setParams({ edit: undefined } as never);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps

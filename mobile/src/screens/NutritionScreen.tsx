@@ -109,17 +109,22 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
               </OutlineButton>
             </View>
           ) : active.id === "bodyMetrics" ? (
-            <BodyMetricsForm
-              key={dependent?.id ?? "self"}
-              personKey={dependent?.id ?? "self"}
-              defaultAge={subject === "self" ? (profile?.age ?? null) : (dependent?.age ?? null)}
-              defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
-              defaultHeight={personHeight}
-              defaultWeight={personWeight}
-              onUpdateHeightWeight={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
-              startEditing={returnTo !== null}
-              onSaved={returnTo ? back : undefined}
-            />
+            <View className="gap-4">
+              <BodyMetricsForm
+                key={dependent?.id ?? "self"}
+                personKey={dependent?.id ?? "self"}
+                defaultAge={subject === "self" ? (profile?.age ?? null) : (dependent?.age ?? null)}
+                defaultGender={subject === "self" ? (profile?.gender ?? null) : (dependent?.gender ?? null)}
+                defaultHeight={personHeight}
+                defaultWeight={personWeight}
+                onUpdateHeightWeight={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
+                startEditing={returnTo !== null}
+                onSaved={returnTo ? back : undefined}
+              />
+              <OutlineButton fullWidth icon={LogOut} onPress={back}>
+                {t("nutrition.exit")}
+              </OutlineButton>
+            </View>
           ) : active.id === "foodPlate" ? (
             <FoodPlateMonitor
               key={dependent?.id ?? "self"}
