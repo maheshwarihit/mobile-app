@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { computeBmi } from "@/lib/bmi";
 import { loadBodyMetrics } from "@/lib/bodyMetricsStorage";
-import { loadNutritionRecords } from "@/lib/nutritionSync";
+import { loadNutritionRecords, syncNutrition, syncOnce } from "@/lib/nutritionSync";
 
 /** One BMI reading: the height and weight on that date, and the BMI they give. */
 export type BmiPoint = { at: string; heightCm: number; weightKg: number; bmi: number };
@@ -10,6 +10,18 @@ export type BmiPoint = { at: string; heightCm: number; weightKg: number; bmi: nu
 const key = (userId: string | null, personKey: string) => `vagewell.bmiHistory.${userId ?? "guest"}.${personKey}`;
 const MAX_POINTS = 60;
 const sameDay = (a: string, b: string) => a.slice(0, 10) === b.slice(0, 10);
+// One server record per person per day (a second change that day replaces it).
+const bmiClientId = (personKey: string, p: BmiPoint) => `bmi:${personKey}:${p.at.slice(0, 10)}`;
+
+/** Copy the readings the server does not have yet (the care team's BMI graph). */
+export function syncBmiHistory(userId: string | null, personKey: string, points: BmiPoint[]): Promise<void> {
+  return syncOnce(
+    userId,
+    personKey,
+    "bmi",
+    points.map((p) => ({ clientId: bmiClientId(personKey, p), data: p, createdAt: p.at })),
+  );
+}
 
 async function read(userId: string | null, personKey: string): Promise<BmiPoint[]> {
   try {
@@ -41,6 +53,7 @@ export async function recordBmiPoint(userId: string | null, personKey: string, h
   const point: BmiPoint = { at, heightCm, weightKg, bmi: Math.round(computeBmi(heightCm, weightKg) * 10) / 10 };
   const next = last && sameDay(last.at, at) ? [...points.slice(0, -1), point] : [...points, point];
   await write(userId, personKey, next);
+  void syncNutrition(userId, personKey, "bmi", bmiClientId(personKey, point), point, null, point.at);
   return next;
 }
 

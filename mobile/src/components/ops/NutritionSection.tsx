@@ -13,6 +13,8 @@ import { SECTIONS, sectionScore, overallScore, bandFor, type SectionId, type Sec
 import { PDF_THUMB_URI, type LabReport, type ReportFile } from "@/lib/labReport";
 import type { PlateAnalysis } from "@/lib/foodPlate";
 import type { BodyMetrics } from "@/lib/bodyMetricsStorage";
+import type { BmiPoint } from "@/lib/bmiHistory";
+import { BmiTrendChart } from "@/components/feature/BmiTrendChart";
 
 const key = (k: string) => k as TranslationKey;
 
@@ -23,7 +25,7 @@ type AssessmentData = { answers: Partial<Record<SectionId, SectionAnswers>>; sav
 /**
  * Staff view (admin, and Care Givers assigned to this household) of one
  * person's Nutrition modules, as the patient saved them: Body Metrics (with
- * BMI), the General Health Self-Assessment scores, the Meal library and the
+ * BMI), the BMI Check graph, the General Health Self-Assessment scores, the Meal library and the
  * Report library. Read-only; who may see it is enforced by the database
  * (migration 0047).
  */
@@ -57,7 +59,13 @@ export function NutritionSection({ accountId, familyMemberId }: { accountId: str
   const assessment = assessments[0];
   const meals = records?.filter((r) => r.kind === "meal") ?? [];
   const reports = records?.filter((r) => r.kind === "lab_report") ?? [];
-  const empty = records && !body && !assessment && !meals.length && !reports.length;
+  // BMI Check readings, oldest first (one per day).
+  const bmiPoints = (records ?? [])
+    .filter((r) => r.kind === "bmi")
+    .map((r) => r.data as BmiPoint)
+    .filter((p) => p?.at && p.bmi > 0)
+    .sort((a, b) => a.at.localeCompare(b.at));
+  const empty = records && !body && !assessment && !meals.length && !reports.length && !bmiPoints.length;
 
   return (
     <SectionCard icon={Apple} title={t("ops.nutrition.title")} subtitle={t("ops.nutrition.subtitle")}>
@@ -70,6 +78,7 @@ export function NutritionSection({ accountId, familyMemberId }: { accountId: str
       ) : (
         <View className="gap-5">
           {body ? <BodyMetricsBlock record={body} history={bodies.slice(1)} /> : null}
+          {bmiPoints.length ? <BmiTrendChart points={bmiPoints} /> : null}
           {assessment ? <AssessmentBlock record={assessment} history={assessments.slice(1)} /> : null}
 
           {meals.length ? (

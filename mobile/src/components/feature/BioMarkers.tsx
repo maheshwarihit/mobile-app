@@ -12,6 +12,7 @@ import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickReport, analyzeReport, translateReport, MAX_REPORT_PAGES, PDF_THUMB_URI, uploadReportFiles, removeReportFiles, openReportFile, type ReportFile, type PickedReport, type ReportMediaType, type LabReport, type LabTestStatus, type LabUrgency, type ReportSource } from "@/lib/labReport";
 import { loadReports, saveReport, deleteReport, addReportTranslation, setReportFiles, type SavedReport } from "@/lib/reportLibrary";
 import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
+import { reportSyncItem } from "@/lib/nutritionBackfill";
 import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import type { Language } from "@/lib/i18n";
 import { saveViewImage } from "@/lib/saveViewImage";
@@ -31,14 +32,6 @@ type Pending = {
 };
 
 /** A saved report as it is shared with the care team (a PDF has no photo of its own). */
-function reportSyncItem(r: SavedReport) {
-  return {
-    clientId: `lab_report:${r.id}`,
-    data: { result: r.result, savedAt: r.savedAt, pages: r.pages ?? 1, language: r.language, files: r.files ?? [] },
-    photoUri: r.photoUri && r.photoUri !== PDF_THUMB_URI ? r.photoUri : null,
-    createdAt: r.savedAt,
-  };
-}
 
 const STEPS: TranslationKey[] = ["bioMarkers.step.read", "bioMarkers.step.find", "bioMarkers.step.compare", "bioMarkers.step.summary"];
 // A full report usually takes longer to read than a plate photo.

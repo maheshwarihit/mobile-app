@@ -15,6 +15,7 @@ import { loadMeals, saveMeal, deleteMeal, addMealTranslation, type SavedMeal } f
 import { useTranslatedResult, detectLanguage } from "@/lib/useTranslatedResult";
 import { loadBodyMetrics } from "@/lib/bodyMetricsStorage";
 import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
+import { mealSyncItem } from "@/lib/nutritionBackfill";
 import { saveViewImage } from "@/lib/saveViewImage";
 import { toast } from "@/lib/toast";
 import { BRAND, ACCENT_GREEN, WARN, DANGER } from "@/theme";
@@ -97,12 +98,7 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
         userId,
         personKey,
         "meal",
-        savedMeals.map((m) => ({
-          clientId: `meal:${m.id}`,
-          data: { analysis: m.analysis, savedAt: m.savedAt, photoCount: m.photoCount ?? 1, language: m.language },
-          photoUri: m.photoUri,
-          createdAt: m.savedAt,
-        })),
+        savedMeals.map(mealSyncItem),
       );
       const num = (v: string | undefined) => (v && Number(v) > 0 ? Number(v) : undefined);
       setPerson({

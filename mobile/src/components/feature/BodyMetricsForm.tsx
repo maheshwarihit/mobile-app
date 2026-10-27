@@ -22,8 +22,6 @@ import {
 } from "@/lib/bodyMetricsStorage";
 import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
 import { HeightWeightConfirm } from "@/components/feature/HeightWeightConfirm";
-import { BmiTrendChart } from "@/components/feature/BmiTrendChart";
-import { loadBmiHistory, recordBmiPoint, type BmiPoint } from "@/lib/bmiHistory";
 import { toast } from "@/lib/toast";
 import { BRAND } from "@/theme";
 
@@ -98,18 +96,6 @@ export function BodyMetricsForm({
   const profileHeight = defaultHeight ? String(defaultHeight) : null;
   const profileWeight = defaultWeight ? String(defaultWeight) : null;
   const fromProfile = !!profileHeight && !!profileWeight;
-  // The BMI history shown under the height / weight card (same as BMI Check); reloads after a profile update.
-  const [bmiHistory, setBmiHistory] = useState<BmiPoint[]>([]);
-  useEffect(() => {
-    if (!profileHeight || !profileWeight) return;
-    let alive = true;
-    void loadBmiHistory(userId, personKey)
-      .then(() => recordBmiPoint(userId, personKey, Number(profileHeight), Number(profileWeight)))
-      .then((h) => alive && setBmiHistory(h));
-    return () => {
-      alive = false;
-    };
-  }, [userId, personKey, profileHeight, profileWeight]);
   const [heightCm, setHeightCm] = useState(
     defaultHeight ? String(defaultHeight) : "",
   );
@@ -316,14 +302,11 @@ export function BodyMetricsForm({
       />
       {fromProfile ? (
         // Height and weight come from the profile: confirm them, or update them there.
-        <View className="gap-4">
-          <HeightWeightConfirm
-            heightCm={profileHeight ?? ""}
-            weightKg={profileWeight ?? ""}
-            onUpdate={() => onUpdateHeightWeight?.()}
-          />
-          <BmiTrendChart points={bmiHistory} />
-        </View>
+        <HeightWeightConfirm
+          heightCm={profileHeight ?? ""}
+          weightKg={profileWeight ?? ""}
+          onUpdate={() => onUpdateHeightWeight?.()}
+        />
       ) : (
         <View className="flex-row gap-3">
           <View className="flex-1">

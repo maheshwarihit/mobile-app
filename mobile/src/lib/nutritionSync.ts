@@ -8,7 +8,7 @@ import { imageUriToBytes } from "@/lib/fileBytes";
  * Givers can see them. The phone keeps its own copy as before; syncing is
  * best-effort and never blocks or fails a save on the phone.
  */
-export type NutritionKind = "body_metrics" | "meal" | "lab_report" | "self_assessment";
+export type NutritionKind = "body_metrics" | "meal" | "lab_report" | "self_assessment" | "bmi";
 
 export type NutritionRecord = {
   id: string;
@@ -64,6 +64,7 @@ export async function syncNutrition(
       console.warn("nutrition sync failed:", error.message);
       return false;
     }
+    await markSynced(userId, [clientId]);
     return true;
   } catch (e) {
     console.warn("nutrition sync failed:", e);
@@ -82,8 +83,32 @@ export async function unsyncNutrition(userId: string | null, clientId: string): 
   }
 }
 
-// Items saved on the phone before syncing existed are uploaded once.
+// Items saved on the phone before syncing existed (or whose save could not
+// reach the server) are uploaded once; this remembers which are already there.
 const doneKey = (userId: string) => `vagewell.nutritionSynced.${userId}`;
+
+async function readSynced(userId: string): Promise<string[]> {
+  try {
+    return JSON.parse((await AsyncStorage.getItem(doneKey(userId))) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+// One read-modify-write at a time, so saves finishing together don't drop each other's ids.
+let queue: Promise<void> = Promise.resolve();
+function markSynced(userId: string, ids: string[]): Promise<void> {
+  queue = queue.then(async () => {
+    const done = new Set(await readSynced(userId));
+    ids.forEach((id) => done.add(id));
+    try {
+      await AsyncStorage.setItem(doneKey(userId), JSON.stringify([...done]));
+    } catch {
+      // retried next time
+    }
+  });
+  return queue;
+}
 
 export async function syncOnce(
   userId: string | null,
@@ -92,21 +117,10 @@ export async function syncOnce(
   items: { clientId: string; data: unknown; photoUri?: string | null; createdAt?: string }[],
 ): Promise<void> {
   if (!userId || !items.length) return;
-  let done: string[] = [];
-  try {
-    done = JSON.parse((await AsyncStorage.getItem(doneKey(userId))) ?? "[]");
-  } catch {
-    done = [];
-  }
-  const todo = items.filter((i) => !done.includes(i.clientId));
-  if (!todo.length) return;
-  for (const item of todo) {
-    if (await syncNutrition(userId, personKey, kind, item.clientId, item.data, item.photoUri, item.createdAt)) done.push(item.clientId);
-  }
-  try {
-    await AsyncStorage.setItem(doneKey(userId), JSON.stringify(done));
-  } catch {
-    // retried next time
+  const done = new Set(await readSynced(userId));
+  for (const item of items.filter((i) => !done.has(i.clientId))) {
+    // syncNutrition remembers each one that reached the server.
+    await syncNutrition(userId, personKey, kind, item.clientId, item.data, item.photoUri, item.createdAt);
   }
 }
 

@@ -12,6 +12,10 @@ import { LabReportsScreen } from "@/screens/LabReportsScreen";
 import { DashboardScreen } from "@/screens/DashboardScreen";
 import { ProfileScreen } from "@/screens/ProfileScreen";
 import { useLanguage } from "@/lib/i18n";
+import { useEffect } from "react";
+import { useFamilyMembers } from "@vagewell/shared";
+import { useAuth } from "@/providers/AuthProvider";
+import { syncAllNutrition } from "@/lib/nutritionBackfill";
 
 const Stack = createNativeStackNavigator<ServicesStackParamList>();
 
@@ -31,6 +35,13 @@ const Tabs = createBottomTabNavigator<AppTabsParamList>();
 
 export function AppNavigator() {
   const { t } = useLanguage();
+  const { profile } = useAuth();
+  const { data: dependents } = useFamilyMembers();
+  // Copy anything saved on this phone (Nutrition, Bio Markers) that the care team can't see yet.
+  const people = dependents ? ["self", ...dependents.map((d) => d.id)].join(",") : null;
+  useEffect(() => {
+    if (profile?.id && people) void syncAllNutrition(profile.id, people.split(","));
+  }, [profile?.id, people]);
   return (
     <Tabs.Navigator
       tabBar={(props) => <AppTabBar {...props} />}
