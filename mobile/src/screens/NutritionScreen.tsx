@@ -103,6 +103,7 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
                 personName={personName || undefined}
                 heightCm={personHeight}
                 weightKg={personWeight}
+                personKey={dependent?.id ?? "self"}
                 // Recheck = update height / weight where they live (Profile, or the family member's form).
                 onRecheck={() => (subject === "self" ? navigation.navigate("ProfileTab", { edit: true }) : setEditingDependent(true))}
               />

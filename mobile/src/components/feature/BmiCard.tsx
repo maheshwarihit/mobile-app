@@ -7,6 +7,8 @@ import { useLanguage } from "@/lib/i18n";
 import { computeBmi, bmiCategory, bmiScalePercent, type BmiCategory } from "@/lib/bmi";
 import { loadBmiResults, saveBmiResults } from "@/lib/bmiStorage";
 import { HeightWeightConfirm } from "@/components/feature/HeightWeightConfirm";
+import { BmiTrendChart } from "@/components/feature/BmiTrendChart";
+import { loadBmiHistory, recordBmiPoint, type BmiPoint } from "@/lib/bmiHistory";
 import { ACCENT_GREEN, WARN, DANGER } from "@/theme";
 
 type Result = { name: string; bmi: number };
@@ -36,6 +38,7 @@ export function BmiCard({
   heightCm,
   weightKg,
   onRecheck,
+  personKey,
 }: {
   personName?: string;
   /** From the person's profile: when both are given the BMI is shown straight from them, with no separate entry. */
@@ -43,6 +46,8 @@ export function BmiCard({
   weightKg?: number | null;
   /** Profile mode: "Recheck" opens the person's height and weight for editing. */
   onRecheck?: () => void;
+  /** Profile mode: "self" or a dependent's id — whose BMI history to show. */
+  personKey?: string;
 } = {}) {
   const { t } = useLanguage();
   const { profile } = useAuth();
@@ -52,6 +57,18 @@ export function BmiCard({
   const [activeName, setActiveName] = useState<string | null>(null);
   // null = closed; otherwise the name to preselect ("" for a fresh check).
   const [formFor, setFormFor] = useState<string | null>(null);
+  // Profile mode: this person's BMI readings over time (a new one whenever height or weight changed).
+  const [history, setHistory] = useState<BmiPoint[]>([]);
+  useEffect(() => {
+    if (!personKey || !heightCm || !weightKg) return;
+    let alive = true;
+    void loadBmiHistory(userId, personKey)
+      .then(() => recordBmiPoint(userId, personKey, Number(heightCm), Number(weightKg)))
+      .then((h) => alive && setHistory(h));
+    return () => {
+      alive = false;
+    };
+  }, [userId, personKey, heightCm, weightKg]);
   const result = personName
     ? (results.find((r) => r.name === personName) ?? null)
     : (results.find((r) => r.name === activeName) ?? results[results.length - 1] ?? null);
@@ -75,12 +92,13 @@ export function BmiCard({
   }, [results, loaded, userId]);
 
   if (personName && heightCm && weightKg) {
-    // The BMI from the profile's height and weight, then those values with "Update" (edits the profile).
+    // The BMI from the profile's height and weight, its history, then those values with "Update" (edits the profile).
     return (
       <View className="mb-6 gap-4">
         <Card className="gap-3 p-5">
           <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} />
         </Card>
+        <BmiTrendChart points={history} />
         <HeightWeightConfirm heightCm={heightCm} weightKg={weightKg} onUpdate={() => onRecheck?.()} />
       </View>
     );

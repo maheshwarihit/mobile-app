@@ -7,6 +7,7 @@ import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
 import { withAgeFromDob } from "@/lib/ageFromDob";
 import { HeightWeightFields } from "@/components/feature/HeightWeightFields";
+import { recordBmiPoint } from "@/lib/bmiHistory";
 import {
   useSaveDependent,
   dependentSchema,
@@ -95,7 +96,13 @@ export function DependentModal({
         height_cm: parsed.data.height_cm,
         weight_kg: parsed.data.weight_kg,
       },
-      { onSuccess: onClose }
+      {
+        onSuccess: () => {
+          // A new point on this family member's BMI Check chart when height or weight changed.
+          if (dependent) void recordBmiPoint(accountId, dependent.id, Number(parsed.data.height_cm), Number(parsed.data.weight_kg));
+          onClose();
+        },
+      }
     );
   };
 

@@ -34,6 +34,7 @@ import { translateServiceName } from "@/lib/serviceI18n";
 import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
 import { deleteMyAccount } from "@/lib/deleteAccount";
+import { recordBmiPoint } from "@/lib/bmiHistory";
 import { useLanguage, type Language } from "@/lib/i18n";
 import { BRAND } from "@/theme";
 import {
@@ -166,6 +167,8 @@ export function ProfileScreen() {
       {
         onSuccess: async () => {
           setEditingBio(false);
+          // A new point on the BMI Check chart when height or weight changed.
+          void recordBmiPoint(profile.id, "self", Number(parsed.data.height_cm), Number(parsed.data.weight_kg));
           await refreshProfile();
         },
       }
