@@ -108,8 +108,9 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
       setPerson({
         age: num(metrics?.age) ?? (defaultAge ?? undefined),
         gender: metrics?.gender || defaultGender || undefined,
-        height_cm: num(metrics?.heightCm) ?? (defaultHeight ?? undefined),
-        weight_kg: num(metrics?.weightKg) ?? (defaultWeight ?? undefined),
+        // The profile is the source of height and weight; Body Metrics only as a fallback.
+        height_cm: (defaultHeight ?? undefined) ?? num(metrics?.heightCm),
+        weight_kg: (defaultWeight ?? undefined) ?? num(metrics?.weightKg),
         activity_level: metrics?.activityLevel || undefined,
       });
       setLoaded(true);

@@ -34,11 +34,14 @@ export function BmiCard({
   personName,
   heightCm,
   weightKg,
+  onRecheck,
 }: {
   personName?: string;
   /** From the person's profile: when both are given the BMI is shown straight from them, with no separate entry. */
   heightCm?: number | null;
   weightKg?: number | null;
+  /** Profile mode: "Recheck" opens the person's height and weight for editing. */
+  onRecheck?: () => void;
 } = {}) {
   const { t } = useLanguage();
   const { profile } = useAuth();
@@ -73,7 +76,7 @@ export function BmiCard({
   if (personName && heightCm && weightKg) {
     return (
       <Card className="mb-6 gap-3 p-5">
-        <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} />
+        <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} onRecheck={onRecheck} />
         <Text className="text-xs text-gray-500">{t("bmi.fromProfile", { height: heightCm, weight: weightKg })}</Text>
       </Card>
     );

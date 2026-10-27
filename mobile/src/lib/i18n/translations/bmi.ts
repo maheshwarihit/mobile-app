@@ -1,5 +1,5 @@
 export const en = {
-  "bmi.fromProfile": "From the profile: {height} cm, {weight} kg. Update them in Profile.",
+  "bmi.fromProfile": "From the profile: {height} cm, {weight} kg. Tap Recheck to update them.",
   "bmi.title": "Test Your BMI Score",
   "bmi.subtitle": "Enter your height and weight to see where you stand.",
   "bmi.checkButton": "Check my BMI",
@@ -25,7 +25,7 @@ export const en = {
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
-  "bmi.fromProfile": "சுயவிவரத்திலிருந்து: {height} செ.மீ, {weight} கி.கி. சுயவிவரத்தில் மாற்றலாம்.",
+  "bmi.fromProfile": "சுயவிவரத்திலிருந்து: {height} செ.மீ, {weight} கி.கி. மாற்ற மீண்டும் சரிபார் என்பதைத் தட்டவும்.",
   "bmi.title": "உங்கள் BMI மதிப்பெண்ணை சோதிக்கவும்",
   "bmi.subtitle": "உங்கள் உயரம் மற்றும் எடையை உள்ளிட்டு நிலையை பார்க்கவும்.",
   "bmi.checkButton": "என் BMI-ஐ சரிபார்",

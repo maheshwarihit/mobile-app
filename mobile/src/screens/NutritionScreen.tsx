@@ -98,7 +98,14 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
           />
           {active.id === "bmi" ? (
             <View className="gap-4">
-              <BmiCard key={personName} personName={personName || undefined} heightCm={personHeight} weightKg={personWeight} />
+              <BmiCard
+                key={personName}
+                personName={personName || undefined}
+                heightCm={personHeight}
+                weightKg={personWeight}
+                // Recheck = update height / weight where they live (Profile, or the family member's form).
+                onRecheck={() => (subject === "self" ? navigation.navigate("ProfileTab") : setEditingDependent(true))}
+              />
               <OutlineButton fullWidth icon={LogOut} onPress={() => setActiveId(null)}>
                 {t("nutrition.exit")}
               </OutlineButton>
@@ -148,6 +155,8 @@ export function NutritionScreen({ navigation }: ServicesStackScreenProps<"Nutrit
             </Card>
           )}
         </ScrollView>
+        {/* Recheck in Calculate BMI edits a family member's height / weight here. */}
+        <DependentModal open={editingDependent} dependent={dependent} accountId={user?.id ?? ""} onClose={() => setEditingDependent(false)} />
       </SafeAreaView>
     );
   }

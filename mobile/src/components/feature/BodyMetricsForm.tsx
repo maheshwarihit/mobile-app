@@ -2,18 +2,37 @@ import { useEffect, useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Plus, Minus, Pencil } from "lucide-react-native";
 import { GENDERS, formatLocalDateTime } from "@vagewell/shared";
-import { Card, FormInput, AgeField, ChoiceChips, SelectSheet, PrimaryButton, OutlineButton, LoadingState } from "@/components/ui";
+import {
+  Card,
+  FormInput,
+  AgeField,
+  ChoiceChips,
+  SelectSheet,
+  PrimaryButton,
+  OutlineButton,
+  LoadingState,
+} from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { genderLabel } from "@/lib/enumI18n";
-import { loadBodyMetrics, saveBodyMetrics, type BodyMetrics } from "@/lib/bodyMetricsStorage";
+import {
+  loadBodyMetrics,
+  saveBodyMetrics,
+  type BodyMetrics,
+} from "@/lib/bodyMetricsStorage";
 import { syncNutrition, unsyncNutrition, syncOnce } from "@/lib/nutritionSync";
 import { toast } from "@/lib/toast";
 import { BRAND } from "@/theme";
 
 // Stored values are these fixed codes; labels come from translations, so a
 // saved record reads correctly in either language.
-const ACTIVITY_LEVELS = ["sedentary", "light", "moderate", "very", "extra"] as const;
+const ACTIVITY_LEVELS = [
+  "sedentary",
+  "light",
+  "moderate",
+  "very",
+  "extra",
+] as const;
 const CONDITIONS = [
   "diabetes",
   "hypertension",
@@ -51,7 +70,15 @@ type Props = {
 };
 
 /** Nutrition → Body Metrics: one person's measurements, activity level and medical background. */
-export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEditing = false, onSaved, defaultHeight, defaultWeight }: Props) {
+export function BodyMetricsForm({
+  personKey,
+  defaultAge,
+  defaultGender,
+  startEditing = false,
+  onSaved,
+  defaultHeight,
+  defaultWeight,
+}: Props) {
   const { t } = useLanguage();
   const { profile } = useAuth();
   const userId = profile?.id ?? null;
@@ -59,8 +86,18 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
   const [loaded, setLoaded] = useState(false);
   const [age, setAge] = useState(defaultAge != null ? String(defaultAge) : "");
   const [gender, setGender] = useState(defaultGender ?? "");
-  const [heightCm, setHeightCm] = useState(defaultHeight ? String(defaultHeight) : "");
-  const [weightKg, setWeightKg] = useState(defaultWeight ? String(defaultWeight) : "");
+  // Height and weight belong to the profile: when it has them they are used
+  // as-is (shown read-only here, changed in Profile), even over values this
+  // form saved before they moved to the profile.
+  const profileHeight = defaultHeight ? String(defaultHeight) : null;
+  const profileWeight = defaultWeight ? String(defaultWeight) : null;
+  const fromProfile = !!profileHeight && !!profileWeight;
+  const [heightCm, setHeightCm] = useState(
+    defaultHeight ? String(defaultHeight) : "",
+  );
+  const [weightKg, setWeightKg] = useState(
+    defaultWeight ? String(defaultWeight) : "",
+  );
   const [activityLevel, setActivityLevel] = useState("");
   const [conditions, setConditions] = useState<string[]>([""]);
   const [history, setHistory] = useState<string[]>([""]);
@@ -80,7 +117,11 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
     pastHistory: [],
     savedAt: "",
   };
-  const shown = saved ?? blank;
+  const shown = {
+    ...(saved ?? blank),
+    ...(profileHeight ? { heightCm: profileHeight } : {}),
+    ...(profileWeight ? { weightKg: profileWeight } : {}),
+  };
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -92,7 +133,9 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
         fillFrom(saved);
         setSaved(saved);
         // Shared with the care team (saved before syncing existed: uploaded once).
-        void syncOnce(userId, personKey, "body_metrics", [{ clientId: `body_metrics:${personKey}`, data: saved }]);
+        void syncOnce(userId, personKey, "body_metrics", [
+          { clientId: `body_metrics:${personKey}`, data: saved },
+        ]);
       }
       setLoaded(true);
     });
@@ -101,11 +144,16 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
     };
   }, [userId, personKey]);
 
+  useEffect(() => {
+    if (profileHeight) setHeightCm(profileHeight);
+    if (profileWeight) setWeightKg(profileWeight);
+  }, [profileHeight, profileWeight]);
+
   function fillFrom(m: BodyMetrics) {
     setAge(m.age);
     setGender(m.gender);
-    setHeightCm(m.heightCm);
-    setWeightKg(m.weightKg);
+    setHeightCm(profileHeight ?? m.heightCm);
+    setWeightKg(profileWeight ?? m.weightKg);
     setActivityLevel(m.activityLevel);
     setConditions(m.medicalConditions.length ? m.medicalConditions : [""]);
     setHistory(m.pastHistory.length ? m.pastHistory : [""]);
@@ -119,8 +167,8 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
 
   const save = async () => {
     const errs: Record<string, string> = {};
-    const h = Number(heightCm);
-    const w = Number(weightKg);
+    const h = Number(profileHeight ?? heightCm);
+    const w = Number(profileWeight ?? weightKg);
     if (!age) errs.age = t("bodyMetrics.error.age");
     if (!gender) errs.gender = t("bodyMetrics.error.gender");
     if (!(h >= 50 && h <= 250)) errs.height = t("bodyMetrics.error.height");
@@ -133,8 +181,8 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
     const next: BodyMetrics = {
       age,
       gender,
-      heightCm,
-      weightKg,
+      heightCm: profileHeight ?? heightCm,
+      weightKg: profileWeight ?? weightKg,
       activityLevel,
       // Rows left on "Select…" are just unused slots, not answers.
       medicalConditions: conditions.filter(Boolean),
@@ -147,8 +195,22 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
       setSaved(next);
       setEditing(false);
       // The current values, plus a dated copy so the care team can see changes over time.
-      void syncNutrition(userId, personKey, "body_metrics", `body_metrics:${personKey}`, next);
-      void syncNutrition(userId, personKey, "body_metrics", `body_metrics:${personKey}:${next.savedAt}`, next, null, next.savedAt);
+      void syncNutrition(
+        userId,
+        personKey,
+        "body_metrics",
+        `body_metrics:${personKey}`,
+        next,
+      );
+      void syncNutrition(
+        userId,
+        personKey,
+        "body_metrics",
+        `body_metrics:${personKey}:${next.savedAt}`,
+        next,
+        null,
+        next.savedAt,
+      );
       toast.success(t("bodyMetrics.saved"));
       onSaved?.();
     } else {
@@ -159,27 +221,55 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
   if (!loaded) return <LoadingState message={t("common.loading")} />;
 
   if (!editing) {
-    const conditionLabels = shown.medicalConditions.map((c) => t(`bodyMetrics.condition.${c}` as TranslationKey));
-    const historyLabels = shown.pastHistory.map((h) => t(`bodyMetrics.history.${h}` as TranslationKey));
+    const conditionLabels = shown.medicalConditions.map((c) =>
+      t(`bodyMetrics.condition.${c}` as TranslationKey),
+    );
+    const historyLabels = shown.pastHistory.map((h) =>
+      t(`bodyMetrics.history.${h}` as TranslationKey),
+    );
     return (
       <Card className="gap-3 p-5">
         <SummaryRow label={t("bodyMetrics.age")} value={shown.age} />
-        <SummaryRow label={t("bodyMetrics.gender")} value={shown.gender ? genderLabel(t, shown.gender as (typeof GENDERS)[number]) : "—"} />
+        <SummaryRow
+          label={t("bodyMetrics.gender")}
+          value={
+            shown.gender
+              ? genderLabel(t, shown.gender as (typeof GENDERS)[number])
+              : "—"
+          }
+        />
         <SummaryRow label={t("bodyMetrics.height")} value={shown.heightCm} />
         <SummaryRow label={t("bodyMetrics.weight")} value={shown.weightKg} />
         <SummaryRow
           label={t("bodyMetrics.activity")}
-          value={shown.activityLevel ? t(`bodyMetrics.activity.${shown.activityLevel}` as TranslationKey) : "—"}
+          value={
+            shown.activityLevel
+              ? t(
+                  `bodyMetrics.activity.${shown.activityLevel}` as TranslationKey,
+                )
+              : "—"
+          }
         />
-        <SummaryList label={t("bodyMetrics.conditions")} items={conditionLabels} />
+        <SummaryList
+          label={t("bodyMetrics.conditions")}
+          items={conditionLabels}
+        />
         <SummaryList label={t("bodyMetrics.history")} items={historyLabels} />
         <View className="mt-2">
-          <PrimaryButton fullWidth icon={Pencil} onPress={() => setEditing(true)}>
+          <PrimaryButton
+            fullWidth
+            icon={Pencil}
+            onPress={() => setEditing(true)}
+          >
             {t("bodyMetrics.edit")}
           </PrimaryButton>
         </View>
         <Text className="text-center text-xs text-gray-400">
-          {saved ? t("bodyMetrics.lastSaved", { date: formatLocalDateTime(saved.savedAt) }) : t("bodyMetrics.notSaved")}
+          {saved
+            ? t("bodyMetrics.lastSaved", {
+                date: formatLocalDateTime(saved.savedAt),
+              })
+            : t("bodyMetrics.notSaved")}
         </Text>
       </Card>
     );
@@ -189,7 +279,13 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
     <Card className="gap-4 p-5">
       <View className="flex-row gap-3">
         <View className="flex-1">
-          <AgeField label={t("bodyMetrics.age")} value={age} onChange={setAge} error={errors.age} required />
+          <AgeField
+            label={t("bodyMetrics.age")}
+            value={age}
+            onChange={setAge}
+            error={errors.age}
+            required
+          />
         </View>
       </View>
       <ChoiceChips
@@ -200,33 +296,48 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
         error={errors.gender}
         required
       />
-      <View className="flex-row gap-3">
-        <View className="flex-1">
-          <FormInput
-            label={t("bodyMetrics.height")}
-            value={heightCm}
-            onChangeText={setHeightCm}
-            keyboardType="decimal-pad"
-            error={errors.height}
-            required
-          />
+      {fromProfile ? (
+        <View className="gap-1 rounded-xl bg-gray-50 p-3">
+          <Text className="text-sm font-semibold text-gray-900">
+            {t("bodyMetrics.height")}: {profileHeight} ·{" "}
+            {t("bodyMetrics.weight")}: {profileWeight}
+          </Text>
+          <Text className="text-xs text-gray-500">
+            {t("bodyMetrics.fromProfile")}
+          </Text>
         </View>
-        <View className="flex-1">
-          <FormInput
-            label={t("bodyMetrics.weight")}
-            value={weightKg}
-            onChangeText={setWeightKg}
-            keyboardType="decimal-pad"
-            error={errors.weight}
-            required
-          />
+      ) : (
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <FormInput
+              label={t("bodyMetrics.height")}
+              value={heightCm}
+              onChangeText={setHeightCm}
+              keyboardType="decimal-pad"
+              error={errors.height}
+              required
+            />
+          </View>
+          <View className="flex-1">
+            <FormInput
+              label={t("bodyMetrics.weight")}
+              value={weightKg}
+              onChangeText={setWeightKg}
+              keyboardType="decimal-pad"
+              error={errors.weight}
+              required
+            />
+          </View>
         </View>
-      </View>
+      )}
       <ChoiceChips
         label={t("bodyMetrics.activity")}
         value={activityLevel}
         onChange={setActivityLevel}
-        options={ACTIVITY_LEVELS.map((a) => ({ value: a, label: t(`bodyMetrics.activity.${a}` as TranslationKey) }))}
+        options={ACTIVITY_LEVELS.map((a) => ({
+          value: a,
+          label: t(`bodyMetrics.activity.${a}` as TranslationKey),
+        }))}
         error={errors.activity}
         required
       />
@@ -234,13 +345,19 @@ export function BodyMetricsForm({ personKey, defaultAge, defaultGender, startEdi
         label={t("bodyMetrics.conditions")}
         rows={conditions}
         onChange={setConditions}
-        options={CONDITIONS.map((c) => ({ value: c, label: t(`bodyMetrics.condition.${c}` as TranslationKey) }))}
+        options={CONDITIONS.map((c) => ({
+          value: c,
+          label: t(`bodyMetrics.condition.${c}` as TranslationKey),
+        }))}
       />
       <MultiSelectRows
         label={t("bodyMetrics.history")}
         rows={history}
         onChange={setHistory}
-        options={HISTORY.map((h) => ({ value: h, label: t(`bodyMetrics.history.${h}` as TranslationKey) }))}
+        options={HISTORY.map((h) => ({
+          value: h,
+          label: t(`bodyMetrics.history.${h}` as TranslationKey),
+        }))}
       />
 
       <View className="flex-row gap-3">
@@ -263,7 +380,9 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row items-start justify-between gap-4">
       <Text className="text-sm text-gray-500">{label}</Text>
-      <Text className="flex-1 text-right text-sm font-medium text-gray-900">{value || "—"}</Text>
+      <Text className="flex-1 text-right text-sm font-medium text-gray-900">
+        {value || "—"}
+      </Text>
     </View>
   );
 }
@@ -302,8 +421,10 @@ function MultiSelectRows({
   options: { value: string; label: string }[];
 }) {
   const { t } = useLanguage();
-  const setRow = (i: number, v: string) => onChange(rows.map((r, j) => (j === i ? v : r)));
-  const removeRow = (i: number) => onChange(rows.length > 1 ? rows.filter((_, j) => j !== i) : [""]);
+  const setRow = (i: number, v: string) =>
+    onChange(rows.map((r, j) => (j === i ? v : r)));
+  const removeRow = (i: number) =>
+    onChange(rows.length > 1 ? rows.filter((_, j) => j !== i) : [""]);
   const canAdd = rows.length < options.length;
 
   return (
@@ -315,7 +436,9 @@ function MultiSelectRows({
             <SelectSheet
               value={row}
               onValueChange={(v) => setRow(i, v)}
-              options={options.filter((o) => o.value === row || !rows.includes(o.value))}
+              options={options.filter(
+                (o) => o.value === row || !rows.includes(o.value),
+              )}
               placeholder={t("bodyMetrics.select")}
             />
           </View>
@@ -330,9 +453,15 @@ function MultiSelectRows({
         </View>
       ))}
       {canAdd ? (
-        <Pressable onPress={() => onChange([...rows, ""])} hitSlop={6} className="flex-row items-center gap-1.5 self-start py-1 active:opacity-70">
+        <Pressable
+          onPress={() => onChange([...rows, ""])}
+          hitSlop={6}
+          className="flex-row items-center gap-1.5 self-start py-1 active:opacity-70"
+        >
           <Plus size={16} color={BRAND} />
-          <Text className="text-sm font-semibold text-purple-700">{t("bodyMetrics.addRow")}</Text>
+          <Text className="text-sm font-semibold text-purple-700">
+            {t("bodyMetrics.addRow")}
+          </Text>
         </Pressable>
       ) : null}
     </View>
