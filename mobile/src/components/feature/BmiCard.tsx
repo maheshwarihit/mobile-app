@@ -92,14 +92,14 @@ export function BmiCard({
   }, [results, loaded, userId]);
 
   if (personName && heightCm && weightKg) {
-    // The BMI from the profile's height and weight, its history, then those values with "Update" (edits the profile).
+    // The BMI from the profile's height and weight, those values with "Update" (edits the profile), then its history.
     return (
       <View className="mb-6 gap-4">
         <Card className="gap-3 p-5">
           <BmiResult result={{ name: personName, bmi: computeBmi(heightCm, weightKg) }} />
         </Card>
-        <BmiTrendChart points={history} />
         <HeightWeightConfirm heightCm={heightCm} weightKg={weightKg} onUpdate={() => onRecheck?.()} />
+        <BmiTrendChart points={history} />
       </View>
     );
   }
