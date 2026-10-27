@@ -22,10 +22,9 @@ export function HeightWeightConfirm({
   const { t } = useLanguage();
   return (
     <Card className="gap-3 p-5">
-      <View className="gap-1">
-        <Text className="text-base text-gray-900">{t("heightCheck.height", { value: heightCm })}</Text>
-        <Text className="text-base text-gray-900">{t("heightCheck.weight", { value: weightKg })}</Text>
-      </View>
+      <Text className="text-base text-gray-900">
+        {t("heightCheck.height", { value: heightCm })}, {t("heightCheck.weight", { value: weightKg }).replace(/^Your/, "your")}
+      </Text>
       <Text className="text-sm text-gray-500">{t("heightCheck.body")}</Text>
       <View className="flex-row gap-3">
         <View className="flex-1">
