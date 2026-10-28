@@ -24,15 +24,19 @@ export function FeedbackModal({ open, onClose }: { open: boolean; onClose: () =>
   const send = useSendFeedback();
   const [rating, setRating] = useState(0);
   const [message, setMessage] = useState("");
+  // Shown inside the popup: a toast would sit behind it.
+  const [failed, setFailed] = useState(false);
 
   const close = () => {
     setRating(0);
     setMessage("");
+    setFailed(false);
     onClose();
   };
 
   const submit = () => {
     if (!rating) return;
+    setFailed(false);
     send.mutate(
       { rating, message },
       {
@@ -40,7 +44,7 @@ export function FeedbackModal({ open, onClose }: { open: boolean; onClose: () =>
           toast.success(t("feedback.thanks"));
           close();
         },
-        onError: () => toast.error(t("feedback.failed")),
+        onError: () => setFailed(true),
       },
     );
   };
@@ -76,6 +80,7 @@ export function FeedbackModal({ open, onClose }: { open: boolean; onClose: () =>
         textAlignVertical="top"
         className="mb-4 min-h-[96px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900"
       />
+      {failed ? <Text className="mb-3 text-center text-sm font-semibold text-red-600">{t("feedback.failed")}</Text> : null}
       <PrimaryButton fullWidth disabled={!rating || send.isPending} onPress={submit}>
         {send.isPending ? t("feedback.sending") : t("feedback.send")}
       </PrimaryButton>
