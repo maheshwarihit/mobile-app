@@ -47,6 +47,20 @@ export const en = {
     "• Psychological support\n" +
     "• Spiritual care\n" +
     "• Rehabilitation / relaxation care",
+  "feedback.open": "Send feedback",
+  "feedback.title": "Your feedback",
+  "feedback.question": "How was your experience with VAgeWell Care?",
+  "feedback.tapStar": "Tap a star to rate",
+  "feedback.rating.1": "Poor",
+  "feedback.rating.2": "Fair",
+  "feedback.rating.3": "Good",
+  "feedback.rating.4": "Very good",
+  "feedback.rating.5": "Excellent",
+  "feedback.placeholder": "Tell us more (optional)",
+  "feedback.send": "Submit",
+  "feedback.sending": "Sending…",
+  "feedback.thanks": "Thank you for your feedback!",
+  "feedback.failed": "Could not send your feedback. Please try again.",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -95,4 +109,18 @@ export const ta: Record<keyof typeof en, string> = {
     "• உளவியல் ஆதரவு\n" +
     "• ஆன்மீக கவனிப்பு\n" +
     "• புனர்வாழ்வு / ஓய்வு கவனிப்பு",
+  "feedback.open": "கருத்தை அனுப்பு",
+  "feedback.title": "உங்கள் கருத்து",
+  "feedback.question": "VAgeWell Care உடனான உங்கள் அனுபவம் எப்படி இருந்தது?",
+  "feedback.tapStar": "மதிப்பிட ஒரு நட்சத்திரத்தைத் தட்டவும்",
+  "feedback.rating.1": "மோசம்",
+  "feedback.rating.2": "சுமார்",
+  "feedback.rating.3": "நன்று",
+  "feedback.rating.4": "மிக நன்று",
+  "feedback.rating.5": "அருமை",
+  "feedback.placeholder": "மேலும் சொல்லுங்கள் (விருப்பத்தேர்வு)",
+  "feedback.send": "சமர்ப்பி",
+  "feedback.sending": "அனுப்புகிறது…",
+  "feedback.thanks": "உங்கள் கருத்துக்கு நன்றி!",
+  "feedback.failed": "உங்கள் கருத்தை அனுப்ப முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
 };

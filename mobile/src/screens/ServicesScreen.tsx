@@ -1,6 +1,7 @@
 import { View, Text, FlatList, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Stethoscope, ArrowRight, PhoneIncoming, UserPlus, PhoneCall } from "lucide-react-native";
+import { useState } from "react";
+import { Stethoscope, ArrowRight, PhoneIncoming, UserPlus, PhoneCall, MessageSquareText } from "lucide-react-native";
 import {
   PageHeader,
   PrimaryButton,
@@ -18,6 +19,7 @@ import { useServices, useCreateBookingRequest, money, profileCompletionPercent, 
 import { imageForService } from "@/lib/serviceImage";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceCard } from "@/components/feature/ServiceCard";
+import { FeedbackModal } from "@/components/feature/FeedbackModal";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
 // SCREEN_ID: SERVICE_LIST
@@ -26,6 +28,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
   const { data: services, isLoading, error } = useServices();
   const { profile } = useAuth();
   const requestBooking = useCreateBookingRequest();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const profilePercent = profile ? profileCompletionPercent(profile) : 0;
 
@@ -41,6 +44,14 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           subtitle={t("services.subtitle")}
           action={
             <View className="flex-row items-center gap-2">
+              <Pressable
+                onPress={() => setFeedbackOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t("feedback.open")}
+                className="h-10 w-10 items-center justify-center rounded-full bg-purple-50 active:opacity-70"
+              >
+                <MessageSquareText size={18} color={BRAND} />
+              </Pressable>
               <Pressable
                 onPress={() => Linking.openURL(`tel:${HOSPITAL_CONTACT_PHONE}`)}
                 className="h-10 w-10 items-center justify-center rounded-full bg-purple-50 active:opacity-70"
@@ -108,6 +119,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
           )}
         />
       </View>
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </SafeAreaView>
   );
 }
