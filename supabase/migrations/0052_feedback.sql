@@ -2,8 +2,10 @@
 -- VAgeWell Care — 0052 Patient feedback
 -- =====================================================================
 -- The feedback button on the Services screen (next to the call button):
--- a star rating (1–5) and an optional message. The patient can send and
--- see only their own; the admin sees everyone's (admin → Feedback).
+-- a star rating (1–5) and an optional message. Kept only in the backend:
+-- a signed-in user can send feedback but nobody — patient, Care Giver or
+-- admin — can read it through the app. View it in the Supabase dashboard
+-- (Table Editor → feedback), which is not limited by these rules.
 --
 -- Run once in the Supabase SQL editor. Safe to re-run.
 -- =====================================================================
@@ -24,15 +26,9 @@ create policy feedback_insert on public.feedback
   for insert to authenticated
   with check (account_id = auth.uid());
 
+-- No select / update / delete for app users (also removes them if an
+-- earlier version of this file was run).
 drop policy if exists feedback_select on public.feedback;
-create policy feedback_select on public.feedback
-  for select to authenticated
-  using (account_id = auth.uid() or public.is_admin());
-
--- No update: feedback is kept as sent. Admin may delete.
 drop policy if exists feedback_delete on public.feedback;
-create policy feedback_delete on public.feedback
-  for delete to authenticated
-  using (public.is_admin());
-
-grant select, insert, delete on public.feedback to authenticated;
+revoke select, update, delete on public.feedback from authenticated, anon;
+grant insert on public.feedback to authenticated;

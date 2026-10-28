@@ -30,13 +30,6 @@ export const en = {
   "ops.awaitingReview": "Awaiting review",
   "ops.reportRow.rename.title": "Rename report",
   "ops.reportRow.rename.label": "File name",
-  "ops.nav.feedback": "Feedback",
-  "ops.feedback.title": "Feedback",
-  "ops.feedback.subtitle": "Ratings and comments sent by patients",
-  "ops.feedback.average": "Average {avg} / 5 · {count} reviews",
-  "ops.feedback.empty": "No feedback yet",
-  "ops.feedback.loadFailed": "Could not load feedback.",
-  "ops.feedback.deleteTitle": "Delete this feedback?",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -71,11 +64,4 @@ export const ta: Record<keyof typeof en, string> = {
   "ops.awaitingReview": "மதிப்பாய்வுக்காக காத்திருக்கிறது",
   "ops.reportRow.rename.title": "அறிக்கையை மறுபெயரிடு",
   "ops.reportRow.rename.label": "கோப்பு பெயர்",
-  "ops.nav.feedback": "கருத்துகள்",
-  "ops.feedback.title": "கருத்துகள்",
-  "ops.feedback.subtitle": "நோயாளிகள் அனுப்பிய மதிப்பீடுகளும் கருத்துகளும்",
-  "ops.feedback.average": "சராசரி {avg} / 5 · {count} மதிப்புரைகள்",
-  "ops.feedback.empty": "இன்னும் கருத்துகள் இல்லை",
-  "ops.feedback.loadFailed": "கருத்துகளை ஏற்ற முடியவில்லை.",
-  "ops.feedback.deleteTitle": "இந்தக் கருத்தை நீக்கவா?",
 };

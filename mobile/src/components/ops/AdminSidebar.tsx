@@ -15,7 +15,6 @@ import {
   Moon,
   X,
   type LucideIcon,
-  MessageSquareText,
 } from "lucide-react-native";
 import { ROLE_LABELS, type Profile } from "@vagewell/shared";
 import { ProfilePhoto } from "@/components/ops/ProfilePhoto";
@@ -25,7 +24,6 @@ import { useLanguage, type TranslationKey } from "@/lib/i18n";
 export type AdminSection =
   | "appointments"
   | "requests"
-  | "feedback"
   | "userDetails"
   | "clients"
   | "team"
@@ -38,7 +36,6 @@ export type AdminSection =
 const ITEM_DEFS: { key: AdminSection; labelKey: TranslationKey; icon: LucideIcon }[] = [
   { key: "appointments", labelKey: "ops.nav.appointments", icon: ClipboardList },
   { key: "requests", labelKey: "ops.nav.requests", icon: PhoneIncoming },
-  { key: "feedback", labelKey: "ops.nav.feedback", icon: MessageSquareText },
   { key: "userDetails", labelKey: "ops.nav.userDetails", icon: UserPlus },
   { key: "clients", labelKey: "ops.nav.clients", icon: Users },
   { key: "team", labelKey: "ops.nav.team", icon: UserCog },

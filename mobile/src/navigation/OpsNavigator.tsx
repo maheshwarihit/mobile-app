@@ -18,7 +18,6 @@ import { AdminPaymentProofsScreen } from "@/screens/ops/AdminPaymentProofsScreen
 import { AdminLiveSheetScreen } from "@/screens/ops/AdminLiveSheetScreen";
 import { AdminReportsScreen } from "@/screens/ops/AdminReportsScreen";
 import { AdminRequestsScreen } from "@/screens/ops/AdminRequestsScreen";
-import { AdminFeedbackScreen } from "@/screens/ops/AdminFeedbackScreen";
 import { AdminTeamScreen } from "@/screens/ops/AdminTeamScreen";
 import { AdminUserDetailsScreen } from "@/screens/ops/AdminUserDetailsScreen";
 import { MyVisitsScreen } from "@/screens/ops/MyVisitsScreen";
@@ -129,7 +128,6 @@ export function AdminNavigator() {
       <View className="flex-1">
         {active === "appointments" ? <AdminAppointmentsScreen onOpenClient={openClientDetail} /> : null}
         {active === "requests" ? <AdminRequestsScreen /> : null}
-        {active === "feedback" ? <AdminFeedbackScreen /> : null}
         {active === "userDetails" ? <AdminUserDetailsScreen onOpenClient={openClientDetail} /> : null}
         {active === "clients" ? <ClientsStackNavigator initialAccountId={clientTarget} /> : null}
         {active === "team" ? <AdminTeamScreen onOpenClient={openClientDetail} /> : null}
