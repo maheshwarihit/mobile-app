@@ -50,6 +50,7 @@ const DESCRIPTION_KEYS: Record<string, TranslationKey> = {
 export function englishServiceName(name: string): string {
   if (name === "Physio Therapy") return "Exercise";
   if (name === "Para-Medical") return "Bio Markers";
+  if (name === "Mental Wellbeing") return "Mind & Wellbeing";
   return name;
 }
 

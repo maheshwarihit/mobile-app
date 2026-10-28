@@ -39,7 +39,8 @@ export const en = {
     "• Wound & dressing care\n" +
     "• Post-hospitalization care\n" +
     "• 24/7 home nursing care",
-  "services.catalog.mentalWellbeing.name": "Mental Wellbeing",
+  // Shown as "Mind & Wellbeing"; the service is still stored as "Mental Wellbeing" (bookings, prices).
+  "services.catalog.mentalWellbeing.name": "Mind & Wellbeing",
   "services.catalog.mentalWellbeing.description":
     "Mood scores and social engagement tracking.\n" +
     "• Elderly wellbeing support\n" +
@@ -87,7 +88,7 @@ export const ta: Record<keyof typeof en, string> = {
     "• காயம் & கட்டுப் பராமரிப்பு\n" +
     "• மருத்துவமனையிலிருந்து வந்த பின் கவனிப்பு\n" +
     "• 24/7 வீட்டு நர்சிங் கவனிப்பு",
-  "services.catalog.mentalWellbeing.name": "மன ஆரோக்கியம்",
+  "services.catalog.mentalWellbeing.name": "மனம் & நல்வாழ்வு",
   "services.catalog.mentalWellbeing.description":
     "மனநிலை மதிப்பெண்கள் மற்றும் சமூக ஈடுபாட்டு கண்காணிப்பு.\n" +
     "• முதியோர் நல்வாழ்வு ஆதரவு\n" +
