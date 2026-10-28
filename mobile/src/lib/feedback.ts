@@ -13,22 +13,13 @@ export type Feedback = {
 
 const FEEDBACK_KEY = ["feedback", "all"] as const;
 
-/**
- * Send feedback as the signed-in account. Goes through the send-feedback
- * function, which saves it and emails it to info@vagewell.com; if that
- * function is not deployed yet, it is saved directly (no email).
- */
+/** Send feedback as the signed-in account (account_id is set by the database). */
 export function useSendFeedback() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ rating, message }: { rating: number; message: string }) => {
-      const { data, error } = await supabase.functions.invoke("send-feedback", { body: { rating, message } });
-      if (!error && (data as { saved?: boolean } | null)?.saved) return;
-      // 404 / network: the function isn't deployed — save without the email.
-      const status = (error as { context?: { status?: number } } | null)?.context?.status;
-      if (error && status !== 404 && status !== undefined) throw error;
-      const { error: insertError } = await supabase.from("feedback").insert({ rating, message: message.trim() || null });
-      if (insertError) throw insertError;
+      const { error } = await supabase.from("feedback").insert({ rating, message: message.trim() || null });
+      if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: FEEDBACK_KEY }),
   });
