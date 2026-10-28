@@ -24,6 +24,8 @@ create table if not exists public.feedback_new (
   message     text check (message is null or char_length(message) <= 2000),
   created_at  timestamptz not null default now()
 );
+-- Locked from the start (it becomes the feedback table below).
+alter table public.feedback_new enable row level security;
 
 -- Only on the first run (a re-run finds the table already rebuilt).
 do $$
