@@ -35,10 +35,10 @@ export const en = {
     "Vitals Monitoring and medication compliance.\n" +
     "• Vitals Monitoring (BP, Sugar, O2)\n" +
     "• Elderly & geriatric care\n" +
-    "• Bedridden patient care\n" +
+    "• General patient care\n" +
     "• Wound & dressing care\n" +
     "• Post-hospitalization care\n" +
-    "• 24/7 home nursing care",
+    "• 24/7 Care Giver Support",
   // Shown as "Mind & Wellbeing"; the service is still stored as "Mental Wellbeing" (bookings, prices).
   "services.catalog.mentalWellbeing.name": "Mind & Wellbeing",
   "services.catalog.mentalWellbeing.description":
@@ -84,10 +84,10 @@ export const ta: Record<keyof typeof en, string> = {
     "உயிர்முக்கிய அளவீடுகள் கண்காணிப்பு மற்றும் மருந்து இணக்கம்.\n" +
     "• உயிர்முக்கிய அளவீடுகள் கண்காணிப்பு (இரத்த அழுத்தம், சர்க்கரை, ஆக்ஸிஜன்)\n" +
     "• முதியோர் & மூப்பு கவனிப்பு\n" +
-    "• படுக்கையில் இருக்கும் நோயாளி கவனிப்பு\n" +
+    "• பொது நோயாளி கவனிப்பு\n" +
     "• காயம் & கட்டுப் பராமரிப்பு\n" +
     "• மருத்துவமனையிலிருந்து வந்த பின் கவனிப்பு\n" +
-    "• 24/7 வீட்டு நர்சிங் கவனிப்பு",
+    "• 24/7 பராமரிப்பாளர் ஆதரவு",
   "services.catalog.mentalWellbeing.name": "மனம் & நல்வாழ்வு",
   "services.catalog.mentalWellbeing.description":
     "மனநிலை மதிப்பெண்கள் மற்றும் சமூக ஈடுபாட்டு கண்காணிப்பு.\n" +
