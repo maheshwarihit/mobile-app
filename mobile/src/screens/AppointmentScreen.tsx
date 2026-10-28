@@ -29,7 +29,6 @@ import {
   MAX_BOOKING_DAYS,
   MIN_BOOKING_LEAD_MINUTES,
   NUTRITION_SERVICE,
-  PARA_MEDICAL_SERVICE,
 } from "@vagewell/shared";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 
@@ -48,11 +47,8 @@ export function AppointmentScreen({ navigation, route }: ServicesStackScreenProp
   const { profile } = useAuth();
   const { data: allServices, isLoading } = useServices();
   // Nutrition isn't booked as an appointment — its card opens the Nutrition modules instead.
-  // Nutrition and Bio Markers (Para-Medical) aren't booked: they open their own modules.
-  const services = useMemo(
-    () => allServices?.filter((s) => s.name !== NUTRITION_SERVICE && s.name !== PARA_MEDICAL_SERVICE),
-    [allServices],
-  );
+  // Bio Markers (Para-Medical) can still be booked here, though its card opens Lab Report Insights.
+  const services = useMemo(() => allServices?.filter((s) => s.name !== NUTRITION_SERVICE), [allServices]);
   const { data: dependents } = useFamilyMembers();
 
   const [form, setForm] = useState({
