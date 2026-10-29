@@ -6,7 +6,7 @@ export const en = {
   "home.priceAdvance": "Advance {price} (monthly package)",
   "home.pricePerDay": "{price}/day",
   "home.getStartedBookCare": "Get Started — Book Care",
-  "home.existingUserLogin": "Existing user — Login",
+  "home.existingUserLogin": "Already have an account? Log in",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -17,5 +17,5 @@ export const ta: Record<keyof typeof en, string> = {
   "home.priceAdvance": "முன்பணம் {price} (மாதாந்திர தொகுப்பு)",
   "home.pricePerDay": "{price}/நாள்",
   "home.getStartedBookCare": "தொடங்குங்கள் — கவனிப்பை முன்பதிவு செய்யுங்கள்",
-  "home.existingUserLogin": "ஏற்கனவே பயனர் — உள்நுழைக",
+  "home.existingUserLogin": "ஏற்கனவே கணக்கு உள்ளதா? உள்நுழைக",
 };

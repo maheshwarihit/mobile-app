@@ -16,12 +16,12 @@ export const en = {
   "services.addFamilyHint": "Book for a parent, spouse, or child under this same login.",
   "services.priceAdvance": "Advance {price} (monthly package)",
   "services.pricePerDay": "{price}/day",
-  "services.pricesFromNote": "Above Service charges starts from {price}",
+  "services.pricesFromNote": "Services start from {price} per visit",
   "services.catalog.nutrition.name": "Nutrition",
   "services.catalog.nutrition.description":
     "Diet adherence (supported by strategic meal provider partnerships).\n" +
     "• Individualized diet planning & support\n" +
-    "• Ryles tube feeding guidance\n" +
+    "• Ryle’s tube feeding guidance\n" +
     "• Dietitian consultation",
   // Shown as "Exercise"; the service is still stored as "Physio Therapy" (bookings, prices).
   "services.catalog.physio.name": "Exercise",
@@ -82,7 +82,7 @@ export const ta: Record<keyof typeof en, string> = {
   "services.addFamilyHint": "இதே கணக்கின் கீழ் பெற்றோர், துணைவர் அல்லது குழந்தைக்காக முன்பதிவு செய்யுங்கள்.",
   "services.priceAdvance": "முன்பணம் {price} (மாதாந்திர தொகுப்பு)",
   "services.pricePerDay": "{price}/நாள்",
-  "services.pricesFromNote": "மேற்கண்ட சேவைக் கட்டணங்கள் {price} முதல் தொடங்குகின்றன",
+  "services.pricesFromNote": "சேவைகள் ஒரு வருகைக்கு {price} முதல் தொடங்குகின்றன",
   "services.catalog.nutrition.name": "ஊட்டச்சத்து",
   "services.catalog.nutrition.description":
     "உணவு வழங்குநர் கூட்டாண்மைகள் மூலம் ஆதரிக்கப்படும் உணவுக் கட்டுப்பாடு.\n" +
