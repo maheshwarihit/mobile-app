@@ -21,6 +21,20 @@ import { translateServiceName, translateServiceDescription } from "@/lib/service
 import { ServiceCard } from "@/components/feature/ServiceCard";
 import { FeedbackModal } from "@/components/feature/FeedbackModal";
 import type { ServicesStackScreenProps } from "@/navigation/types";
+import type { TranslationKey } from "@/lib/i18n";
+
+// The modules each service opens in the app, shown first on the back of its card
+// (same order as the Nutrition and Bio Markers module lists).
+const SERVICE_MODULES: Record<string, TranslationKey[]> = {
+  [NUTRITION_SERVICE]: [
+    "nutrition.module.bodyMetrics",
+    "nutrition.module.bmi",
+    "nutrition.module.foodPlate",
+    "nutrition.module.selfAssessment",
+    "nutrition.module.foodSupplements",
+  ],
+  [PARA_MEDICAL_SERVICE]: ["labReports.title"],
+};
 
 // SCREEN_ID: SERVICE_LIST
 export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Services">) {
@@ -107,6 +121,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
               name={translateServiceName(t, s.name)}
               description={s.description ? translateServiceDescription(t, s.description) : ""}
               image={imageForService(s.name)}
+              modules={(SERVICE_MODULES[s.name] ?? []).map((k) => t(k))}
               onPress={() =>
                 // Nutrition and Bio Markers (Para-Medical) open their own modules instead of booking.
                 s.name === NUTRITION_SERVICE

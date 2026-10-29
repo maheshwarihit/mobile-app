@@ -40,6 +40,8 @@ type Props = {
   description: string;
   /** Background photo for the whole card; text turns white over it. */
   image?: ServicePhoto;
+  /** The app modules inside this service (translated), listed first on side 2. */
+  modules?: string[];
   onPress: () => void;
 };
 
@@ -68,7 +70,7 @@ function coverAround(photo: ServicePhoto, w: number, h: number) {
  * side books. Swipe the card sideways, or use "Know more" / "Back" (for a
  * mouse, which can't swipe), to move between sides. All cards share one height.
  */
-export function ServiceCard({ name, description, image, onPress }: Props) {
+export function ServiceCard({ name, description, image, modules = [], onPress }: Props) {
   const { t } = useLanguage();
   const scroller = useRef<ScrollView>(null);
   const [width, setWidth] = useState(knownWidth);
@@ -83,7 +85,7 @@ export function ServiceCard({ name, description, image, onPress }: Props) {
 
   const [summary, ...lines] = description.split("\n").filter((l) => l.trim().length > 0);
   const features = lines.map((l) => l.replace(/^[•\s]+/, "").trim()).filter(Boolean);
-  const hasFeatures = features.length > 0;
+  const hasFeatures = features.length > 0 || modules.length > 0;
 
   const goTo = (p: number) => scroller.current?.scrollTo({ x: p * width, animated: true });
   const measure = (key: keyof typeof parts.current) => (e: LayoutChangeEvent) => {
@@ -156,7 +158,7 @@ export function ServiceCard({ name, description, image, onPress }: Props) {
             </Pressable>
         ) : null}
 
-        {/* Side 2 — what the service includes. */}
+        {/* Side 2 — its modules in the app (if any), then what the service includes. */}
         {width > 0 && hasFeatures ? (
               <Pressable
                 onPress={onPress}
@@ -166,9 +168,26 @@ export function ServiceCard({ name, description, image, onPress }: Props) {
                 className={`justify-between active:opacity-80 ${onPhoto ? "" : "bg-purple-50"}`}
               >
                 <View onLayout={measure("body2")} className="gap-1 p-4 pb-2">
-                  <Text className="text-xs font-bold uppercase tracking-wide" style={{ color: linkColor }}>
-                    {t("services.card.includes", { name })}
-                  </Text>
+                  {modules.length ? (
+                    <>
+                      <Text className="text-xs font-bold uppercase tracking-wide" style={{ color: linkColor }}>
+                        {t("services.card.modules", { name })}
+                      </Text>
+                      {modules.map((m) => (
+                        <Text key={m} className={`text-sm font-semibold ${onPhoto ? "text-white" : "text-gray-900"}`}>
+                          • {m}
+                        </Text>
+                      ))}
+                    </>
+                  ) : null}
+                  {features.length ? (
+                    <Text
+                      className={`text-xs font-bold uppercase tracking-wide ${modules.length ? "mt-2" : ""}`}
+                      style={{ color: linkColor }}
+                    >
+                      {t("services.card.includes", { name })}
+                    </Text>
+                  ) : null}
                   {features.map((f) => (
                     <Text key={f} className={`text-sm ${onPhoto ? "text-white" : "text-gray-700"}`}>
                       • {f}
