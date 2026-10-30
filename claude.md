@@ -3062,3 +3062,21 @@ icon, unlike the signed-in Services tab, which already uses a distinct icon per 
 - Verified: `mobile` `tsc --noEmit` clean; `expo export --platform web` bundle green; live-verified with
   Playwright — screenshotted the guest Home screen showing Para-Medical with the stethoscope icon and
   Mental Wellbeing with the brain icon (previously both showed stethoscope), zero console errors.
+
+## Change round — wording, legal documents, activity level help, first Play AAB (user, 2026-10-29/30)
+- [x] **Wording**: "Ryle’s tube" (app copy, seed/install SQL, new migration
+      `0054_ryles_tube_spelling.sql` for the live row — **pending on the user's Supabase**; until it runs,
+      `serviceI18n` no longer matches the DB text and Tamil falls back to English for Nutrition). Service card
+      back heading is now just "Services". Meal Scanner / Lab Report Insights AI notes add "Accuracy depends
+      on the details you provide."
+- [x] **Legal documents**: Health Disclaimer (translated, `translations/disclaimer.ts`), Terms of Service and
+      Privacy Policy (English only, `mobile/src/lib/legal/*.json`), shown by `components/feature/LegalDocs.tsx`.
+      Sign up has a required "I accept" checkbox (blocks OTP and Google sign-up; phone sign-ups store
+      `legal_accepted_at` in auth user metadata); Profile links all three. `scripts/build-legal-pages.mjs`
+      generates `mobile/public/terms.html` and `privacy-policy.html` from the same JSON (run by both deploy
+      scripts and `npm run build`) — the privacy URL is the one for Play Console. Still open: registered
+      address for the Grievance Officer, SMS provider name, confirm info@vagewell.com.
+- [x] **Body Metrics**: choosing a Physical Activity Level shows what that level means (en + ta).
+- [x] **First production AAB** built with EAS (`--profile production`), versionCode 5 → 6.
+- Verified: `mobile` `tsc --noEmit` clean; deployed to https://vagewell-web-deploy.vercel.app and checked the
+  live bundle/pages; Playwright screenshots of the sign-up checkbox and the three documents.

@@ -19,14 +19,16 @@
     },
     "android": {
       "package": "in.vagewell.care",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION"
       ],
-      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-secure-store",
