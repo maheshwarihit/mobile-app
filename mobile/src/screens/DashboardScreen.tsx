@@ -125,7 +125,9 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
         <FlatList
           data={active}
           keyExtractor={(b) => b.id}
-          contentContainerClassName="gap-3 pb-6"
+          contentContainerClassName="grow gap-3 pb-6"
+          // Fill the screen so the legal links sit at the bottom even when the list is short.
+          ListFooterComponentStyle={{ flexGrow: 1 }}
           ListHeaderComponent={
             <View>
               {error ? <ErrorBanner message={t("dashboard.loadError")} /> : null}
@@ -157,9 +159,11 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
             ) : null
           }
           ListFooterComponent={
-            <View>
+            <View className="flex-1">
               {lastCompleted ? <LastCompletedCheckup booking={lastCompleted} subjectName={nameFor(lastCompleted)} /> : null}
-              <LegalFooter />
+              <View className="mt-auto pt-4">
+                <LegalFooter />
+              </View>
             </View>
           }
           renderItem={({ item: b }) => (
