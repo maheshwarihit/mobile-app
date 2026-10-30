@@ -342,6 +342,12 @@ export function BodyMetricsForm({
         error={errors.activity}
         required
       />
+      {/* What the chosen level means, so people pick the right one. */}
+      {activityLevel ? (
+        <Text className="-mt-2 rounded-lg bg-sky-50 px-3 py-2 text-sm text-gray-700">
+          {t(`bodyMetrics.activity.${activityLevel}.desc` as TranslationKey)}
+        </Text>
+      ) : null}
       <MultiSelectRows
         label={t("bodyMetrics.conditions")}
         rows={conditions}
