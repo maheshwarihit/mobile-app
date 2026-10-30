@@ -112,7 +112,6 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
                 <OutlineButton fullWidth icon={UserPlus} onPress={() => navigation.navigate("ProfileTab")}>
                   {t("services.addFamilyMember")}
                 </OutlineButton>
-                <Text className="text-center text-xs text-purple-700">{t("services.addFamilyHint")}</Text>
               </View>
             ) : null
           }

@@ -22,6 +22,13 @@ const DESCRIPTION_KEYS: Record<string, TranslationKey> = {
       "• Ryle’s tube feeding guidance\n" +
       "• Dietitian consultation"
   ]: "services.catalog.nutrition.description",
+  // Same text before migration 0054 fixed the spelling — still live until it is run.
+  [
+    "Diet adherence (supported by strategic meal provider partnerships).\n" +
+      "• Individualized diet planning & support\n" +
+      "• Ryles tube feeding guidance\n" +
+      "• Dietitian consultation"
+  ]: "services.catalog.nutrition.description",
   [
     "Exercise completion, mobility scores.\n" +
       "• Mobility training\n" +

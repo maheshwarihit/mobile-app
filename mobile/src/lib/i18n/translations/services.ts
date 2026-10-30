@@ -13,27 +13,26 @@ export const en = {
   "services.card.includes": "Services",
   "services.card.viewMore": "Know more",
   "services.addFamilyMember": "Add a family member",
-  "services.addFamilyHint": "Book for a parent, spouse, or child under this same login.",
   "services.priceAdvance": "Advance {price} (monthly package)",
   "services.pricePerDay": "{price}/day",
   "services.pricesFromNote": "Services start from {price} per visit",
   "services.catalog.nutrition.name": "Nutrition",
   "services.catalog.nutrition.description":
-    "Diet adherence (supported by strategic meal provider partnerships).\n" +
+    "Diet plans and dietitian support tailored to your health\n" +
     "• Individualized diet planning & support\n" +
     "• Ryle’s tube feeding guidance\n" +
     "• Dietitian consultation",
   // Shown as "Exercise"; the service is still stored as "Physio Therapy" (bookings, prices).
   "services.catalog.physio.name": "Exercise",
   "services.catalog.physio.description":
-    "Exercise completion, mobility scores.\n" +
+    "Physiotherapy and guided exercises at home\n" +
     "• Mobility training\n" +
     "• Post-surgery physio care\n" +
     "• Therapeutic exercise",
   // Shown as "Bio Markers"; the service is still stored as "Para-Medical" (bookings, prices).
   "services.catalog.paraMedical.name": "Bio Markers",
   "services.catalog.paraMedical.description":
-    "Vitals Monitoring and medication compliance.\n" +
+    "Regular BP, sugar and oxygen checks by trained Care Givers\n" +
     "• Vitals Monitoring (BP, Sugar, O2)\n" +
     "• Elderly & geriatric care\n" +
     "• General patient care\n" +
@@ -43,7 +42,7 @@ export const en = {
   // Shown as "Mind & Wellbeing"; the service is still stored as "Mental Wellbeing" (bookings, prices).
   "services.catalog.mentalWellbeing.name": "Mind & Wellbeing",
   "services.catalog.mentalWellbeing.description":
-    "Mood scores and social engagement tracking.\n" +
+    "Emotional support and companionship for a happier mind\n" +
     "• Elderly wellbeing support\n" +
     "• Psychological support\n" +
     "• Spiritual care\n" +
@@ -79,25 +78,24 @@ export const ta: Record<keyof typeof en, string> = {
   "services.card.includes": "சேவைகள்",
   "services.card.viewMore": "மேலும் அறிக",
   "services.addFamilyMember": "குடும்ப உறுப்பினரைச் சேர்க்கவும்",
-  "services.addFamilyHint": "இதே கணக்கின் கீழ் பெற்றோர், துணைவர் அல்லது குழந்தைக்காக முன்பதிவு செய்யுங்கள்.",
   "services.priceAdvance": "முன்பணம் {price} (மாதாந்திர தொகுப்பு)",
   "services.pricePerDay": "{price}/நாள்",
   "services.pricesFromNote": "சேவைகள் ஒரு வருகைக்கு {price} முதல் தொடங்குகின்றன",
   "services.catalog.nutrition.name": "ஊட்டச்சத்து",
   "services.catalog.nutrition.description":
-    "உணவு வழங்குநர் கூட்டாண்மைகள் மூலம் ஆதரிக்கப்படும் உணவுக் கட்டுப்பாடு.\n" +
+    "உங்கள் உடல்நலத்துக்கு ஏற்ற உணவுத் திட்டங்களும் ஊட்டச்சத்து நிபுணர் ஆதரவும்\n" +
     "• தனிநபர் உணவுத் திட்டமிடல் & ஆதரவு\n" +
     "• ரைல்ஸ் டியூப் உணவளிப்பு வழிகாட்டுதல்\n" +
     "• ஊட்டச்சத்து நிபுணர் ஆலோசனை",
   "services.catalog.physio.name": "உடற்பயிற்சி",
   "services.catalog.physio.description":
-    "பயிற்சி நிறைவு, இயக்கத்திறன் மதிப்பெண்கள்.\n" +
+    "வீட்டிலேயே பிசியோதெரபி மற்றும் வழிகாட்டப்பட்ட உடற்பயிற்சிகள்\n" +
     "• இயக்கத்திறன் பயிற்சி\n" +
     "• அறுவை சிகிச்சைக்குப் பின் பிசியோ கவனிப்பு\n" +
     "• சிகிச்சை உடற்பயிற்சி",
   "services.catalog.paraMedical.name": "உயிர் குறிப்பான்கள்",
   "services.catalog.paraMedical.description":
-    "உயிர்முக்கிய அளவீடுகள் கண்காணிப்பு மற்றும் மருந்து இணக்கம்.\n" +
+    "பயிற்சி பெற்ற பராமரிப்பாளர்களால் வழக்கமான இரத்த அழுத்தம், சர்க்கரை மற்றும் ஆக்ஸிஜன் பரிசோதனைகள்\n" +
     "• உயிர்முக்கிய அளவீடுகள் கண்காணிப்பு (இரத்த அழுத்தம், சர்க்கரை, ஆக்ஸிஜன்)\n" +
     "• முதியோர் & மூப்பு கவனிப்பு\n" +
     "• பொது நோயாளி கவனிப்பு\n" +
@@ -106,7 +104,7 @@ export const ta: Record<keyof typeof en, string> = {
     "• 24/7 பராமரிப்பாளர் ஆதரவு",
   "services.catalog.mentalWellbeing.name": "மனம் & நல்வாழ்வு",
   "services.catalog.mentalWellbeing.description":
-    "மனநிலை மதிப்பெண்கள் மற்றும் சமூக ஈடுபாட்டு கண்காணிப்பு.\n" +
+    "மகிழ்ச்சியான மனதுக்கு உணர்வுபூர்வ ஆதரவும் துணையும்\n" +
     "• முதியோர் நல்வாழ்வு ஆதரவு\n" +
     "• உளவியல் ஆதரவு\n" +
     "• ஆன்மீக கவனிப்பு\n" +
