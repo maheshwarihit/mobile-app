@@ -6,7 +6,7 @@ import type { ServiceMode } from "@vagewell/shared";
 // ── Booking draft handed Appointment → Payment (via route params) ─
 // No price/pricing_model here — the amount is no longer calculated at
 // booking time; the care assistant/admin shares it with the customer after
-// the visit (see the "no payment-at-booking" round in CLAUDE.md).
+// the visit (see the "no payment-at-booking" round in docs/dev-log.md).
 export interface BookingDraft {
   service_id: string;
   service_name: string;

@@ -1,4 +1,7 @@
-# Project: VAgeWell Care — Module 1
+# VAgeWell Care — Development log
+
+History of every change round, oldest first: what changed, why, and how it was verified.
+For setup and project layout, see the main README.md. Add new rounds at the end.
 > Standalone mobile PWA built to `requirements.txt`. NOT run through the global 13-step pipeline
 > (per user direction: build to the requirements file, don't force the org CLAUDE.md ceremony).
 

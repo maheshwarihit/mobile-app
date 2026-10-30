@@ -2,7 +2,7 @@
 
 **What this document is.** The *ask*, not the solution: what the operational application framework must achieve, captured before and independent of how the codebase gets structured. Database schemas and user interface states implement this document and trace directly back to it. When an implementation detail and these rules clash, this document is the source of truth — requirements change only when the baseline healthcare delivery framework shifts.
 
-**Status:** Core Framework + Module 1 finalized (from the healthcare delivery planning session of Jul 20, 2026). Later service modules hold seeds only, not actionable requirements. Detail gaps A–H (see `requirements-detail-prompt.md`) reconciled Jul 20, 2026 — see **Section 5 — Gap Resolutions**: 7 items resolved, 7 still open, 1 conflict flagged.
+**Status:** Core Framework + Module 1 finalized (from the healthcare delivery planning session of Jul 20, 2026). Later service modules hold seeds only, not actionable requirements. Detail gaps A–H (see `archive/requirements-detail-prompt.md`) reconciled Jul 20, 2026 — see **Section 5 — Gap Resolutions**: 7 items resolved, 7 still open, 1 conflict flagged.
 
 ---
 

@@ -6,7 +6,7 @@
 *-credentials.json
 service_account*.json
 
-# ── Node / Next.js ───────────────────────────────────────
+# ── Node / build output ─────────────────────────────────────────────────────────────────────
 node_modules/
 .next/
 out/
@@ -36,5 +36,5 @@ Thumbs.db
 .vscode/
 .idea/
 .vercel
-.env*
+
 

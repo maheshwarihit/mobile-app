@@ -5,7 +5,7 @@
 //
 // Uses MyMemory's free, keyless translation API (https://mymemory.translated.net)
 // directly from the client — this project is deliberately Supabase-native
-// with no backend service (see CLAUDE.md), and a keyed service (Google
+// with no backend service (see docs/dev-log.md), and a keyed service (Google
 // Translate etc.) would need a server-held secret this app has nowhere to
 // keep. MyMemory needs no key and is CORS-enabled, so it works from both the
 // web build and native. On any failure (offline, rate limit, bad response)

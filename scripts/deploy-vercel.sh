@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the mobile app's web export and deploys it to the "vagewell-web-deploy"
 # Vercel project (separate from the old, unrelated "web" project already linked
-# at the repo root — see CLAUDE.md's 2026-08-22 "first Vercel deploy" round for
+# at the repo root — see docs/dev-log.md's 2026-08-22 "first Vercel deploy" round for
 # why that link is deliberately not reused).
 #
 # Works around a real Vercel CLI behavior: it silently excludes any folder
