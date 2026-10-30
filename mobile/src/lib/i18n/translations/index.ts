@@ -19,6 +19,7 @@ import * as profile from "./profile";
 import * as dashboard from "./dashboard";
 import * as bookingCard from "./bookingCard";
 import * as auth from "./auth";
+import * as disclaimer from "./disclaimer";
 import * as completeProfile from "./completeProfile";
 import * as verifyPhone from "./verifyPhone";
 import * as opsShared from "./ops/shared";
@@ -69,6 +70,7 @@ export const en = {
   ...dashboard.en,
   ...bookingCard.en,
   ...auth.en,
+  ...disclaimer.en,
   ...completeProfile.en,
   ...verifyPhone.en,
   ...opsShared.en,
@@ -114,6 +116,7 @@ export const ta: Record<keyof typeof en, string> = {
   ...dashboard.ta,
   ...bookingCard.ta,
   ...auth.ta,
+  ...disclaimer.ta,
   ...completeProfile.ta,
   ...verifyPhone.ta,
   ...opsShared.ta,

@@ -18,6 +18,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+echo "==> Building Terms/Privacy pages..."
+node scripts/build-legal-pages.mjs
+
 echo "==> Building web export..."
 (cd mobile && npx expo export --platform web)
 

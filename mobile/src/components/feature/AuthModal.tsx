@@ -19,6 +19,7 @@ import { signInWithProvider, isInAppBrowser, openInSystemBrowser, type OAuthProv
 import { useResendTimer } from "@/hooks/useResendTimer";
 import { useLanguage } from "@/lib/i18n";
 import { normalizePhone, OTP_LENGTH } from "@vagewell/shared";
+import { LegalAcceptCheckbox, LegalDocumentText, LEGAL_TITLE_KEYS, type LegalDoc } from "@/components/feature/LegalDocs";
 
 type Mode = "login" | "register";
 type Step = "details" | "otp";
@@ -113,6 +114,9 @@ export function AuthModal({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [oauthBusy, setOauthBusy] = useState<OAuthProvider | null>(null);
+  // Sign up only: the legal documents must be accepted first (their links show them in this popup).
+  const [accepted, setAccepted] = useState(false);
+  const [reading, setReading] = useState<LegalDoc | null>(null);
   const resend = useResendTimer(60);
 
   // Google never hands back a phone number — this app's identity model (RLS,
@@ -124,6 +128,10 @@ export function AuthModal({
   // way around it.
   const oauthSignIn = async (provider: OAuthProvider) => {
     setErr(null);
+    if (mode === "register" && !accepted) {
+      setErr(t("disclaimer.error.accept"));
+      return;
+    }
     // Google blocks sign-in inside other apps' browsers (link tapped in
     // WhatsApp etc.): reopen in Chrome on Android, explain on iPhone.
     if (isInAppBrowser()) {
@@ -144,6 +152,8 @@ export function AuthModal({
     setE164("");
     setOtp("");
     setRole("leaf_node");
+    setAccepted(false);
+    setReading(null);
     setErr(null);
   };
 
@@ -167,7 +177,8 @@ export function AuthModal({
         return false;
       }
     } else {
-      const data: Record<string, string> = { full_name: fullName.trim() };
+      // When they accepted the Health Disclaimer, Terms and Privacy Policy — kept on the account (auth user metadata).
+      const data: Record<string, string> = { full_name: fullName.trim(), legal_accepted_at: new Date().toISOString() };
       if (rolePicker) {
         data.requested_role = role;
         data.display_name = opsDisplayName.trim();
@@ -194,6 +205,10 @@ export function AuthModal({
     }
     if (mode === "register" && rolePicker && opsDisplayName.trim().length < 2) {
       setErr(t("auth.error.enterDisplayName"));
+      return;
+    }
+    if (mode === "register" && !accepted) {
+      setErr(t("disclaimer.error.accept"));
       return;
     }
     const normalized = normalizePhone(phoneRaw);
@@ -254,9 +269,17 @@ export function AuthModal({
         reset();
         onClose();
       }}
-      title={title ?? (mode === "login" ? t("auth.welcomeBack") : t("auth.createAccount"))}
+      title={reading ? t(LEGAL_TITLE_KEYS[reading]) : title ?? (mode === "login" ? t("auth.welcomeBack") : t("auth.createAccount"))}
     >
-      {allowModeSwitch ? (
+      {reading ? (
+        <View className="gap-4">
+          <LegalDocumentText doc={reading} onOpen={setReading} />
+          <PrimaryButton fullWidth onPress={() => setReading(null)}>
+            {t("disclaimer.back")}
+          </PrimaryButton>
+        </View>
+      ) : null}
+      {!reading && allowModeSwitch ? (
         <View className="mb-4 flex-row rounded-lg bg-gray-100 p-1">
           <Pressable onPress={() => switchMode("login")} className={`flex-1 items-center rounded-md py-2 ${mode === "login" ? "bg-white" : ""}`}>
             <Text className={`text-sm font-semibold ${mode === "login" ? "text-purple-700" : "text-gray-500"}`}>{t("auth.login")}</Text>
@@ -267,13 +290,13 @@ export function AuthModal({
         </View>
       ) : null}
 
-      {err ? (
+      {!reading && err ? (
         <View className="mb-4">
           <ErrorBanner message={err} />
         </View>
       ) : null}
 
-      {step === "details" ? (
+      {reading ? null : step === "details" ? (
         <View className="gap-4">
           {/* Google/Apple sign-in is a client-only convenience — an OAuth
               account has no phone number, and the Care Giver/Admin door
@@ -317,6 +340,16 @@ export function AuthModal({
             />
           ) : null}
           <PhoneField label={t("auth.mobileNumber")} value={phoneRaw} onChangeText={setPhoneRaw} required />
+          {mode === "register" ? (
+            <LegalAcceptCheckbox
+              checked={accepted}
+              onChange={(v) => {
+                setAccepted(v);
+                if (v) setErr(null);
+              }}
+              onRead={setReading}
+            />
+          ) : null}
           <PrimaryButton fullWidth loading={busy} onPress={sendOtp}>
             {t("auth.sendOtp")}
           </PrimaryButton>
