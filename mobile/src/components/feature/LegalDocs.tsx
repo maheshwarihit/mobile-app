@@ -93,14 +93,25 @@ function JsonDocBody({ doc }: { doc: JsonDoc }) {
 }
 
 /** Links to the legal documents, e.g. "Health Disclaimer · Terms of Service · Privacy Policy". */
-export function LegalLinks({ docs, onOpen }: { docs: LegalDoc[]; onOpen: (doc: LegalDoc) => void }) {
+export function LegalLinks({
+  docs,
+  onOpen,
+  compact = false,
+}: {
+  docs: LegalDoc[];
+  onOpen: (doc: LegalDoc) => void;
+  /** Smaller text and gaps, so the footer's three links fit on one line. */
+  compact?: boolean;
+}) {
   const { t } = useLanguage();
+  const size = compact ? "text-xs" : "text-sm";
+  const gap = compact ? "gap-1.5" : "gap-2";
   return (
-    <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1">
+    <View className={`flex-row flex-wrap items-center gap-y-1 ${compact ? "justify-center gap-x-1.5" : "gap-x-2"}`}>
       {docs.map((d, i) => (
-        <View key={d} className="flex-row items-center gap-2">
-          {i > 0 ? <Text className="text-sm text-gray-400">·</Text> : null}
-          <Text className="text-sm font-semibold underline" style={{ color: BRAND }} onPress={() => onOpen(d)} accessibilityRole="link">
+        <View key={d} className={`flex-row items-center ${gap}`}>
+          {i > 0 ? <Text className={`${size} text-gray-400`}>·</Text> : null}
+          <Text className={`${size} font-semibold underline`} style={{ color: BRAND }} onPress={() => onOpen(d)} accessibilityRole="link">
             {t(LEGAL_TITLE_KEYS[d])}
           </Text>
         </View>
@@ -146,7 +157,7 @@ export function LegalFooter() {
   const [doc, setDoc] = useState<LegalDoc | null>(null);
   return (
     <View className="mt-2 items-center">
-      <LegalLinks docs={["disclaimer", "terms", "privacy"]} onOpen={setDoc} />
+      <LegalLinks compact docs={["disclaimer", "terms", "privacy"]} onOpen={setDoc} />
       <LegalModal doc={doc} onClose={() => setDoc(null)} />
     </View>
   );
