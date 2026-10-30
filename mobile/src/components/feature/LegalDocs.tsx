@@ -141,6 +141,17 @@ export function LegalModal({ doc, onClose }: { doc: LegalDoc | null; onClose: ()
   );
 }
 
+/** Footer under the Services, Appointments and Profile screens: links to all three documents. */
+export function LegalFooter() {
+  const [doc, setDoc] = useState<LegalDoc | null>(null);
+  return (
+    <View className="mt-6 items-center border-t border-gray-200 pt-4">
+      <LegalLinks docs={["disclaimer", "terms", "privacy"]} onOpen={setDoc} />
+      <LegalModal doc={doc} onClose={() => setDoc(null)} />
+    </View>
+  );
+}
+
 /** Sign-up checkbox: accept all three documents, with a link to read each one. */
 export function LegalAcceptCheckbox({
   checked,

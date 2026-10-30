@@ -6,6 +6,7 @@ import { CalendarCheck, AlertTriangle, RotateCcw, CalendarClock, X } from "lucid
 import { PageHeader, LoadingState, EmptyState, ErrorBanner, Card, Pill } from "@/components/ui";
 import { useAuth } from "@/providers/AuthProvider";
 import { PatientBookingCard } from "@/components/feature/PatientBookingCard";
+import { LegalFooter } from "@/components/feature/LegalDocs";
 import { loadDismissedMissedIds, dismissMissedBooking } from "@/lib/dismissedMissed";
 import { markBookingRescheduled } from "@/lib/rescheduledBookings";
 import { translateServiceName } from "@/lib/serviceI18n";
@@ -156,7 +157,10 @@ export function DashboardScreen({ navigation }: AppTabScreenProps<"AppointmentsT
             ) : null
           }
           ListFooterComponent={
-            lastCompleted ? <LastCompletedCheckup booking={lastCompleted} subjectName={nameFor(lastCompleted)} /> : null
+            <View>
+              {lastCompleted ? <LastCompletedCheckup booking={lastCompleted} subjectName={nameFor(lastCompleted)} /> : null}
+              <LegalFooter />
+            </View>
           }
           renderItem={({ item: b }) => (
             <PatientBookingCard

@@ -20,6 +20,7 @@ import { imageForService } from "@/lib/serviceImage";
 import { translateServiceName, translateServiceDescription } from "@/lib/serviceI18n";
 import { ServiceCard } from "@/components/feature/ServiceCard";
 import { FeedbackModal } from "@/components/feature/FeedbackModal";
+import { LegalFooter } from "@/components/feature/LegalDocs";
 import type { ServicesStackScreenProps } from "@/navigation/types";
 import type { TranslationKey } from "@/lib/i18n";
 
@@ -112,6 +113,7 @@ export function ServicesScreen({ navigation }: ServicesStackScreenProps<"Service
                 <OutlineButton fullWidth icon={UserPlus} onPress={() => navigation.navigate("ProfileTab")}>
                   {t("services.addFamilyMember")}
                 </OutlineButton>
+                <LegalFooter />
               </View>
             ) : null
           }

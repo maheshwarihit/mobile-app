@@ -34,7 +34,7 @@ import { translateServiceName } from "@/lib/serviceI18n";
 import { genderLabel, relationshipLabel } from "@/lib/enumI18n";
 import { translateTamilToEnglish } from "@/lib/translateText";
 import { deleteMyAccount } from "@/lib/deleteAccount";
-import { LegalLinks, LegalModal, type LegalDoc } from "@/components/feature/LegalDocs";
+import { LegalFooter } from "@/components/feature/LegalDocs";
 import { recordBmiPoint } from "@/lib/bmiHistory";
 import type { AppTabScreenProps, AppTabsParamList, NutritionReturn } from "@/navigation/types";
 import { useLanguage, type Language } from "@/lib/i18n";
@@ -78,7 +78,6 @@ export function ProfileScreen() {
   const GENDER_OPTIONS = GENDERS.map((g) => ({ value: g, label: genderLabel(t, g) }));
   const { profile, user, loading, signOut, refreshProfile } = useAuth();
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
-  const [legalDoc, setLegalDoc] = useState<LegalDoc | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const deleteAccount = async () => {
     if (!user) return;
@@ -559,22 +558,19 @@ export function ProfileScreen() {
           {t("profile.signOut")}
         </OutlineButton>
 
-        <View className="mt-4 items-center py-2">
-          <LegalLinks docs={["disclaimer", "terms", "privacy"]} onOpen={setLegalDoc} />
-        </View>
-
         {/* Required by Google Play: people can delete the account they created. */}
         <Pressable
           onPress={() => setDeleteAccountOpen(true)}
           accessibilityRole="button"
-          className="flex-row items-center justify-center gap-1.5 self-center py-2 active:opacity-70"
+          className="mt-4 flex-row items-center justify-center gap-1.5 self-center py-2 active:opacity-70"
         >
           <Trash2 size={14} color="#dc2626" />
           <Text className="text-sm font-semibold text-red-600">{t("profile.deleteAccount.action")}</Text>
         </Pressable>
+
+        <LegalFooter />
       </ScrollView>
 
-      <LegalModal doc={legalDoc} onClose={() => setLegalDoc(null)} />
       <ConfirmModal
         open={deleteAccountOpen}
         title={t("profile.deleteAccount.title")}
