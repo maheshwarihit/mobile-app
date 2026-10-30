@@ -19,11 +19,11 @@ export const en = {
   "labReports.pageTitle": "Bio Markers",
   "labReports.title": "Lab Report Insights",
   "labReports.subtitle": "Upload a lab report and get it explained simply.",
-  "labReports.aiNote": "AI results (Lab Report Insights) are estimates to help you, not medical advice. Please consult your doctor.",
+  "labReports.aiNote": "AI results from Lab Report Insights are estimates to help you, not medical advice. Accuracy depends on the details you provide. Please consult your doctor.",
   "nutrition.needHeightWeight.title": "Height and weight needed",
   "nutrition.needHeightWeight.body": "Add {name}'s height and weight to the profile first. BMI Check, Body Metrics and the Meal Scanner use them.",
   "nutrition.needHeightWeight.action": "Add height and weight",
-  "nutrition.aiNote": "AI results (Meal Scanner) are estimates to help you, not medical advice. Please consult your doctor.",
+  "nutrition.aiNote": "AI results from Meal Scanner are estimates to help you, not medical advice. Accuracy depends on the details you provide. Please consult your doctor.",
 } as const;
 
 export const ta: Record<keyof typeof en, string> = {
@@ -47,9 +47,9 @@ export const ta: Record<keyof typeof en, string> = {
   "labReports.pageTitle": "உயிர் குறிப்பான்கள்",
   "labReports.title": "ஆய்வக அறிக்கை விளக்கம்",
   "labReports.subtitle": "ஆய்வக அறிக்கையைப் பதிவேற்றி, எளிய விளக்கத்தைப் பெறுங்கள்.",
-  "labReports.aiNote": "AI முடிவுகள் (ஆய்வக அறிக்கை விளக்கம்) உங்களுக்கு உதவும் மதிப்பீடுகள், மருத்துவ ஆலோசனை அல்ல. உங்கள் மருத்துவரை அணுகவும்.",
+  "labReports.aiNote": "ஆய்வக அறிக்கை விளக்கத்தின் AI முடிவுகள் உங்களுக்கு உதவும் மதிப்பீடுகள், மருத்துவ ஆலோசனை அல்ல. துல்லியம் நீங்கள் வழங்கும் விவரங்களைப் பொறுத்தது. உங்கள் மருத்துவரை அணுகவும்.",
   "nutrition.needHeightWeight.title": "உயரமும் எடையும் தேவை",
   "nutrition.needHeightWeight.body": "முதலில் {name} அவர்களின் உயரத்தையும் எடையையும் சுயவிவரத்தில் சேர்க்கவும். BMI சரிபார்ப்பு, உடல் அளவீடுகள், உணவு ஸ்கேனர் ஆகியவை அவற்றைப் பயன்படுத்துகின்றன.",
   "nutrition.needHeightWeight.action": "உயரம், எடையைச் சேர்",
-  "nutrition.aiNote": "AI முடிவுகள் (உணவு ஸ்கேனர்) உங்களுக்கு உதவும் மதிப்பீடுகள், மருத்துவ ஆலோசனை அல்ல. உங்கள் மருத்துவரை அணுகவும்.",
+  "nutrition.aiNote": "உணவு ஸ்கேனரின் AI முடிவுகள் உங்களுக்கு உதவும் மதிப்பீடுகள், மருத்துவ ஆலோசனை அல்ல. துல்லியம் நீங்கள் வழங்கும் விவரங்களைப் பொறுத்தது. உங்கள் மருத்துவரை அணுகவும்.",
 };

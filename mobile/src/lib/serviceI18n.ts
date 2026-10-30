@@ -19,7 +19,7 @@ const DESCRIPTION_KEYS: Record<string, TranslationKey> = {
   [
     "Diet adherence (supported by strategic meal provider partnerships).\n" +
       "• Individualized diet planning & support\n" +
-      "• Ryles tube feeding guidance\n" +
+      "• Ryle’s tube feeding guidance\n" +
       "• Dietitian consultation"
   ]: "services.catalog.nutrition.description",
   [
