@@ -333,7 +333,7 @@ export function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-authbg" edges={["top"]}>
-      <ScrollView contentContainerClassName="grow px-5 pt-4 pb-10" keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerClassName="grow px-5 pt-4 pb-6" keyboardShouldPersistTaps="handled">
         <PageHeader title={t("profile.title")} subtitle={t("profile.subtitle")} />
 
         {/* ── Bio (self-editable) ─────────────────────────── */}
@@ -568,7 +568,7 @@ export function ProfileScreen() {
           <Text className="text-sm font-semibold text-red-600">{t("profile.deleteAccount.action")}</Text>
         </Pressable>
 
-        <View className="mt-auto pt-4">
+        <View className="mt-auto">
           <LegalFooter />
         </View>
       </ScrollView>
