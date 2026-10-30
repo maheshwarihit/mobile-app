@@ -145,7 +145,7 @@ export function LegalModal({ doc, onClose }: { doc: LegalDoc | null; onClose: ()
 export function LegalFooter() {
   const [doc, setDoc] = useState<LegalDoc | null>(null);
   return (
-    <View className="mt-6 items-center border-t border-gray-200 pt-4">
+    <View className="mt-2 items-center">
       <LegalLinks docs={["disclaimer", "terms", "privacy"]} onOpen={setDoc} />
       <LegalModal doc={doc} onClose={() => setDoc(null)} />
     </View>
