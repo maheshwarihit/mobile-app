@@ -164,7 +164,7 @@ export const SEED_SERVICES = [
     description:
       "Diet adherence (supported by strategic meal provider partnerships).\n" +
       "• Individualized diet planning & support\n" +
-      "• Ryle’s tube feeding guidance\n" +
+      "• Ryle's tube feeding guidance\n" +
       "• Dietitian consultation",
   },
   {

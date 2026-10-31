@@ -191,5 +191,5 @@ npx eas-cli build --platform android --profile preview      # → .apk for testi
 
 ## Open items
 
-- Run migration `0054_ryles_tube_spelling.sql` on the live database.
+- Run migration `0055_ryles_tube_apostrophe.sql` on the live database (0054 can be skipped).
 - Privacy Policy: add the registered company address and the SMS provider name.

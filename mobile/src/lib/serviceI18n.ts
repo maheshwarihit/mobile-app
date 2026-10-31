@@ -16,19 +16,17 @@ const NAME_KEYS: Record<string, TranslationKey> = {
 // Multi-line: a one-line summary followed by "• " feature bullets (migration
 // 0030) — must match SEED_SERVICES/the DB text byte-for-byte to be found.
 const DESCRIPTION_KEYS: Record<string, TranslationKey> = {
-  [
-    "Diet adherence (supported by strategic meal provider partnerships).\n" +
-      "• Individualized diet planning & support\n" +
-      "• Ryle’s tube feeding guidance\n" +
-      "• Dietitian consultation"
-  ]: "services.catalog.nutrition.description",
-  // Same text before migration 0054 fixed the spelling — still live until it is run.
-  [
-    "Diet adherence (supported by strategic meal provider partnerships).\n" +
-      "• Individualized diet planning & support\n" +
-      "• Ryles tube feeding guidance\n" +
-      "• Dietitian consultation"
-  ]: "services.catalog.nutrition.description",
+  // Nutrition: the DB may hold any of these spellings ("Ryles" until 0055 is
+  // run, "Ryle’s" if only 0054 was run, "Ryle's" after 0055).
+  ...Object.fromEntries(
+    ["Ryle's", "Ryles", "Ryle’s"].map((ryle) => [
+      "Diet adherence (supported by strategic meal provider partnerships).\n" +
+        "• Individualized diet planning & support\n" +
+        `• ${ryle} tube feeding guidance\n` +
+        "• Dietitian consultation",
+      "services.catalog.nutrition.description" as TranslationKey,
+    ])
+  ),
   [
     "Exercise completion, mobility scores.\n" +
       "• Mobility training\n" +

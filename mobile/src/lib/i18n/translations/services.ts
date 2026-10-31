@@ -20,7 +20,7 @@ export const en = {
   "services.catalog.nutrition.description":
     "Diet plans and dietitian support tailored to your health\n" +
     "• Individualized diet planning & support\n" +
-    "• Ryle’s tube feeding guidance\n" +
+    "• Ryle's tube feeding guidance\n" +
     "• Dietitian consultation",
   // Shown as "Exercise"; the service is still stored as "Physio Therapy" (bookings, prices).
   "services.catalog.physio.name": "Exercise",

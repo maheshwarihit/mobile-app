@@ -1004,7 +1004,7 @@ insert into public.services (name, description, price_per_day, pricing_model) va
   ('Nutrition',
    E'Diet adherence (supported by strategic meal provider partnerships).\n'
    '• Individualized diet planning & support\n'
-   '• Ryle’s tube feeding guidance\n'
+   '• Ryle''s tube feeding guidance\n'
    '• Dietitian consultation',
    2000, 'flat_advance'),
   ('Physio Therapy',
