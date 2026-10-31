@@ -56,17 +56,16 @@ function mediaTypeOf(mime: string | undefined): PickedPlate["mediaType"] {
 }
 
 /**
- * Open the camera or the gallery for a plate photo, asking for that permission
- * first (the system prompt appears the first time only). Null if cancelled;
- * throws with a readable message if the permission is refused.
+ * Open the camera or the gallery for a plate photo. The camera asks for
+ * permission (the system prompt appears the first time only). Null if cancelled;
+ * throws with a readable message if camera permission is refused.
  */
 export async function pickPlate(source: PlateSource, limit = 1): Promise<PickedPlate[]> {
+  // The gallery needs no permission: Android's system photo picker only hands
+  // over the photos the person chooses (Play's photo-permission policy).
   if (source === "camera") {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) throw new Error("Camera access is needed to take a picture. Allow it in your phone's Settings for VAgeWell Care.");
-  } else {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) throw new Error("Photo access is needed to choose a picture. Allow it in your phone's Settings for VAgeWell Care.");
   }
   // Several photos can be chosen from the gallery at once. A phone has no
   // crop step for a multiple choice, so those photos are used whole.

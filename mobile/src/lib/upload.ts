@@ -13,12 +13,11 @@ function guessMime(nameOrUri: string): string {
   return "image/jpeg";
 }
 
-/** Launch the OS image picker. Returns null if cancelled; throws if permission denied. */
+/**
+ * Launch the OS image picker. Returns null if cancelled. No permission needed:
+ * Android's system photo picker only hands over the chosen photo.
+ */
 export async function pickImageAsset(): Promise<PickedImage | null> {
-  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!perm.granted) {
-    throw new Error("Photo access is needed to upload a screenshot. Enable it in Settings.");
-  }
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
     quality: 0.8,
