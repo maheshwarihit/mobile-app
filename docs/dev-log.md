@@ -3083,3 +3083,18 @@ icon, unlike the signed-in Services tab, which already uses a distinct icon per 
 - [x] **First production AAB** built with EAS (`--profile production`), versionCode 5 → 6.
 - Verified: `mobile` `tsc --noEmit` clean; deployed to https://vagewell-web-deploy.vercel.app and checked the
   live bundle/pages; Playwright screenshots of the sign-up checkbox and the three documents.
+
+## Change round — Play Store readiness (user, 2026-10-30/31)
+- [x] Plain-apostrophe "Ryle's tube" everywhere; migration `0055_ryles_tube_apostrophe.sql` converts both
+      older DB spellings (**pending on the user's Supabase**; 0054 can be skipped). `serviceI18n` matches
+      all three spellings meanwhile.
+- [x] Expo packages aligned to SDK 54 (`expo-document-picker` was 57) after an expo-doctor warning.
+- [x] Android permissions trimmed for Play policy: `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO`/storage and
+      `SYSTEM_ALERT_WINDOW` blocked; the gallery uses the system photo picker, so the
+      `requestMediaLibraryPermissionsAsync` checks were removed (foodPlate.ts, upload.ts). Final manifest:
+      INTERNET, VIBRATE, CAMERA, ACCESS_FINE/COARSE_LOCATION.
+- [x] `supabase/wipe_all_data.sql` now covers visit_photos, nutrition_records, feedback, patient_leads.
+- [x] `docs/play-store-listing.md`: store text, App access test login, content rating, Data safety table.
+      Store graphics (icon 512, feature graphic, 1080×1920 screenshots) are outside the repo in
+      `Vagewell_care/screenshots/play-store/`.
+- [x] Production AAB versionCode 8.

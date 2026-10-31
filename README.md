@@ -77,6 +77,7 @@ mobile-app/
     ├── requirements.md      Client requirements (source of truth for behaviour)
     ├── workflow-draft.pdf   Original workflow diagram
     ├── twilio-sms-setup.md  Sending real OTP SMS through Twilio
+    ├── play-store-listing.md Google Play listing text and form answers (Data safety etc.)
     ├── dev-log.md           Detailed history of every change round (why things are the way they are)
     └── archive/             Old planning material
 ```
