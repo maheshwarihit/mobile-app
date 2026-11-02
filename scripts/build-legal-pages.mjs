@@ -12,8 +12,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "mobile");
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const link = (s) =>
   esc(s)
-    .replace(/info@vagewell\.com/g, '<a href="mailto:info@vagewell.com">info@vagewell.com</a>')
-    .replace(/\+91 93427 03376/g, '<a href="tel:+919342703376">+91 93427 03376</a>');
+    .replace(/info@vagewell\.com/g, '<a href="mailto:info@vagewell.com">info@vagewell.com</a>');
 
 const PAGES = [
   { json: "terms.json", out: "terms.html", other: { href: "privacy-policy.html", label: "Privacy Policy" } },
