@@ -15,6 +15,7 @@ import type { PlateAnalysis } from "@/lib/foodPlate";
 import type { BodyMetrics } from "@/lib/bodyMetricsStorage";
 import type { BmiPoint } from "@/lib/bmiHistory";
 import { BmiTrendChart } from "@/components/feature/BmiTrendChart";
+import { FoodHabitsCard } from "@/components/feature/FoodHabitsCard";
 
 const key = (k: string) => k as TranslationKey;
 
@@ -80,6 +81,8 @@ export function NutritionSection({ accountId, familyMemberId }: { accountId: str
           {body ? <BodyMetricsBlock record={body} history={bodies.slice(1)} /> : null}
           {bmiPoints.length ? <BmiTrendChart points={bmiPoints} /> : null}
           {assessment ? <AssessmentBlock record={assessment} history={assessments.slice(1)} /> : null}
+
+          {meals.length ? <FoodHabitsCard meals={meals.map((r) => r.data as MealData)} /> : null}
 
           {meals.length ? (
             <View className="gap-2">

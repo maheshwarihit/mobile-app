@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
-import { Camera, ImageUp, ArrowLeft, BookOpen, Trash2, ChevronRight, LogOut, Download, Sparkles } from "lucide-react-native";
+import { Camera, ImageUp, ArrowLeft, BookOpen, Trash2, ChevronRight, LogOut, Download, Sparkles, TrendingUp } from "lucide-react-native";
 import { formatLocalDateTime } from "@vagewell/shared";
 import { Card, PrimaryButton, OutlineButton, ErrorBanner, WarningBanner, Spinner, ConfirmModal, LoadingState } from "@/components/ui";
 import { PlateCropModal } from "@/components/feature/PlateCropModal";
@@ -8,6 +8,7 @@ import { AnalysisProgress } from "@/components/feature/AnalysisProgress";
 import { PhotoTray } from "@/components/feature/PhotoTray";
 import { LibraryCalendar, dayKey, latestDay, dayHeading } from "@/components/feature/LibraryCalendar";
 import { LibraryEntry, libraryFileName } from "@/components/feature/LibraryEntry";
+import { FoodHabitsCard } from "@/components/feature/FoodHabitsCard";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
 import { pickPlate, analyzePlate, translatePlate, MAX_MEAL_PHOTOS, type PlateAnalysis, type PlatePerson, type PickedPlate, type PlateSource } from "@/lib/foodPlate";
@@ -30,7 +31,8 @@ type Stage =
   | { name: "analyzing"; photoUri: string }
   // `savedAt` null: analysed just now but could not be stored (or wasn't food).
   | { name: "result"; photoUri: string; analysis: PlateAnalysis; savedAt: string | null; mealId: string | null; from: "new" | "library" }
-  | { name: "library" };
+  | { name: "library" }
+  | { name: "habits" };
 
 function scoreMeta(score: number): { color: string; labelKey: TranslationKey } {
   if (score >= 80) return { color: ACCENT_GREEN, labelKey: "foodPlate.score.excellent" };
@@ -228,9 +230,14 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
       {stage.name === "start" ? (
         <>
           {meals.length > 0 ? (
-            <OutlineButton fullWidth icon={BookOpen} disabled={busy !== null} onPress={() => setStage({ name: "library" })}>
-              {t("foodPlate.mealLibraryCount", { count: meals.length })}
-            </OutlineButton>
+            <>
+              <OutlineButton fullWidth icon={BookOpen} disabled={busy !== null} onPress={() => setStage({ name: "library" })}>
+                {t("foodPlate.mealLibraryCount", { count: meals.length })}
+              </OutlineButton>
+              <OutlineButton fullWidth icon={TrendingUp} disabled={busy !== null} onPress={() => setStage({ name: "habits" })}>
+                {t("foodHabits.open")}
+              </OutlineButton>
+            </>
           ) : (
             <Text className="text-center text-sm text-gray-400">{t("foodPlate.empty")}</Text>
           )}
@@ -310,6 +317,16 @@ export function FoodPlateMonitor({ personKey, defaultAge, defaultGender, onExit,
                 ))}
             </>
           ) : null}
+          <OutlineButton fullWidth icon={ArrowLeft} onPress={() => setStage({ name: "start" })}>
+            {t("common.back")}
+          </OutlineButton>
+        </>
+      ) : null}
+
+      {/* Food habits: trends across this person's meals, in the app's language where a translation is stored. */}
+      {stage.name === "habits" ? (
+        <>
+          <FoodHabitsCard meals={meals.map((m) => ({ savedAt: m.savedAt, analysis: m.translations?.[language ?? "en"] ?? m.analysis }))} />
           <OutlineButton fullWidth icon={ArrowLeft} onPress={() => setStage({ name: "start" })}>
             {t("common.back")}
           </OutlineButton>
