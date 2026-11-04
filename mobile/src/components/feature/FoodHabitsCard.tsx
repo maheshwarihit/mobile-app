@@ -144,10 +144,12 @@ export function FoodHabitsCard({ meals }: { meals: HabitMeal[] }) {
             <View className="gap-1">
               <Text className="text-sm font-bold text-gray-900">{t("foodHabits.byTime")}</Text>
               {habits.slots.map((s) => (
-                <View key={s.slot} className="flex-row items-center justify-between border-b border-gray-100 py-1.5">
-                  <Text className="text-sm text-gray-700">{t(key(`foodHabits.slot.${s.slot}`))}</Text>
-                  <Text className="text-xs text-gray-500">{t("foodHabits.mealCount", { count: s.meals })}</Text>
-                  <Text className="text-sm font-bold" style={{ color: scoreColor(s.avgScore) }}>
+                <View key={s.slot} className="flex-row items-center gap-3 border-b border-gray-100 py-1.5">
+                  <Text className="flex-1 text-sm text-gray-700">{t(key(`foodHabits.slot.${s.slot}`))}</Text>
+                  <Text className="text-xs text-gray-500">
+                    {s.meals === 1 ? t("foodHabits.mealCountOne") : t("foodHabits.mealCount", { count: s.meals })}
+                  </Text>
+                  <Text className="w-8 text-right text-sm font-bold" style={{ color: scoreColor(s.avgScore) }}>
                     {s.avgScore}
                   </Text>
                 </View>
