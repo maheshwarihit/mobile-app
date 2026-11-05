@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, useWindowDimensions } from "react-native";
 import { Check } from "lucide-react-native";
 import { AppModal } from "@/components/ui";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
@@ -128,8 +128,16 @@ const OTHERS: Record<LegalDoc, LegalDoc[]> = {
 
 /** One legal document, scrollable, with links to the other two at the end. */
 export function LegalDocumentText({ doc, onOpen }: { doc: LegalDoc; onOpen: (doc: LegalDoc) => void }) {
+  // Most of the screen, so more of the document shows at once on a tall phone.
+  const { height } = useWindowDimensions();
   return (
-    <ScrollView key={doc} style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
+    <ScrollView
+      key={doc}
+      style={{ maxHeight: Math.max(320, Math.round(height * 0.6)) }}
+      contentContainerStyle={{ gap: 12, paddingBottom: 4 }}
+      nestedScrollEnabled
+      showsVerticalScrollIndicator
+    >
       {doc === "disclaimer" ? <DisclaimerBody /> : <JsonDocBody doc={(doc === "terms" ? terms : privacy) as JsonDoc} />}
       <View className="mt-1 border-t border-gray-100 pt-3">
         <LegalLinks docs={OTHERS[doc]} onOpen={onOpen} />
