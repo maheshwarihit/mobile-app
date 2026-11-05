@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "in.vagewell.care",
-      "versionCode": 9,
+      "versionCode": 10,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",
