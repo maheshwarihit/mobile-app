@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { View, Text } from "react-native";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react-native";
+import { TrendingUp, TrendingDown, Minus, Award, AlertCircle, Lightbulb } from "lucide-react-native";
 import { Card, ChoiceChips } from "@/components/ui";
 import { useLanguage, type TranslationKey } from "@/lib/i18n";
-import { analyseFoodHabits, withinDays, type HabitMeal, type HabitPattern } from "@/lib/foodHabits";
+import { analyseFoodHabits, withinDays, localDay, type HabitMeal, type HabitPattern, type FoodHabits } from "@/lib/foodHabits";
 import { BRAND, ACCENT_GREEN, WARN, DANGER } from "@/theme";
 
 const key = (k: string) => k as TranslationKey;
@@ -25,6 +25,8 @@ const shortDay = (day: string) => {
   const [, m, d] = day.split("-");
   return `${d}/${m}`;
 };
+// Rows in the day-by-day list (newest first).
+const MAX_DAY_ROWS = 7;
 
 /**
  * Food habits for one person, worked out from their analysed meals: the meal
@@ -62,7 +64,8 @@ export function FoodHabitsCard({ meals }: { meals: HabitMeal[] }) {
         <>
           <Text className="text-xs text-gray-500">{t("foodHabits.basedOn", { meals: habits.meals, days: habits.days })}</Text>
 
-          {/* Average score (with its direction) | average calories */}
+          {/* Overall results: average score (with its direction), calories per meal and per day, best and lowest meal */}
+          <Text className="text-sm font-bold text-gray-900">{t("foodHabits.overall")}</Text>
           <View className="flex-row gap-3">
             <View className="flex-1 gap-1 rounded-xl bg-gray-50 p-3">
               <Text className="text-[11px] font-semibold text-gray-500">{t("foodHabits.avgScore")}</Text>
@@ -85,28 +88,13 @@ export function FoodHabitsCard({ meals }: { meals: HabitMeal[] }) {
               <Text className="text-[11px] text-gray-500">{t("foodHabits.perMeal")}</Text>
             </View>
           </View>
+          <View className="gap-1">
+            <Row label={t("foodHabits.avgDailyCalories")} value={`${habits.avgDailyCalories} kcal`} />
+            <MealRow icon="best" label={t("foodHabits.bestMeal")} meal={habits.bestMeal} />
+            {habits.meals > 1 ? <MealRow icon="low" label={t("foodHabits.lowestMeal")} meal={habits.lowestMeal} /> : null}
+          </View>
 
-          {/* Daily average score */}
-          {habits.daily.length > 1 ? (
-            <View className="gap-1.5">
-              <Text className="text-sm font-bold text-gray-900">{t("foodHabits.scoreByDay")}</Text>
-              <View className="flex-row items-end gap-1" style={{ height: CHART_H }}>
-                {habits.daily.slice(-MAX_BARS).map((d) => (
-                  <View key={d.day} className="flex-1 items-center justify-end" style={{ height: CHART_H }}>
-                    <Text className="text-[9px] font-bold text-gray-700">{d.score}</Text>
-                    <View
-                      className="w-full rounded-t-md"
-                      style={{ height: Math.max(4, (d.score / 100) * (CHART_H - 14)), backgroundColor: scoreColor(d.score) }}
-                    />
-                  </View>
-                ))}
-              </View>
-              <View className="flex-row justify-between">
-                <Text className="text-[10px] text-gray-500">{shortDay(habits.daily.slice(-MAX_BARS)[0].day)}</Text>
-                <Text className="text-[10px] text-gray-500">{shortDay(habits.daily[habits.daily.length - 1].day)}</Text>
-              </View>
-            </View>
-          ) : null}
+          <DailyTrend habits={habits} />
 
           {/* Where the energy comes from */}
           {habits.energy ? (
@@ -125,6 +113,20 @@ export function FoodHabitsCard({ meals }: { meals: HabitMeal[] }) {
               <Text className="text-[11px] text-gray-500">{t("foodHabits.energyGuide")}</Text>
             </View>
           ) : null}
+
+          {/* What to do next */}
+          <View className="gap-2 rounded-xl bg-green-50 p-3">
+            <View className="flex-row items-center gap-1.5">
+              <Lightbulb size={16} color={ACCENT_GREEN} />
+              <Text className="text-sm font-bold text-gray-900">{t("foodHabits.recommendations")}</Text>
+            </View>
+            {habits.recommendations.map((r, i) => (
+              <View key={`${r.key}${i}`} className="flex-row gap-2">
+                <Text className="text-sm font-bold text-gray-700">{i + 1}.</Text>
+                <Text className="flex-1 text-sm leading-5 text-gray-700">{t(key(`foodHabits.rec.${r.key}`), r.params)}</Text>
+              </View>
+            ))}
+          </View>
 
           {/* Patterns in plain words */}
           {habits.patterns.length ? (
@@ -208,6 +210,95 @@ function NameList({ title, rows }: { title: string; rows: { name: string; value:
           <Text className="text-xs font-semibold text-gray-600">{r.value}</Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row items-center justify-between gap-3 border-b border-gray-100 py-1.5">
+      <Text className="text-sm text-gray-700">{label}</Text>
+      <Text className="text-sm font-bold text-gray-900">{value}</Text>
+    </View>
+  );
+}
+
+function MealRow({ icon, label, meal }: { icon: "best" | "low"; label: string; meal: FoodHabits["bestMeal"] }) {
+  return (
+    <View className="flex-row items-center gap-2 border-b border-gray-100 py-1.5">
+      {icon === "best" ? <Award size={16} color={ACCENT_GREEN} /> : <AlertCircle size={16} color={WARN} />}
+      <View className="flex-1">
+        <Text className="text-xs text-gray-500">
+          {label} · {shortDay(localDay(meal.savedAt))}
+        </Text>
+        <Text className="text-sm text-gray-800">{meal.dish}</Text>
+      </View>
+      <Text className="text-sm font-bold" style={{ color: scoreColor(meal.score) }}>
+        {meal.score}
+      </Text>
+    </View>
+  );
+}
+
+/** Day by day: a bar per day (meal score or total calories) and the latest days as a list. */
+function DailyTrend({ habits }: { habits: FoodHabits }) {
+  const { t } = useLanguage();
+  const [metric, setMetric] = useState<"score" | "kcal">("score");
+  const bars = habits.daily.slice(-MAX_BARS);
+  const maxKcal = Math.max(...bars.map((d) => d.kcal), 1);
+  const today = localDay(new Date().toISOString());
+  const yesterday = localDay(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  const dayName = (day: string) => (day === today ? t("foodHabits.today") : day === yesterday ? t("foodHabits.yesterday") : shortDay(day));
+
+  return (
+    <View className="gap-2">
+      <Text className="text-sm font-bold text-gray-900">{t("foodHabits.daily")}</Text>
+      {bars.length > 1 ? (
+        <>
+          <ChoiceChips
+            value={metric}
+            onChange={(v) => setMetric(v as "score" | "kcal")}
+            options={[
+              { value: "score", label: t("foodHabits.metric.score") },
+              { value: "kcal", label: t("foodHabits.metric.kcal") },
+            ]}
+          />
+          <View className="flex-row items-end gap-1" style={{ height: CHART_H }}>
+            {bars.map((d) => {
+              const share = metric === "score" ? d.score / 100 : d.kcal / maxKcal;
+              return (
+                <View key={d.day} className="flex-1 items-center justify-end" style={{ height: CHART_H }}>
+                  <Text className="text-[9px] font-bold text-gray-700">{metric === "score" ? d.score : d.kcal}</Text>
+                  <View
+                    className="w-full rounded-t-md"
+                    style={{ height: Math.max(4, share * (CHART_H - 14)), backgroundColor: metric === "score" ? scoreColor(d.score) : BRAND }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+          <View className="flex-row justify-between">
+            <Text className="text-[10px] text-gray-500">{shortDay(bars[0].day)}</Text>
+            <Text className="text-[10px] text-gray-500">{shortDay(bars[bars.length - 1].day)}</Text>
+          </View>
+        </>
+      ) : null}
+      <View>
+        {[...habits.daily]
+          .reverse()
+          .slice(0, MAX_DAY_ROWS)
+          .map((d) => (
+            <View key={`row${d.day}`} className="flex-row items-center gap-3 border-b border-gray-100 py-1.5">
+              <Text className="w-20 text-sm text-gray-700">{dayName(d.day)}</Text>
+              <Text className="flex-1 text-xs text-gray-500">
+                {d.meals === 1 ? t("foodHabits.mealCountOne") : t("foodHabits.mealCount", { count: d.meals })} · {d.kcal} kcal
+              </Text>
+              <Text className="w-8 text-right text-sm font-bold" style={{ color: scoreColor(d.score) }}>
+                {d.score}
+              </Text>
+            </View>
+          ))}
+      </View>
     </View>
   );
 }

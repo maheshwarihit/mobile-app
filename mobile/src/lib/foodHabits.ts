@@ -17,13 +17,19 @@ export type FoodHabits = {
   avgCalories: number;
   /** Share of energy from each macro, in percent (carbs and protein 4 kcal/g, fat 9). */
   energy: { carbs: number; protein: number; fat: number } | null;
-  /** Average meal score per day, oldest first (for the chart). */
-  daily: { day: string; score: number; meals: number }[];
+  /** Per day, oldest first: average meal score and total calories of the meals scanned that day. */
+  daily: { day: string; score: number; meals: number; kcal: number }[];
+  /** Average of each day's total calories (days with at least one meal). */
+  avgDailyCalories: number;
+  bestMeal: { dish: string; score: number; savedAt: string };
+  lowestMeal: { dish: string; score: number; savedAt: string };
   slots: { slot: MealSlot; meals: number; avgScore: number }[];
   topFoods: { name: string; count: number }[];
   oftenMissing: { name: string; count: number }[];
   lowNutrients: { name: string; avgPercent: number }[];
   patterns: HabitPattern[];
+  /** What to change, most useful first, as translation keys under foodHabits.rec.* plus their numbers. */
+  recommendations: HabitPattern[];
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -97,9 +103,16 @@ export function analyseFoodHabits(input: HabitMeal[]): FoodHabits | null {
       ? { carbs: Math.round((carbsKcal / total) * 100), protein: Math.round((proteinKcal / total) * 100), fat: Math.round((fatKcal / total) * 100) }
       : null;
 
-  const byDay = new Map<string, number[]>();
-  for (const m of meals) byDay.set(localDay(m.savedAt), [...(byDay.get(localDay(m.savedAt)) ?? []), m.analysis.score]);
-  const daily = [...byDay.entries()].map(([day, scores]) => ({ day, score: Math.round(avg(scores)), meals: scores.length }));
+  const byDay = new Map<string, PlateAnalysis[]>();
+  for (const m of meals) byDay.set(localDay(m.savedAt), [...(byDay.get(localDay(m.savedAt)) ?? []), m.analysis]);
+  const daily = [...byDay.entries()].map(([day, list]) => ({
+    day,
+    score: Math.round(avg(list.map((x) => x.score))),
+    meals: list.length,
+    kcal: Math.round(list.reduce((sum, x) => sum + x.calories_kcal, 0)),
+  }));
+  const ranked = [...meals].sort((x, y) => y.analysis.score - x.analysis.score);
+  const pick = (m: HabitMeal) => ({ dish: m.analysis.dish_summary, score: Math.round(m.analysis.score), savedAt: m.savedAt });
 
   const slotOrder: MealSlot[] = ["breakfast", "lunch", "snack", "dinner"];
   const slots = slotOrder
@@ -149,6 +162,14 @@ export function analyseFoodHabits(input: HabitMeal[]): FoodHabits | null {
   const days = byDay.size;
   if (days >= 3 && meals.length / days < 1.5) patterns.push({ key: "fewPerDay" });
 
+  const recommendations: HabitPattern[] = [];
+  for (const n of lowNutrients) {
+    const food = nutrientKey(n.name);
+    recommendations.push(food ? { key: `nutrient.${food}`, params: { pct: n.avgPercent } } : { key: "nutrientOther", params: { name: n.name, pct: n.avgPercent } });
+  }
+  for (const m of oftenMissing) recommendations.push({ key: "missing", params: { name: m.name.toLowerCase(), count: m.count, total: meals.length } });
+  if (!recommendations.length) recommendations.push({ key: "keepGoing" });
+
   return {
     meals: meals.length,
     days,
@@ -157,10 +178,36 @@ export function analyseFoodHabits(input: HabitMeal[]): FoodHabits | null {
     avgCalories: Math.round(avg(a.map((x) => x.calories_kcal))),
     energy,
     daily,
+    avgDailyCalories: Math.round(avg(daily.map((d) => d.kcal))),
+    bestMeal: pick(ranked[0]),
+    lowestMeal: pick(ranked[ranked.length - 1]),
     slots,
     topFoods,
     oftenMissing,
     lowNutrients,
     patterns,
+    recommendations: recommendations.slice(0, 4),
   };
+}
+
+// Common nutrient names, in English and Tamil, to the foods suggested for them.
+const NUTRIENT_WORDS: [string, string[]][] = [
+  ["vitaminB12", ["b12", "cobalamin"]],
+  ["vitaminC", ["vitamin c", "ascorbic", "வைட்டமின் சி"]],
+  ["vitaminD", ["vitamin d", "வைட்டமின் டி"]],
+  ["vitaminA", ["vitamin a", "beta-carotene", "வைட்டமின் ஏ"]],
+  ["folate", ["folate", "folic", "b9", "ஃபோலேட்"]],
+  ["iron", ["iron", "இரும்பு"]],
+  ["calcium", ["calcium", "கால்சியம்"]],
+  ["protein", ["protein", "புரத"]],
+  ["fibre", ["fiber", "fibre", "நார்"]],
+  ["potassium", ["potassium", "பொட்டாசியம்"]],
+  ["magnesium", ["magnesium", "மெக்னீசியம்"]],
+  ["zinc", ["zinc", "துத்தநாக"]],
+  ["omega3", ["omega", "ஒமேகா"]],
+];
+
+function nutrientKey(name: string): string | null {
+  const n = name.toLowerCase();
+  return NUTRIENT_WORDS.find(([, words]) => words.some((w) => n.includes(w)))?.[0] ?? null;
 }
